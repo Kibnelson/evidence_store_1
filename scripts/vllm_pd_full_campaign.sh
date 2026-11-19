@@ -30,6 +30,8 @@ IFS=@ read -r E5_MODEL E5_REVISION < "$RUN_ROOT/e5-model.txt"
 : "${E5_REVISION:?Smoke embedding revision is missing}"
 helper_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 REPLAY="$helper_dir/vllm_pd_replay.py"
+DATASET_REPORT="$helper_dir/vllm_pd_dataset_report.py"
+DATASET_PUBLISH="$helper_dir/vllm_pd_publish_dataset.py"
 input_dir="$RUN_ROOT/inputs"
 printf 'Starting full campaign for Slurm job %s in %s\n' "$SLURM_JOB_ID" "$RUN_ROOT"
 df -h "$RUN_ROOT"
@@ -86,6 +88,7 @@ done
 
 PD_CONCURRENCY="${PD_CONCURRENCY:-8}"
 export PYTHON REPO REPLAY RUN_ROOT MODEL MODEL_REVISION PD_CONCURRENCY
+export DATASET_REPORT DATASET_PUBLISH
 
 cat > "$RUN_ROOT/workload.sh" <<'WORKLOAD'
 #!/usr/bin/env bash
@@ -106,12 +109,31 @@ for dataset in musique 2wiki mtrag/clapnq mtrag/cloud mtrag/fiqa mtrag/govt; do
   label="${dataset//\//-}"
   dataset_dir="$RUN_ROOT/data/$dataset"
   printf 'Replaying %s for %s / %s\n' "$dataset" "$cohort_topology" "$cohort_mode"
+  "$PYTHON" "$DATASET_REPORT" --run-dir "$run_dir" --dataset "$dataset" --begin
   if [[ "$cohort_topology/$cohort_mode" == 1p3d/native ]]; then
     run_replay --label "$label" --concurrency "$PD_CONCURRENCY" --queries "$dataset_dir/queries.jsonl" \
       --index-dir "$dataset_dir/index" --tokenizer "$MODEL" --tokenizer-revision "$MODEL_REVISION"
   else
     run_replay --label "$label" --concurrency "$PD_CONCURRENCY" \
       --frozen "$RUN_ROOT/1p3d-native/client/$label/frozen.jsonl"
+    cmp -- "$RUN_ROOT/1p3d-native/client/$label/frozen.jsonl" "$run_dir/client/$label/frozen.jsonl"
+  fi
+  "$PYTHON" - "$RUN_ROOT/dataset-counts.json" "$run_dir/client/$label/manifest.json" "$dataset" <<'PY'
+import json
+from pathlib import Path
+import sys
+
+counts_path, replay_path, dataset = sys.argv[1:]
+expected = json.loads(Path(counts_path).read_text())[dataset]["requests"]
+receipt = json.loads(Path(replay_path).read_text())
+if receipt["requested"] != expected or receipt["succeeded"] != expected:
+    raise SystemExit(f"{dataset}: expected {expected} completed requests; inspect {replay_path}")
+PY
+  "$PYTHON" "$DATASET_REPORT" --run-dir "$run_dir" --dataset "$dataset" --finish
+  dataset_summary="$run_dir/datasets/$label/summary.json"
+  if ! "$PYTHON" "$DATASET_PUBLISH" --report "$dataset_summary"; then
+    touch "$dataset_summary.pending"
+    printf 'Git publication pending for %s. Dataset report: %s\n' "$dataset" "$dataset_summary" >&2
   fi
 done
 WORKLOAD
@@ -132,29 +154,16 @@ for topology in 1p3d 2p2d; do
     fi
     printf 'Starting cohort %s / %s\n' "$topology" "$mode"
     "${launch[@]}" -- bash "$RUN_ROOT/workload.sh" "$topology" "$mode"
-    "$PYTHON" - "$RUN_ROOT/dataset-counts.json" "$run_dir/client" <<'PY'
-import json
-from pathlib import Path
-import sys
-
-counts = json.loads(Path(sys.argv[1]).read_text())
-client = Path(sys.argv[2])
-for name, row in counts.items():
-    if name == "mtrag":
-        continue  # The four domain receipts cover this total.
-    receipt = json.loads((client / name.replace("/", "-") / "manifest.json").read_text())
-    expected = row["requests"]
-    if receipt["requested"] != expected or receipt["succeeded"] != expected:
-        raise SystemExit(f"{name}: expected {expected} completed requests; inspect {client}")
-PY
-    if [[ "$topology/$mode" != 1p3d/native ]]; then
-      for dataset in "${DATASETS[@]}"; do
-        label="${dataset//\//-}"
-        cmp -- "$RUN_ROOT/1p3d-native/client/$label/frozen.jsonl" "$run_dir/client/$label/frozen.jsonl"
-      done
-    fi
     "$PYTHON" scripts/vllm_pd_report.py --run-dir "$run_dir" --check --all-pairs
   done
 done
 
 printf 'Completed all four dataset cohorts. Artifacts: %s\n' "$RUN_ROOT"
+for pending in "$RUN_ROOT"/{1p3d,2p2d}-{native,shared}/datasets/*/summary.json.pending; do
+  [[ -f "$pending" ]] || continue
+  if "$PYTHON" "$DATASET_PUBLISH" --report "${pending%.pending}"; then
+    rm -- "$pending"
+  else
+    printf 'Git publication still pending. Dataset report: %s\n' "${pending%.pending}" >&2
+  fi
+done

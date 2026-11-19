@@ -359,11 +359,30 @@ Run this from the active allocation shell that completed both smoke arms. Keep t
 ```bash
 if git -C "$PD_HOME_REPO" pull --ff-only origin main &&
     bash "$PD_HOME_REPO/scripts/vllm_pd_full_campaign.sh"; then
-  printf 'Full campaign passed. Results: %s\n' "$RUN_ROOT"
+  printf 'Full measurement passed. Results: %s\n' "$RUN_ROOT"
 fi
 ```
 
 Each cohort writes its request, transfer, and timeline reports below `$RUN_ROOT`. During serving, inspect `logs/workload.log` under the cohort directory printed by the launcher for per-dataset progress. Save the full results to shared storage using [section 3](#3-check-the-receipts-in-the-allocation).
+
+### Review each dataset as it finishes
+
+Each cohort runs MuSiQue, 2Wiki, and the four MT-RAG domains in sequence. After each slice, it verifies the replay count and checks the frozen prompts against the first cohort where applicable. It joins that slice's trace events and reconciles completed NIXL bytes with native counter snapshots taken immediately before and after it. The report includes serving latency, GPU batch timing, scheduled and reused evidence tokens for P and D, and the NIXL byte attribution. Detailed request, document, timeline, and counter files are under `<cohort>/datasets/<label>/` in the run directory.
+
+Each passing summary is committed and pushed to `reports/datasets/<run-id>/<label>/<cohort>.json`. A standard campaign produces 24 summaries. Use the shared checkout's SSH push URL from the smoke publication. If publication fails, the campaign retains the report and continues. The next publication includes queued commits, and the driver retries pending reports after all cohorts finish. Inspect `logs/workload.log` for `Published` or `Git publication pending`.
+
+To retry any remaining pending reports from the active allocation shell, run the following.
+
+```bash
+for pending in "$RUN_ROOT"/{1p3d,2p2d}-{native,shared}/datasets/*/summary.json.pending; do
+  [[ -f "$pending" ]] || continue
+  if "$PYTHON" "$PD_HOME_REPO/scripts/vllm_pd_publish_dataset.py" --report "${pending%.pending}"; then
+    rm -- "$pending"
+  fi
+done
+```
+
+If the allocation has ended, use `python3 scripts/vllm_pd_publish_dataset.py --retry <run-id>` from the shared checkout to push any existing checkpoint commits. If measurement stopped partway, the completed dataset summaries remain available. Start a fresh run directory before relaunching measurement.
 
 The controlled fixture sends a cold request, an exact repeat to the same D, and a reordered passage request through every P→D pair. In the shared arm the controlled check verifies a full cold read, a warm D-local hit, fewer NIXL bytes on the repeat, and identical cold and warm output token IDs. The repeated evidence makes the prompt long enough to contain complete 256-token LMCache chunks. The trace and byte reconciliation checks precede full dataset replay. The final report uses the counters for the entire cohort. The complete dataset runs use the same replay manifests and a default concurrency of eight. Each cohort's frozen prompts are compared byte for byte with the first cohort's prompts.
 

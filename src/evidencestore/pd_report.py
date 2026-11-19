@@ -76,16 +76,19 @@ def _nixl_totals(events):
     return totals
 
 
-def capture_metrics(run_dir, label):
+def capture_metrics(run_dir, label, *, output_dir=None, nixl_events=None):
+    output_dir = run_dir if output_dir is None else output_dir
     endpoints = json.loads((run_dir / "endpoints.json").read_text())
     workers = endpoints["prefill"] + endpoints["decode"]
-    before_path = run_dir / "metrics-before.json"
+    before_path = output_dir / "metrics-before.json"
     manifest_path = run_dir / "run_manifest.json"
     manifest = json.loads(manifest_path.read_text()) if manifest_path.exists() else {}
     expected = {}
     if label == "after" and before_path.exists() and manifest.get("engine_trace_enabled", True):
         before = json.loads(before_path.read_text())
-        totals = _nixl_totals(load_events(run_dir, event_name="nixl_read_complete"))
+        totals = _nixl_totals(
+            load_events(run_dir, event_name="nixl_read_complete") if nixl_events is None else nixl_events
+        )
         expected = {
             worker: {key: before[worker][key] + totals[worker][key] for key in ("sum", "count")}
             for worker in totals if worker in before
@@ -102,11 +105,11 @@ def capture_metrics(run_dir, label):
         time.sleep(0.5)
 
     for worker, metrics in raw.items():
-        (run_dir / f"native-metrics-{label}-{worker}.prom").write_text(metrics)
+        (output_dir / f"native-metrics-{label}-{worker}.prom").write_text(metrics)
     if lmcache := endpoints.get("lmcache"):
         with urlopen(lmcache["url"].rstrip("/") + "/metrics", timeout=10) as response:
-            (run_dir / f"lmcache-metrics-{label}.prom").write_bytes(response.read())
-    (run_dir / f"metrics-{label}.json").write_text(json.dumps(snapshot, indent=2) + "\n")
+            (output_dir / f"lmcache-metrics-{label}.prom").write_bytes(response.read())
+    (output_dir / f"metrics-{label}.json").write_text(json.dumps(snapshot, indent=2) + "\n")
 
 
 def _lmcache_counter_samples(snapshot):
