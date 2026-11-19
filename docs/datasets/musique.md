@@ -128,3 +128,16 @@ Use the fresh-job runbook to allocate four GPUs, clone and build on node-local s
 - The live trace contains a recurring chunk at a changed prompt position. Its record references the preceding request and preserves the preparation work, scheduled operations, cache observations, and movement for the new occurrence.
 
 Review `chunk-review/summary.json`, `requests.jsonl`, `chunks.jsonl`, and `kv-transfers.jsonl` in both printed cohort directories. The full rerun should start with MuSiQue after both smoke receipts pass. Keep each subsequent dataset in its own run directory so its measurements can be checked and published separately.
+
+### Measured smoke results
+
+Slurm run `musique-chunk-smoke-30456.j8wv0l` passed in both 2P/2D cohorts. Each receipt covered 11 requests and 54 chunk occurrences. The seven live MuSiQue requests matched on prompt tokens and evidence spans across cohorts. NIXL counters reconciled in both cohorts, and the shared cohort's LMCache staging counters also reconciled. The values below come from the two `chunk-review/summary.json` receipts printed in the allocation log.
+
+| Controlled probe | Native P evidence tokens | Native NIXL (MiB) | Shared P evidence tokens | Shared NIXL (MiB) | Shared LMCache staging |
+|---|---:|---:|---:|---:|---|
+| Cold | 924 | 135.00 | 924 | 135.00 | 108 MiB GPU → host |
+| Exact repeat on the same workers | 924 | 135.00 | 2 | 2.25 | — |
+| Exact repeat on the other P | 924 | 135.00 | 178 | 2.25 | 108 MiB host → GPU |
+| Reordered evidence | 924 | 135.00 | 924 | 132.75 | 108 MiB GPU → host |
+
+The same-worker repeat skipped 922 scheduled evidence tokens on P and reduced D's NIXL read from 60 blocks to one. The cross-prefill repeat needed 176 more evidence tokens on P than the same-worker repeat and restored 108 MiB from LMCache. Its D read stayed at one NIXL block. Reordering the same evidence brought P back to 924 scheduled evidence tokens and D back to 59 NIXL blocks. These are probe totals. The chunk records and transfer ledger retain each occurrence's token operations and its overlap with the transferred blocks.
