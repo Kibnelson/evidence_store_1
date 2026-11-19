@@ -27,7 +27,8 @@ mkdir -p "$REPO" "$CHECK_ROOT"
   printf '%s\n' "$source_commit" > "$CHECK_ROOT/experiment-source.txt"
 
   export UV_CACHE_DIR="$node_root/uv-cache"
-  export UV_PYTHON_INSTALL_DIR="$node_root/uv-python"
+  export UV_PYTHON_INSTALL_DIR="$PD_EXEC_ROOT/uv-python"
+  export UV_PYTHON_CACHE_DIR="$PD_EXEC_ROOT/uv-python-cache"
   export PIP_CACHE_DIR="$node_root/pip-cache"
   export HF_HOME="$node_root/huggingface"
   export HF_HUB_CACHE="$HF_HOME/hub" HUGGINGFACE_HUB_CACHE="$HF_HOME/hub"
@@ -36,7 +37,7 @@ mkdir -p "$REPO" "$CHECK_ROOT"
   export TORCH_EXTENSIONS_DIR="$PD_EXEC_ROOT/torch-extensions"
   export TRITON_CACHE_DIR="$PD_EXEC_ROOT/triton" CUDA_CACHE_PATH="$PD_EXEC_ROOT/cuda-cache"
   export CCACHE_DIR="$PD_EXEC_ROOT/ccache" SCCACHE_DIR="$PD_EXEC_ROOT/sccache"
-  mkdir -p "$UV_CACHE_DIR" "$UV_PYTHON_INSTALL_DIR" "$PIP_CACHE_DIR" "$HF_HUB_CACHE" \
+  mkdir -p "$UV_CACHE_DIR" "$UV_PYTHON_INSTALL_DIR" "$UV_PYTHON_CACHE_DIR" "$PIP_CACHE_DIR" "$HF_HUB_CACHE" \
     "$XDG_CACHE_HOME" "$TMPDIR" "$VLLM_RPC_BASE_PATH"
   df -h "$PD_EXEC_ROOT"
   df -i "$PD_EXEC_ROOT"
@@ -58,13 +59,43 @@ mkdir -p "$REPO" "$CHECK_ROOT"
   export MAX_JOBS="${MAX_JOBS:-4}"
   export TORCH_CUDA_ARCH_LIST="${TORCH_CUDA_ARCH_LIST:-8.6}"
 
+  uv cache dir
+  printf 'Preparing managed CPython 3.12.14 in %s\n' "$UV_PYTHON_INSTALL_DIR"
+  uv --no-config python install --no-bin 3.12.14
+  base_python="$(env -u VIRTUAL_ENV -u CONDA_PREFIX uv --no-config --offline python find \
+    --managed-python --no-python-downloads 3.12.14)"
+  base_python="$(readlink -f -- "$base_python")"
+  python_install_root="$(readlink -f -- "$UV_PYTHON_INSTALL_DIR")"
+  if [[ "$base_python" != "$python_install_root/"* || ! -x "$base_python" ]]; then
+    printf 'uv selected Python outside the current scratch install: %s\n' "$base_python" >&2
+    exit 1
+  fi
+  "$base_python" -I - "$UV_PYTHON_INSTALL_DIR" <<'PY' | tee "$CHECK_ROOT/python.txt"
+import encodings
+from pathlib import Path
+import ssl
+import sys
+import sysconfig
+
+root = Path(sys.argv[1]).resolve()
+if (sys.version_info[:3] != (3, 12, 14) or sys.prefix != sys.base_prefix
+        or not Path(sys.base_prefix).resolve().is_relative_to(root)
+        or not Path(encodings.__file__).resolve().is_relative_to(root)
+        or not (Path(sysconfig.get_path("include")) / "Python.h").is_file()):
+    raise SystemExit("The scratch interpreter does not contain the expected Python 3.12.14 standard library and headers")
+print(f"Managed Python verified: {sys.version.split()[0]} at {sys.executable}")
+PY
+  uv --no-config venv --python "$base_python" --no-python-downloads "$PD_ENV"
+  PYTHON="$PD_ENV/bin/python"
+  "$PYTHON" -I -c 'import encodings, sys; print(f"Virtualenv Python: {sys.executable}")'
+
   git -C "$PD_HOME_REPO" archive "$source_commit" | tar -xf - -C "$REPO"
   cd "$REPO"
-  python3 scripts/checkout_sources.py vllm lmcache faiss mt-rag
-  python3 scripts/vllm_pd_prepare.py
+  "$PYTHON" scripts/checkout_sources.py vllm lmcache faiss mt-rag
+  "$PYTHON" scripts/vllm_pd_prepare.py
   VLLM_SOURCE="$REPO/third_party/forks/vllm"
   LMCACHE_SOURCE="$REPO/third_party/checkouts/lmcache"
-  vllm_base="$(python3 -c 'import json; print(json.load(open("third_party/vllm-fork.json"))["base_commit"])')"
+  vllm_base="$("$PYTHON" -c 'import json; print(json.load(open("third_party/vllm-fork.json"))["base_commit"])')"
   vllm_build=source
   if git -C "$VLLM_SOURCE" diff --quiet "$vllm_base" HEAD -- . ':(exclude,glob)vllm/**/*.py'; then
     vllm_build=precompiled-cu132
@@ -74,10 +105,6 @@ mkdir -p "$REPO" "$CHECK_ROOT"
     exit 1
   fi
   printf 'vLLM build: %s (upstream %s)\n' "$vllm_build" "$vllm_base" | tee "$CHECK_ROOT/vllm-build.txt"
-
-  uv cache dir
-  uv venv --python 3.12.14 "$PD_ENV"
-  PYTHON="$PD_ENV/bin/python"
 
   toolkit_mode=system
   cuda_info=""
@@ -161,7 +188,7 @@ PY
   {
     printf 'unset PYTHONPATH PYTHONHOME PYTHONOPTIMIZE VLLM_USE_V2_MODEL_RUNNER TRANSFORMERS_CACHE\n'
     for name in PD_HOME_REPO PD_EXEC_ROOT REPO CHECK_ROOT PD_ENV PYTHON PYTHONNOUSERSITE \
-      UV_CACHE_DIR UV_PYTHON_INSTALL_DIR PIP_CACHE_DIR HF_HOME HF_HUB_CACHE HUGGINGFACE_HUB_CACHE \
+      UV_CACHE_DIR UV_PYTHON_INSTALL_DIR UV_PYTHON_CACHE_DIR PIP_CACHE_DIR HF_HOME HF_HUB_CACHE HUGGINGFACE_HUB_CACHE \
       XDG_CACHE_HOME TMPDIR VLLM_RPC_BASE_PATH TORCH_EXTENSIONS_DIR TRITON_CACHE_DIR CUDA_CACHE_PATH \
       CCACHE_DIR SCCACHE_DIR CUDA_HOME CUDA_INC_PATH CC CXX MAX_JOBS TORCH_CUDA_ARCH_LIST; do
       printf 'export %s=%q\n' "$name" "${!name}"
