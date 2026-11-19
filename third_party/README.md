@@ -6,6 +6,7 @@
 | --- | --- | --- |
 | [vLLM](https://github.com/vllm-project/vllm) | `main` | [`b24eda7127a9c5c317f699db3f580135eec7322b`](https://github.com/vllm-project/vllm/commit/b24eda7127a9c5c317f699db3f580135eec7322b) |
 | [LMCache](https://github.com/LMCache/LMCache) | `dev` | [`042d47abdef0d460cf2cb0d5720e8a59280cda8a`](https://github.com/LMCache/LMCache/commit/042d47abdef0d460cf2cb0d5720e8a59280cda8a) |
+| [LMCache Full Blend base](https://github.com/LMCache/LMCache/tree/v0.5.0) | `v0.5.0` | [`389b9cfcb5cec502dbba6b5d13725bf2e024610d`](https://github.com/LMCache/LMCache/commit/389b9cfcb5cec502dbba6b5d13725bf2e024610d) |
 | [Legacy LMCache](https://github.com/LMCache/LMCache_inprocess) | `main` | [`0aebefd026f5c479d3f6bcbee0d5facd1b2856ec`](https://github.com/LMCache/LMCache_inprocess/commit/0aebefd026f5c479d3f6bcbee0d5facd1b2856ec) |
 | [SGLang](https://github.com/sgl-project/sglang) | `v0.5.23` | [`297e54fd105e974cdf401e5b4d20253a22c16f90`](https://github.com/sgl-project/sglang/commit/297e54fd105e974cdf401e5b4d20253a22c16f90) |
 | [Mooncake](https://github.com/kvcache-ai/Mooncake) | `v0.3.14` | [`e1ea5d31bb5e46ff2df9f90e7c2fbaf52fcdee8c`](https://github.com/kvcache-ai/Mooncake/commit/e1ea5d31bb5e46ff2df9f90e7c2fbaf52fcdee8c) |
@@ -42,3 +43,18 @@ Carry `vllm-native-pd.bundle` and `vllm-fork.json` with the experiment repo. The
 ## Editable LMCache fork
 
 `scripts/lmcache_pd_prepare.py` restores the no-remote LMCache fork from `lmcache-pd.bundle` and verifies its [source receipt](lmcache-pd-fork.json). The source gates `EVIDENCESTORE_TRACE_LMCACHE_TRANSFERS=1` and `EVIDENCESTORE_TRACE_LMCACHE_BLEND=1` enable ordinary transfer and Blend lookup and scatter events, respectively. The Blend smoke sets both gates with its `--trace` option. [Blend smoke runbook](../docs/vllm-native-pd-runbook.md#switch-prefix-prefill-to-blend-on-one-lmcache-server)
+
+## Historical Full Blend source
+
+Restore the exact LMCache source that ran inside the vLLM producer in Full Blend job `29538`.
+
+```sh
+python3 scripts/checkout_sources.py lmcache-legacy-base
+python3 scripts/lmcache_pd_prepare.py --legacy-full-blend
+```
+
+The first command fetches the public `v0.5.0` base into `checkouts/lmcache-legacy-base/`. The second restores `forks/lmcache-full-blend/` from the local Git bundle. Both checkouts have a detached HEAD and zero remotes. Repeat either command to verify the existing checkout. The restore verifies the bundle digest, the upstream parent, and the exact historical tree.
+
+The [source receipt](lmcache-full-blend-fork.json) records the new standalone commit and its provenance. Its tree is `78f1dacf0b454fad5be4f40582ef260df834ed91`, copied from `server/sources/lmcache-v0.5.0-sched` at `context_pilot_paper` commit `e25c6fbba1075760894e230147ca28c630cd7ece`. The original runtime built this local source as editable LMCache `0.5.0` with CUDA support. The producer used `LMCacheConnectorV1` with layerwise blending and the `¶` separator. [Historical source](https://github.com/Kibnelson/context_pilot_paper/tree/e25c6fbba1075760894e230147ca28c630cd7ece/server/sources/lmcache-v0.5.0-sched) · [Original install script](https://github.com/Kibnelson/context_pilot_paper/blob/e25c6fbba1075760894e230147ca28c630cd7ece/scripts/scheduler_v1_prepare_rtx_host_runtime.sh#L318-L331)
+
+Use this checkout with the historical runtime to reproduce the in-process Full Blend baseline. The shared-server Blend smoke requires `CBKVConnector`. [Shared-server runbook](../docs/vllm-native-pd-runbook.md#natural-musique-blend-smoke)

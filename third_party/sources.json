@@ -2,6 +2,7 @@
   "sources": [
     {"name": "vllm", "url": "https://github.com/vllm-project/vllm.git", "ref": "refs/heads/main", "commit": "b24eda7127a9c5c317f699db3f580135eec7322b"},
     {"name": "lmcache", "url": "https://github.com/LMCache/LMCache.git", "ref": "refs/heads/dev", "commit": "042d47abdef0d460cf2cb0d5720e8a59280cda8a"},
+    {"name": "lmcache-legacy-base", "url": "https://github.com/LMCache/LMCache.git", "ref": "refs/tags/v0.5.0", "commit": "389b9cfcb5cec502dbba6b5d13725bf2e024610d"},
     {"name": "lmcache-inprocess", "url": "https://github.com/LMCache/LMCache_inprocess.git", "ref": "refs/heads/main", "commit": "0aebefd026f5c479d3f6bcbee0d5facd1b2856ec"},
     {"name": "sglang", "url": "https://github.com/sgl-project/sglang.git", "ref": "refs/tags/v0.5.23", "commit": "297e54fd105e974cdf401e5b4d20253a22c16f90"},
     {"name": "mooncake", "url": "https://github.com/kvcache-ai/Mooncake.git", "ref": "refs/tags/v0.3.14", "commit": "e1ea5d31bb5e46ff2df9f90e7c2fbaf52fcdee8c"},
