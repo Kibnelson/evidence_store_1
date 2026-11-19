@@ -8,6 +8,8 @@ The default is **1P/3D**. The **2P/2D** arm reassigns one GPU from decode to pre
 
 Run section 0 on the cluster login node. Run section 1 onward from the compute-node shell of **one single-node Slurm allocation with four GPUs**. The launcher supervises its workers, gateway, and workload inside that allocation. Startup, both layouts, dataset ingestion and replay, shutdown, and reporting all use the same allocation. The earlier run card supplies the model, runtime settings, and frozen input format. [Prior native PD run card](../../context_pilot_paper/docs/evidencestore/implementation/scheduler_v2_phase2_native_and_three_modes_run_card.md)
 
+For a smoke-only run, follow [login and allocation](#0-prepare-the-login-shell-and-request-the-allocation), [runtime setup](#1-prepare-the-runtime-and-the-inputs), and [FiQA smoke](#one-dataset-smoke). After both smoke receipts pass, you can [save the receipts](#3-check-the-receipts-in-the-allocation) or continue to the [full dataset inputs](#dataset-inputs).
+
 ## What carries over from the earlier run
 
 | Earlier native run | This run |
@@ -19,23 +21,39 @@ Run section 0 on the cluster login node. Run section 1 onward from the compute-n
 
 ## 0. Prepare the login shell and request the allocation
 
-If you are already in the four-GPU compute-node shell, start at section 1 from the staged repo. Use a cluster login shell where Slurm is available. To open a research login, replace `YOUR_CS_USERNAME` with your CS account. [McGill research Slurm instructions](https://docs.sci.mcgill.ca/COMP/slurm/#research-usage)
+**Retry after a quota failure.** A line such as `srun: ... task 0: Exited` followed by the login prompt means the previous allocation has ended. From that login shell, update the checkout and request a fresh allocation below. If you are still in a four-GPU allocation and your checkout is current, start at [section 1](#1-prepare-the-runtime-and-the-inputs). The build helper creates a fresh scratch venv for each attempt.
+
+### 0.1 Check Slurm and update the checkout
+
+Use the cluster login shell where `srun --version` worked. To open a research login, replace `YOUR_CS_USERNAME` with your CS account. [McGill research Slurm instructions](https://docs.sci.mcgill.ca/COMP/slurm/#research-usage)
 
 ```bash
 ssh YOUR_CS_USERNAME@research.cs.mcgill.ca
 ```
 
-The Phase 2 card loaded the Slurm module before `srun`. The earlier native controls used login-node `tmux` on `teach-node-05` or `teach-node-06`. For this interactive allocation, `tmux` keeps the login shell available if SSH disconnects. You can also run directly from the verified Bash login shell. [Phase 2 launcher](../../context_pilot_paper/scripts/scheduler_v2_phase1_native_1p3d_gpu_card.sh#L29) · [Earlier login hosts and tmux setup](../../context_pilot_paper/docs/evidencestore/implementation/scheduler_v1_native_pd_controls_runbook.md#40-login-host-enter-a-persistent-bash-shell)
-
-From the SSH shell outside `tmux`, load and verify Slurm.
+From the SSH shell outside `tmux`, load and verify Slurm as in the Phase 2 launcher. The version check succeeded on `teach-node-09`. [Phase 2 launcher](../../context_pilot_paper/scripts/scheduler_v2_phase1_native_1p3d_gpu_card.sh#L29)
 
 ```bash
 module load slurm && srun --version
 ```
 
-For a direct run, perform this check in the Bash shell you will use for the allocation.
+On a first visit, clone into a directory shared with the compute node.
 
-For a new `tmux` session, start the dedicated server from that same SSH shell. The server inherits the loaded Slurm environment. The pane starts Bash with that environment and skips startup files that could reset it. Other `tmux` sessions keep running on their own server. [tmux environment and socket options](https://man.openbsd.org/tmux.1#GLOBAL_AND_SESSION_ENVIRONMENT)
+```bash
+git clone https://github.com/Kibnelson/evidence_store_1.git \
+  "${EVIDENCESTORE_CLUSTER_REPO:-$HOME/evidence_store_1}"
+```
+
+For an existing clone, pull `main`. If your checkout lives elsewhere, export `EVIDENCESTORE_CLUSTER_REPO` with its absolute path in the Bash shell you use to submit the allocation.
+
+```bash
+git -C "${EVIDENCESTORE_CLUSTER_REPO:-$HOME/evidence_store_1}" pull --ff-only origin main &&
+  git -C "${EVIDENCESTORE_CLUSTER_REPO:-$HOME/evidence_store_1}" rev-parse --short HEAD
+```
+
+### 0.2 Keep the login shell in tmux (optional)
+
+For a direct run, continue to section 0.3 from the verified Bash login shell. For `tmux`, start the dedicated server from the same SSH shell after checking Slurm. Its first pane starts Bash with the inherited Slurm environment. [Earlier tmux setup](../../context_pilot_paper/docs/evidencestore/implementation/scheduler_v1_native_pd_controls_runbook.md#40-login-host-enter-a-persistent-bash-shell) · [tmux environment and socket options](https://man.openbsd.org/tmux.1#GLOBAL_AND_SESSION_ENVIRONMENT)
 
 ```bash
 tmux -L evidence-store-slurm -f /dev/null new-session -s evidence-store-pd \
@@ -48,19 +66,15 @@ At the new pane's Bash prompt, verify it inherited Slurm. If this fails, continu
 srun --version
 ```
 
-Keep the experiment repo on a filesystem shared with the compute node. On the first visit, clone it from GitHub.
+Detach with `Ctrl+b` then `d`. To resume an existing session, reconnect to the same login node and attach on the same socket.
 
 ```bash
-git clone https://github.com/Kibnelson/evidence_store_1.git "$HOME/evidence_store_1"
+tmux -L evidence-store-slurm attach-session -t evidence-store-pd
 ```
 
-For an existing cluster checkout, update its `main` branch before the allocation.
+### 0.3 Request the four-GPU allocation
 
-```bash
-git -C "$HOME/evidence_store_1" pull --ff-only origin main
-```
-
-The commands assume `~/evidence_store_1`. Use the actual checkout path and set `EVIDENCESTORE_CLUSTER_REPO` if it differs. Paste the complete block below into the verified Bash shell. It checks the login shell, source files, and Slurm client before requesting the allocation.
+Paste the complete block into the verified login Bash shell. Once the `gpu-grad-01` prompt appears, run section 1 there.
 
 ```bash
 (
@@ -71,7 +85,8 @@ The commands assume `~/evidence_store_1`. Use the actual checkout path and set `
     exit 1
   fi
   cd "${EVIDENCESTORE_CLUSTER_REPO:-$HOME/evidence_store_1}" || exit 1
-  for required in scripts/vllm_pd_cluster.py third_party/vllm-native-pd.bundle third_party/vllm-fork.json; do
+  for required in scripts/vllm_pd_runtime.sh scripts/vllm_pd_cluster.py \
+    third_party/vllm-native-pd.bundle third_party/vllm-fork.json; do
     if [[ ! -r "$required" || ! -s "$required" ]]; then
       printf 'Missing, unreadable, or empty run input: %s/%s\n' "$PWD" "$required" >&2
       exit 1
@@ -92,60 +107,63 @@ The commands assume `~/evidence_store_1`. Use the actual checkout path and set `
 )
 ```
 
-Detach from `tmux` with `Ctrl+b` then `d`. After reconnecting to the same login node, use the same socket to attach to the live session.
-
-```bash
-tmux -L evidence-store-slurm attach-session -t evidence-store-pd
-```
-
 ## 1. Prepare the runtime and the inputs
 
-Start in the staged cluster checkout inside the allocation. As in the earlier run, the helper stages the committed experiment tree under `/tmp/$USER` on the GPU node. It puts the venv, editable vLLM and LMCache trees, build files, and run output there. It reuses the node-local uv and Hugging Face caches and prints free disk space and inodes before installation. [Prior allocation-local setup](../../context_pilot_paper/docs/evidencestore/implementation/scheduler_v2_phase1_comparison_gpu_steps.sh#L96) · [uv storage paths](https://docs.astral.sh/uv/reference/storage/)
+### 1.1 Verify the compute shell and toolkit
 
-The helper reconstructs the editable fork from its pinned seed and bundle. With the CUDA 13.2 toolkit and Python-only vLLM edits, it uses the published wheel from the exact upstream commit for native libraries, as the earlier run did for its pin. The runtime uses the CUDA 13.2 build of Torch 2.14. Check the toolkit with `nvcc --version`. If the login environment selects CUDA 12, set `CUDA_HOME` to an installed CUDA 13 toolkit, preferably 13.2, before running setup. The full-source build also requires GCC/G++ 13 or later. Use `CC` and `CXX` to select that compiler pair when needed. [Previous native install](../../context_pilot_paper/scripts/scheduler_v1_prepare_rtx_host_runtime.sh#L248) · [Pinned vLLM build instructions](https://github.com/vllm-project/vllm/blob/b24eda7127a9c5c317f699db3f580135eec7322b/docs/getting_started/installation/gpu.cuda.inc.md#python-only-build) · [Published CUDA 13.2 wheel metadata](https://wheels.vllm.ai/b24eda7127a9c5c317f699db3f580135eec7322b/cu132/vllm/metadata.json) · [Torch CUDA 13.2 wheel index](https://download.pytorch.org/whl/cu132/torch/)
+Expect `gpu-grad-01`, a job ID, and four RTX A5000 GPUs. Check the active toolkit before building.
 
 ```bash
-if ! bash scripts/vllm_pd_runtime.sh; then
-  printf 'Setup failed. See check/setup.log under the printed runtime scratch directory.\n' >&2
+if [[ -n "${SLURM_JOB_ID:-}" ]]; then
+  printf 'Host %s, Slurm job %s\n' "$(hostname -s)" "$SLURM_JOB_ID"
+  nvidia-smi --query-gpu=uuid,name,driver_version --format=csv
+  "${CUDA_HOME:+$CUDA_HOME/bin/}nvcc" --version
+else
+  printf 'Request the allocation in section 0.3 first.\n' >&2
 fi
 ```
 
-On success, copy and run the printed `source` command in the same allocation shell. It activates the venv and changes into the scratch copy for the smoke and full replay. `check/setup.log` retains the build log and `check/runtime.json` records the four-GPU CUDA and NIXL probe. LMCache builds against the Torch loaded by the editable vLLM fork. [Pinned LMCache installation from source](https://github.com/LMCache/LMCache/blob/042d47abdef0d460cf2cb0d5720e8a59280cda8a/docs/source/getting_started/installation.rst#L283)
-
-### Historical native check
-
-This optional check reuses the earlier five-conversation donor. It gives 5 warm-up and 36 measured requests at the original 9,216-token limit. If the prior checkout and its Git evidence are available, generate the frozen file below. An existing frozen file for the same donor also works. The dataset smoke runs independently and can go first. [Prior native input contract](../../context_pilot_paper/scripts/scheduler_v2_phase1_native_1p3d_inputs.py#L111)
+Use CUDA 13.2 for the pinned precompiled build. If the current `nvcc` reports CUDA 12 or points to a different version, list the installed toolkits and their versions.
 
 ```bash
-PRIOR_REPO="${PRIOR_REPO:-$PD_HOME_REPO/../context_pilot_paper}"
-PRIOR_SOURCE="e8cb79f3d668a795c44e2d878b2baf2c47444ad2"
-if [[ -z "${DOCS8K_FROZEN:-}" ]]; then
-  DOCS8K_FROZEN="$CHECK_ROOT/docs8k-frozen.json"
-  "$PYTHON" "$PRIOR_REPO/scripts/scheduler_v2_phase1_native_1p3d_inputs.py" \
-    --repo "$PRIOR_REPO" --source-commit "$PRIOR_SOURCE" \
-    --conversation-count 5 --output "$DOCS8K_FROZEN"
-fi
-"$PYTHON" - "$DOCS8K_FROZEN" <<'PY'
-import json
-import sys
-
-with open(sys.argv[1]) as stream:
-    donor = json.load(stream)
-assert donor["reference_commit"] == "bc733142a0789dc0b6b1dfb7876f50d4e8e05d0e"
-assert (donor["warmup_request_count"], donor["measured_request_count"]) == (5, 36)
-assert donor["engine_settings"]["max_model_len"] == 9216
-print("Verified the prior five-conversation donor")
-PY
-run_dir="$CHECK_ROOT/1p3d-historical-native"
-"$PYTHON" scripts/vllm_pd_cluster.py --run-dir "$run_dir" --topology 1p3d \
-  --max-model-len 9216 --prefix-cache off --trace on \
-  -- "$PYTHON" scripts/vllm_pd_replay.py replay --gateway http://127.0.0.1:8000 \
-      --run-dir "$run_dir" --label prior-docs8k --model Qwen/Qwen3-4B-Instruct-2507 \
-      --concurrency 5 --frozen "$DOCS8K_FROZEN"
-"$PYTHON" scripts/vllm_pd_report.py --run-dir "$run_dir" --check --all-pairs
+for nvcc_bin in /usr/local/pkgs/cuda/*/bin/nvcc; do
+  [[ -x "$nvcc_bin" ]] || continue
+  printf '%s\n' "${nvcc_bin%/bin/nvcc}"
+  "$nvcc_bin" --version | sed -n '/release/p'
+done
 ```
 
-Inspect `summary.json.requests_by_phase` for 5 warm-ups and 36 measured requests. Use the historical run for exact-input and handoff verification on the new build.
+If an installed CUDA 13 toolkit is listed, use its directory below. Prefer 13.2 for the precompiled build. If no CUDA 13 toolkit is available, stop setup and retain the inventory for diagnosing the toolchain.
+
+```bash
+export CUDA_HOME=/absolute/path/to/the/installed/toolkit
+"$CUDA_HOME/bin/nvcc" --version
+```
+
+### 1.2 Build and activate on node-local scratch
+
+The helper stages the committed experiment tree, venv, editable vLLM and LMCache trees, and run output under `/tmp/$USER` on the GPU node. It reuses node-local uv and Hugging Face caches and prints free disk space and inodes before installation. [Prior allocation-local setup](../../context_pilot_paper/docs/evidencestore/implementation/scheduler_v2_phase1_comparison_gpu_steps.sh#L96) · [uv storage paths](https://docs.astral.sh/uv/reference/storage/)
+
+With CUDA 13.2 and Python-only vLLM edits, the helper uses the exact upstream wheel for native libraries and installs the instrumented Python source in editable mode. The full-source path uses GCC/G++ 13 or later. Use `CC` and `CXX` to select a compatible compiler pair when needed. [Previous native install](../../context_pilot_paper/scripts/scheduler_v1_prepare_rtx_host_runtime.sh#L248) · [Pinned vLLM build instructions](https://github.com/vllm-project/vllm/blob/b24eda7127a9c5c317f699db3f580135eec7322b/docs/getting_started/installation/gpu.cuda.inc.md#python-only-build) · [Published CUDA 13.2 wheel metadata](https://wheels.vllm.ai/b24eda7127a9c5c317f699db3f580135eec7322b/cu132/vllm/metadata.json) · [Torch CUDA 13.2 wheel index](https://download.pytorch.org/whl/cu132/torch/)
+
+```bash
+if cd "${EVIDENCESTORE_CLUSTER_REPO:-$HOME/evidence_store_1}" &&
+    bash scripts/vllm_pd_runtime.sh; then
+  printf 'Paste the source command printed above into this allocation shell.\n'
+else
+  printf 'Setup failed. Inspect check/setup.log under the printed runtime scratch directory before retrying.\n' >&2
+fi
+```
+
+Setup succeeds when it prints `Runtime verified` and a `source /tmp/.../activate.sh` command. Run that exact `source` command in the same allocation shell. It activates the venv and changes into the scratch copy. A failed setup leaves the shell available to inspect its log and retry section 1.2.
+
+Verify the setup receipt and cache path before starting the smoke. The cache should be `/tmp/$USER/uv-cache`. LMCache builds against the same Torch installation as vLLM. [Pinned LMCache installation from source](https://github.com/LMCache/LMCache/blob/042d47abdef0d460cf2cb0d5720e8a59280cda8a/docs/source/getting_started/installation.rst#L283)
+
+```bash
+pwd
+cat "$CHECK_ROOT/runtime.json"
+uv cache dir
+```
 
 ### One-dataset smoke
 
@@ -202,6 +220,19 @@ done
 ```
 
 Both runs must write `smoke-check.json` before proceeding. The checks cover completed turns, retrieval stage order, doc and chunk IDs and token spans across the gateway, P and D execution, NIXL payload reconciliation, and streaming through the last token. The shared arm uses the same D for cold and exact-repeat probes to verify that warm D-local reuse reduces NIXL bytes. Open each `timeline.json` to inspect the real requests. The receipt lists their request IDs.
+
+```bash
+for mode in native shared; do
+  receipt="$SMOKE_ROOT/$SMOKE_TOPOLOGY-$mode/smoke-check.json"
+  if [[ -s "$receipt" ]]; then
+    printf '%s smoke passed: %s\n' "$mode" "$receipt"
+  else
+    printf 'Missing %s smoke receipt: %s\n' "$mode" "$receipt" >&2
+  fi
+done
+```
+
+For a smoke-only run, save the results in section 3 and exit the allocation. Continue below to run the full datasets in the same job.
 
 ### Dataset inputs
 
@@ -343,6 +374,41 @@ done
 ```
 
 The controlled fixture sends a cold request, an exact repeat to the same D, and a reordered passage request through every P→D pair. In the shared arm the controlled check verifies a full cold read, a warm D-local hit, fewer NIXL bytes on the repeat, and identical cold and warm output token IDs. The repeated evidence makes the prompt long enough to contain complete 256-token LMCache chunks. The trace and byte reconciliation checks precede full dataset replay. The final report uses the counters for the entire cohort. The complete dataset runs use the same replay manifests and a default concurrency of eight. Each cohort's frozen prompts are compared byte for byte with the first cohort's prompts.
+
+### Historical native check (optional)
+
+This optional check reuses the earlier five-conversation donor. It gives 5 warm-up and 36 measured requests at the original 9,216-token limit. If the prior checkout and its Git evidence are available, generate the frozen file below. An existing frozen file for the same donor also works. Run this from the same allocation after the FiQA smoke if you need the historical comparison. [Prior native input contract](../../context_pilot_paper/scripts/scheduler_v2_phase1_native_1p3d_inputs.py#L111)
+
+```bash
+PRIOR_REPO="${PRIOR_REPO:-$PD_HOME_REPO/../context_pilot_paper}"
+PRIOR_SOURCE="e8cb79f3d668a795c44e2d878b2baf2c47444ad2"
+if [[ -z "${DOCS8K_FROZEN:-}" ]]; then
+  DOCS8K_FROZEN="$CHECK_ROOT/docs8k-frozen.json"
+  "$PYTHON" "$PRIOR_REPO/scripts/scheduler_v2_phase1_native_1p3d_inputs.py" \
+    --repo "$PRIOR_REPO" --source-commit "$PRIOR_SOURCE" \
+    --conversation-count 5 --output "$DOCS8K_FROZEN"
+fi
+"$PYTHON" - "$DOCS8K_FROZEN" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1]) as stream:
+    donor = json.load(stream)
+assert donor["reference_commit"] == "bc733142a0789dc0b6b1dfb7876f50d4e8e05d0e"
+assert (donor["warmup_request_count"], donor["measured_request_count"]) == (5, 36)
+assert donor["engine_settings"]["max_model_len"] == 9216
+print("Verified the prior five-conversation donor")
+PY
+run_dir="$CHECK_ROOT/1p3d-historical-native"
+"$PYTHON" scripts/vllm_pd_cluster.py --run-dir "$run_dir" --topology 1p3d \
+  --max-model-len 9216 --prefix-cache off --trace on \
+  -- "$PYTHON" scripts/vllm_pd_replay.py replay --gateway http://127.0.0.1:8000 \
+      --run-dir "$run_dir" --label prior-docs8k --model Qwen/Qwen3-4B-Instruct-2507 \
+      --concurrency 5 --frozen "$DOCS8K_FROZEN"
+"$PYTHON" scripts/vllm_pd_report.py --run-dir "$run_dir" --check --all-pairs
+```
+
+Inspect `summary.json.requests_by_phase` for 5 warm-ups and 36 measured requests. Use the historical run for exact-input and handoff verification on the new build.
 
 ## 3. Check the receipts in the allocation
 
