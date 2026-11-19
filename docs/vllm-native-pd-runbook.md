@@ -242,6 +242,36 @@ fi
 
 The archive manifest provides file sizes and checksums for verification after pulling. If the final push failed after the commit, retry `git -C "$publish_repo" push origin main` from the allocation.
 
+### Archive native after stopping the shared replay
+
+In a second shell on the allocated GPU node, set `RUN_ROOT` to the full replay's printed path and signal the exact shared launcher. The guarded launch above returns to its allocation shell after the supervisor writes `cleanup.json`. Check that `remaining_process_groups` and `unverified_process_groups` are empty before reusing the GPUs.
+
+```bash
+mapfile -t shared_pids < <(ps -ww -u "$(id -un)" -o pid=,args= |
+  awk -v dir="$RUN_ROOT/2p2d-shared" \
+    '$3 == "scripts/vllm_pd_cluster.py" && $4 == "--run-dir" && $5 == dir {print $1}')
+if (( ${#shared_pids[@]} == 1 )); then
+  kill -TERM "${shared_pids[0]}"
+else
+  printf 'Found %s matching shared launchers\n' "${#shared_pids[@]}"
+fi
+```
+
+The native `datasets/musique/summary.json` covers dataset aggregates. Its `chunk-review` contains the individual request, chunk, and KV-transfer measurements. Archive the completed native cohort from a scratch checkout using the verified Python environment.
+
+```bash
+review_dir="reports/datasets/$(basename "$RUN_ROOT")/details/musique-native"
+if review_source=$(mktemp -d "$PD_EXEC_ROOT/musique-native-review.XXXXXX") &&
+    git clone --depth=1 --branch main --no-tags \
+      https://github.com/Kibnelson/evidence_store_1.git "$review_source" &&
+    "$PYTHON" "$review_source/scripts/vllm_pd_archive_musique.py" \
+      --run-root "$RUN_ROOT" --cohort 2p2d-native --output "$review_source/$review_dir"; then
+  printf 'Native review saved in %s\n' "$review_source/$review_dir"
+fi
+```
+
+For Git publication, set the scratch checkout's Git identity as in the paired workflow, set its SSH push URL, and commit only `"$review_dir"`. The archive manifest verifies the native cohort, including the 2,417 requests and reconciled NIXL payload. Use the original GPU allocation shell for the [natural MuSiQue Blend smoke](#natural-musique-blend-smoke) after cleanup and the Blend plugin preflight.
+
 ## Switch prefix prefill to Blend on one LMCache server
 
 The smoke covers **1P/3D → 1B/3D** and **2P/2D → 2B/2D**. Within each layout one LMCache MP `blend` server stays up while the prefix workers store KV and the Blend workers restore it. Each phase starts vLLM workers on the same GPU slots. The prefix mode uses `LMCacheMPConnector`, and the Blend mode uses the separate `CBKVConnector` plugin. D pulls the full prompt KV over native NIXL in both modes with D prefix reuse off. [Measurement plan](slide-4-pd-measurement-plan.md#seed-on-prefix-prefill-and-reuse-on-blend)
