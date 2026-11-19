@@ -19,7 +19,13 @@ Run section 0 on the cluster login node. Run section 1 onward from the compute-n
 
 ## 0. Prepare the login shell and request the allocation
 
-If you are already in the four-GPU compute-node shell, start at section 1 from the staged repo. The Phase 2 card pinned its campaign checkout in Bash and loaded the Slurm module before `srun`. The earlier native controls also used login-node `tmux`. For this interactive allocation, `tmux` keeps the login shell available if SSH disconnects. [Phase 2 login setup](../../context_pilot_paper/docs/evidencestore/implementation/scheduler_v2_phase2_native_and_three_modes_run_card.md#1-prepare-the-login-host) · [Phase 2 launcher](../../context_pilot_paper/scripts/scheduler_v2_phase1_native_1p3d_gpu_card.sh#L29) · [Earlier tmux setup](../../context_pilot_paper/docs/evidencestore/implementation/scheduler_v1_native_pd_controls_runbook.md#40-login-host-enter-a-persistent-bash-shell)
+If you are already in the four-GPU compute-node shell, start at section 1 from the staged repo. Otherwise, connect to McGill's CS research login and replace `YOUR_CS_USERNAME` with your CS account. [McGill research Slurm instructions](https://docs.sci.mcgill.ca/COMP/slurm/#research-usage)
+
+```bash
+ssh YOUR_CS_USERNAME@research.cs.mcgill.ca
+```
+
+The Phase 2 card loaded the Slurm module before `srun`. The earlier native controls used login-node `tmux` on `teach-node-05` or `teach-node-06`. For this interactive allocation, `tmux` keeps the login shell available if SSH disconnects. [Phase 2 launcher](../../context_pilot_paper/scripts/scheduler_v2_phase1_native_1p3d_gpu_card.sh#L29) · [Earlier login hosts and tmux setup](../../context_pilot_paper/docs/evidencestore/implementation/scheduler_v1_native_pd_controls_runbook.md#40-login-host-enter-a-persistent-bash-shell)
 
 On the login node, optionally start or attach the session.
 
@@ -45,24 +51,37 @@ For an existing cluster checkout, update its `main` branch before the allocation
 git -C "$HOME/evidence_store_1" pull --ff-only origin main
 ```
 
-The commands assume `~/evidence_store_1`. Use the actual checkout path and set `EVIDENCESTORE_CLUSTER_REPO` if it differs. Check the files, confirm you are outside an allocation, and load Slurm. The block should end by printing the path to `srun`.
+The commands assume `~/evidence_store_1`. Use the actual checkout path and set `EVIDENCESTORE_CLUSTER_REPO` if it differs. Paste the complete block below. It checks the login shell, source files, and Slurm client before requesting the allocation. To check Slurm from a login shell without allocating GPUs, run `module load slurm && srun --version`.
 
 ```bash
-test -z "${SLURM_JOB_ID:-}" &&
-  cd "${EVIDENCESTORE_CLUSTER_REPO:-$HOME/evidence_store_1}" &&
-  test -r scripts/vllm_pd_cluster.py &&
-  test -s third_party/vllm-native-pd.bundle &&
-  test -s third_party/vllm-fork.json &&
-  module load slurm &&
-  command -v srun
+(
+  login_host=$(hostname -s)
+  printf 'Login host: %s\n' "$login_host"
+  if [[ -n "${SLURM_JOB_ID:-}" ]]; then
+    printf 'Already inside Slurm allocation %s. Use section 1 if this is your four-GPU job.\n' "$SLURM_JOB_ID" >&2
+    exit 1
+  fi
+  cd "${EVIDENCESTORE_CLUSTER_REPO:-$HOME/evidence_store_1}" || exit 1
+  for required in scripts/vllm_pd_cluster.py third_party/vllm-native-pd.bundle third_party/vllm-fork.json; do
+    if [[ ! -r "$required" || ! -s "$required" ]]; then
+      printf 'Missing, unreadable, or empty run input: %s/%s\n' "$PWD" "$required" >&2
+      exit 1
+    fi
+  done
+  if ! command -v module >/dev/null || ! module load slurm; then
+    printf 'Could not load the Slurm module on %s. Check your Bash login or reconnect via research.cs.mcgill.ca.\n' "$login_host" >&2
+    exit 1
+  fi
+  if ! command -v srun || ! srun --version; then
+    printf 'The Slurm client srun is unavailable on %s after loading the module.\n' "$login_host" >&2
+    exit 1
+  fi
+  srun -p all -A oana2026 -q research12h -N 1 -w gpu-grad-01 \
+    --gpus=4 -c 16 --mem=192G -t 12:00:00 --pty bash -l
+)
 ```
 
-After the checks pass, request one allocation using the earlier card's site-specific resources. Detach from `tmux` with `Ctrl+b` then `d`. After reconnecting to the same login node, run `tmux attach-session -t evidence-store-pd` to return to the running shell.
-
-```bash
-srun -p all -A oana2026 -q research12h -N 1 -w gpu-grad-01 \
-  --gpus=4 -c 16 --mem=192G -t 12:00:00 --pty bash -l
-```
+Detach from `tmux` with `Ctrl+b` then `d`. After reconnecting to the same login node, run `tmux attach-session -t evidence-store-pd` to return to the running shell.
 
 ## 1. Prepare the runtime and the inputs
 
