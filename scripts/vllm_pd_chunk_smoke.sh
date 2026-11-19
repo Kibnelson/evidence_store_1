@@ -5,7 +5,8 @@ umask 077
 if [[ "${1:-}" == --help && $# == 1 ]]; then
   cat <<'USAGE'
 Run inside the four-GPU Slurm allocation after sourcing the verified runtime's activate.sh.
-Run without arguments for the smoke or pass --full for one live pass over MuSiQue in each cohort.
+Run without arguments for the smoke, --full for a live 2p2d-shared run,
+or --full --paired for a matched 2p2d-native and 2p2d-shared comparison.
 Set MUSIQUE_PREPARED to the retained full prepared MuSiQue directory or
 set MUSIQUE_DEV to the staged pinned MuSiQue-Ans development JSONL.
 Set MUSIQUE_INDEX to reuse an index saved outside the prepared directory.
@@ -14,12 +15,18 @@ USAGE
   exit 0
 fi
 run_kind=smoke
+modes=(native shared)
 if [[ "${1:-}" == --full ]]; then
   run_kind=full
   shift
+  if [[ "${1:-}" == --paired ]]; then
+    shift
+  else
+    modes=(shared)
+  fi
 fi
 if (( $# )); then
-  printf 'Run without arguments, with --full, or with --help.\n' >&2
+  printf 'Run without arguments, with --full [--paired], or with --help.\n' >&2
   exit 2
 fi
 
@@ -34,7 +41,7 @@ fi
 
 cd "$REPO"
 helpers=(vllm_pd_chunk_smoke_inputs.py vllm_pd_chunk_report.py)
-if [[ "$run_kind" == full ]]; then
+if [[ "$run_kind" == full && "${#modes[@]}" == 2 ]]; then
   helpers+=(vllm_pd_musique_repeat_report.py)
 fi
 for helper in "${helpers[@]}"; do
@@ -82,7 +89,7 @@ else
     --embedding-model "$embedder" --embedding-revision "$embedding_revision" --embedding-device cuda:0
 fi
 
-for mode in native shared; do
+for mode in "${modes[@]}"; do
   run_dir="$run_root/2p2d-$mode"
   launch=("$PYTHON" scripts/vllm_pd_cluster.py --run-dir "$run_dir" --topology 2p2d
     --model "$model" --revision "$revision" --trace on)
@@ -125,6 +132,8 @@ done
 if [[ "$run_kind" == smoke ]]; then
   "$PYTHON" "$smoke_inputs" verify-pair --smoke-root "$run_root"
 else
-  "$PYTHON" "$REPO/scripts/vllm_pd_musique_repeat_report.py" --run-root "$run_root" --queries "$inputs/queries.jsonl"
+  if [[ "${#modes[@]}" == 2 ]]; then
+    "$PYTHON" "$REPO/scripts/vllm_pd_musique_repeat_report.py" --run-root "$run_root" --queries "$inputs/queries.jsonl"
+  fi
 fi
-printf 'MuSiQue chunk %s passed. Reports are under %s/2p2d-{native,shared}/chunk-review/.\n' "$run_kind" "$run_root"
+printf 'MuSiQue chunk %s passed. Cohorts: %s. Reports: %s\n' "$run_kind" "${modes[*]}" "$run_root"

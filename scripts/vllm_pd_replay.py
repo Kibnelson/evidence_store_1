@@ -20,6 +20,7 @@ from urllib.request import Request, urlopen
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from evidencestore.retrieval import (  # noqa: E402
     HnswRetriever,
+    PROMPT_FORMATS,
     build_hnsw,
     chunk_record,
     json_line,
@@ -231,15 +232,21 @@ def serve_row(args, row, tracer, retriever, tokenizer):
             render_stage_fields = {"chunk_stages": []} if args.trace_chunk_stages else {}
             tracer.emit("prompt_render_start", **fields)
             rendered = render_prompt(tokenizer, row["question"], row.get("reference_history", []),
-                                     hits, args.max_prompt_tokens, **render_stage_fields)
+                                     hits, args.max_prompt_tokens, prompt_format=args.prompt_format,
+                                     **render_stage_fields)
             tokens, evidence = rendered.token_ids, rendered.evidence
             prompt_hash = prompt_sha256(tokens)
+            format_fields = {}
+            if rendered.blend_separator_token_spans is not None:
+                format_fields = {"prompt_format": args.prompt_format,
+                                 "blend_separator_token_spans": rendered.blend_separator_token_spans}
             tracer.emit("prompt_render_end", **fields, prompt_token_count=len(tokens),
                         prompt_sha256=prompt_hash, dropped_chunk_ids=rendered.dropped_chunk_ids,
-                        **render_stage_fields)
+                        **format_fields, **render_stage_fields)
             frozen = {**row, "prompt_token_ids": tokens, "prompt_sha256": prompt_hash,
                       "retrieval_hits": trace_hits, "evidence": evidence,
                       "dropped_chunk_ids": rendered.dropped_chunk_ids,
+                      **format_fields,
                       "generation": {"max_tokens": args.max_tokens, "temperature": 0.0}}
         if not tokens or any(type(token) is not int or token < 0 for token in tokens):
             raise ValueError("Prompt must contain nonnegative integer token IDs")
@@ -356,6 +363,10 @@ def replay(args):
     }
     if args.trace_chunk_stages:
         manifest["trace_chunk_stages"] = retriever is not None
+    if args.prompt_format == "legacy-blend" or (
+        args.frozen and all(row.get("prompt_format") == "legacy-blend" for row in rows)
+    ):
+        manifest["prompt_format"] = "legacy-blend"
     (output / "manifest.json").write_text(json_line(manifest), encoding="utf-8")
     print(f"{manifest['succeeded']}/{manifest['requested']} complete. Receipts: {output}")
     return int(failed > 0)
@@ -412,7 +423,12 @@ def parse_args(argv=None):
     send.add_argument("--concurrency", type=int, default=1)
     send.add_argument("--trace-chunk-stages", action="store_true",
                       help="trace live corpus-row reads, prompt chunks, and whole-prompt assembly")
-    return parser.parse_args(argv)
+    send.add_argument("--prompt-format", choices=PROMPT_FORMATS, default="standard",
+                      help="render live queries with the selected prompt format")
+    args = parser.parse_args(argv)
+    if args.command == "replay" and args.frozen and args.prompt_format != "standard":
+        parser.error("--prompt-format applies to live --queries only")
+    return args
 
 
 def main():

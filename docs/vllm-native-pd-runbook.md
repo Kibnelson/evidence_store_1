@@ -182,7 +182,7 @@ Use the path printed after `MuSiQue chunk smoke artifacts`. Under that run, revi
 
 ## Full MuSiQue single-pass replay
 
-Use the four-GPU allocation and verified trace-enabled runtime from the MuSiQue smoke. The full run starts fresh 2P/2D native and shared cohorts. Each sends all 2,417 development questions once, in dataset order, with concurrency 1 and live Faiss retrieval. The gateway uses its normal routing. The first request for each chunk can seed the caches for later requests. Only naturally recurring evidence enters the repeat comparison. [MuSiQue analysis](datasets/musique.md#full-single-pass-review)
+Use the four-GPU allocation and verified trace-enabled runtime from the MuSiQue smoke. `--full` runs `2p2d-shared`. Add `--paired` to run the native cohort first and reproduce the paired comparison. Each cohort sends all 2,417 development questions once, in dataset order, with concurrency 1 and live Faiss retrieval. The gateway uses its normal routing. [MuSiQue analysis](datasets/musique.md#full-single-pass-review)
 
 If the verified runtime is still active, refresh the analysis and replay scripts from a node-local clone. The receipt comparisons verify that the existing runtime uses the same dependency pins and vLLM and LMCache forks. If the allocation ended, get a new one and build from current `main` using the allocation and build steps above, then continue to the replay command.
 
@@ -219,9 +219,9 @@ elif musique_dev=$("$PYTHON" "$REPO/scripts/vllm_pd_stage_inputs.py" musique "$P
 fi
 ```
 
-Set `RUN_ROOT` to the path printed after `MuSiQue chunk full artifacts`. During replay, count completed responses in `client/musique/responses.jsonl` or follow `logs/workload.log` inside the active cohort. At completion, `repeat-summary.json` verifies matched prompts and evidence positions in both cohorts and counts repeated chunk uses. `repeated-chunks.jsonl` pairs the compute and exclusive KV bytes for each repeat. Use each cohort's `chunk-review/kv-transfers.jsonl` for blocks crossing evidence boundaries.
+Set `RUN_ROOT` to the path printed after `MuSiQue chunk full artifacts`. Count response receipts in `client/musique/responses.jsonl` or follow `logs/workload.log` inside the active cohort. Review the shared run's `chunk-review/summary.json` and `chunks.jsonl` for repeated chunks and their previous positions. With `--paired`, the additional `repeat-summary.json` verifies matched prompts, and `repeated-chunks.jsonl` compares work and exclusive KV bytes across the cohorts. Use `chunk-review/kv-transfers.jsonl` for blocks crossing evidence boundaries.
 
-Keep the complete raw run on shared storage with the [copy commands in section 3](#3-check-the-receipts-in-the-allocation). For Git review, prepare the compressed measurements in the scratch clone from the refresh step. If you built a fresh runtime from `main`, use its node-local `PD_HOME_REPO` as the review checkout. Set the checkout's Git identity as for the earlier dataset pushes.
+Keep the complete raw run on shared storage with the [copy commands in section 3](#3-check-the-receipts-in-the-allocation). To publish a paired run, prepare the compressed measurements in the scratch clone from the refresh step. If you built a fresh runtime from `main`, use its node-local `PD_HOME_REPO` as the review checkout. Set the checkout's Git identity as for the earlier dataset pushes.
 
 ```bash
 review_dir="reports/datasets/$(basename "$RUN_ROOT")/details/musique"
@@ -241,6 +241,30 @@ fi
 ```
 
 The archive manifest provides file sizes and checksums for verification after pulling. If the final push failed after the commit, retry `git -C "$publish_repo" push origin main` from the allocation.
+
+## Switch prefix prefill to Blend on one LMCache server
+
+The smoke covers **1P/3D → 1B/3D** and **2P/2D → 2B/2D**. Within each layout one LMCache MP `blend` server stays up while the prefix workers store KV and the Blend workers restore it. Each phase starts vLLM workers on the same GPU slots. The prefix mode uses `LMCacheMPConnector`, and the Blend mode uses the separate `CBKVConnector` plugin. D pulls the full prompt KV over native NIXL in both modes with D prefix reuse off. [Measurement plan](slide-4-pd-measurement-plan.md#seed-on-prefix-prefill-and-reuse-on-blend)
+
+The controlled inputs use the previous Full Blend prompt layout with `¶` separating the evidence segments. Prepare and validate the two layouts without a GPU allocation using a Python environment with the replay tokenizer dependency installed.
+
+```bash
+python3 scripts/vllm_pd_blend_smoke.py --prepare-only \
+  --run-root "/tmp/musique-blend-prompts-$(date -u +%Y%m%dT%H%M%SZ)"
+```
+
+For the GPU smoke, use an idle four-GPU allocation and a verified runtime from current `main` in node-local scratch. Install the approved `lmcache-cacheblend` plugin compatible with the pinned vLLM and LMCache. Record the plugin version and artifact digest with the runtime receipt. Use the previous in-process run card for a historical 1B/3D reproduction. The previous run's separate prefix and Blend caches cannot establish this cross-mode restore. [LMCache plugin setup](https://docs.lmcache.ai/mp/operator.html#deploying-a-cacheblendengine) · [Previous Full Blend run card](../../context_pilot_paper/docs/evidencestore/implementation/scheduler_v2_phase2_native_and_three_modes_run_card.md#full-blend-flow-and-pressure-behavior)
+
+```bash
+if "$PYTHON" "$REPO/scripts/vllm_pd_blend_smoke.py" \
+    --run-root "$REPO/reports/runs/blend-smoke-${SLURM_JOB_ID}-$(date -u +%Y%m%dT%H%M%SZ)"; then
+  printf 'Shared-cache Blend smoke passed.\n'
+else
+  printf 'Blend smoke stopped. Inspect the error and the printed run directory.\n' >&2
+fi
+```
+
+Add `--topology 1p3d` or `--topology 2p2d` to run an individual layout. The exact probe verifies prefix restore. The shifted probe uses evidence from a separate P seed and requires a non-prefix hit and successful scatter. Review those cache metrics alongside the full NIXL receipts. The GPU smoke verifies the restore path and native request and transfer measurements. Per-layer repair positions and exact Blend scatter bytes require telemetry from the compatible plugin and server path.
 
 ## 1. Prepare the runtime and the inputs
 

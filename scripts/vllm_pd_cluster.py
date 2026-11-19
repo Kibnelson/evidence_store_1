@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import asdict, dataclass
+import hashlib
 import importlib.util
 import json
 import math
@@ -30,6 +31,9 @@ TOPOLOGIES = {"1p3d": (1, 3), "2p2d": (2, 2)}
 # All cohort traffic stays on the allocated node, even when HTTP_PROXY is set.
 OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 LMCACHE_WORKER_ID = re.compile(r"LMCache MP worker adapter created with instance_id=(\d+)")
+BLEND_MODULE = "lmcache_cacheblend.connector"
+BLEND_CONNECTOR = "CBKVConnector"
+BLEND_SETTINGS = {"cb.check_layer": 1, "cb.recomp_ratio": 0.15}
 
 
 @dataclass(frozen=True)
@@ -68,6 +72,10 @@ def arguments() -> argparse.Namespace:
     parser.add_argument("--worker-port-base", type=int, default=8100)
     parser.add_argument("--nixl-port-base", type=int, default=5600)
     parser.add_argument("--lmcache", action="store_true", help="use one shared prefill-side LMCache MP server")
+    parser.add_argument("--prefill-mode", choices=("prefix", "blend"),
+                        help="use the selected prefiller connector with an LMCache blend server")
+    parser.add_argument("--external-lmcache", action="store_true",
+                        help="reuse the loopback blend server on the configured LMCache ports")
     parser.add_argument(
         "--lmcache-on-decode", action="store_true",
         help="also connect the decode workers to the same LMCache MP server",
@@ -85,10 +93,18 @@ def arguments() -> argparse.Namespace:
     args = parser.parse_args()
     if args.client and args.client[0] == "--":
         args.client = args.client[1:]
+    if args.prefill_mode:
+        args.lmcache = True
+        if args.lmcache_on_decode or args.lmcache_chunk_size != 256:
+            parser.error("--prefill-mode requires bare NIXL decode and --lmcache-chunk-size 256")
+    if args.external_lmcache and not args.prefill_mode:
+        parser.error("--external-lmcache requires --prefill-mode")
     if args.lmcache_on_decode and not args.lmcache:
         parser.error("--lmcache-on-decode requires --lmcache")
     if args.trace_lmcache_transfers and (not args.lmcache or args.trace != "on"):
         parser.error("--trace-lmcache-transfers requires --lmcache and --trace on")
+    if args.trace_lmcache_transfers and args.prefill_mode:
+        parser.error("--prefill-mode pilots use blend-server counters and do not support --trace-lmcache-transfers")
     if args.lmcache_source is None:
         args.lmcache_source = LMCACHE_TRACE_SOURCE if args.trace_lmcache_transfers else LMCACHE_SOURCE
     if args.max_model_len < 16 or args.max_num_seqs < 1:
@@ -159,14 +175,20 @@ def worker_command(args: argparse.Namespace, worker: Worker) -> list[str]:
         "kv_load_failure_policy": "fail",
     }
     if uses_lmcache(args, worker.role):
+        blend = args.prefill_mode == "blend"
+        cache_extra = {
+            "lmcache.mp.host": f"tcp://{HOST}",
+            "lmcache.mp.port": str(args.lmcache_port) if args.prefill_mode else args.lmcache_port,
+        }
+        if blend:
+            cache_extra.update(BLEND_SETTINGS)
+        elif args.prefill_mode == "prefix":
+            cache_extra["lmcache.mp.mp_transfer_mode"] = "lmcache_driven"
         cache = {
-            "kv_connector": "LMCacheMPConnector",
-            "kv_connector_module_path": "lmcache.integration.vllm.lmcache_mp_connector",
+            "kv_connector": BLEND_CONNECTOR if blend else "LMCacheMPConnector",
+            "kv_connector_module_path": BLEND_MODULE if blend else "lmcache.integration.vllm.lmcache_mp_connector",
             "kv_role": "kv_both",
-            "kv_connector_extra_config": {
-                "lmcache.mp.host": f"tcp://{HOST}",
-                "lmcache.mp.port": args.lmcache_port,
-            },
+            "kv_connector_extra_config": cache_extra,
         }
         connector = {
             "kv_connector": "MultiConnector",
@@ -175,6 +197,9 @@ def worker_command(args: argparse.Namespace, worker: Worker) -> list[str]:
             "kv_connector_extra_config": {"connectors": [connector, cache]},
         }
     prefix_flag = "--enable-prefix-caching" if prefix_cache_for(args, worker.role) == "on" else "--no-enable-prefix-caching"
+    pilot_flags = ["--pipeline-parallel-size", "1", "--no-enable-chunked-prefill"] if (
+        args.prefill_mode and worker.role == "P"
+    ) else []
     return [
         sys.executable, "-m", "vllm.entrypoints.cli.main", "serve", args.model,
         "--host", HOST, "--port", str(worker.port),
@@ -186,6 +211,7 @@ def worker_command(args: argparse.Namespace, worker: Worker) -> list[str]:
         "--max-num-seqs", str(args.max_num_seqs),
         "--gpu-memory-utilization", str(args.gpu_memory_utilization),
         prefix_flag, "--enforce-eager", "--no-async-scheduling",
+        *pilot_flags,
         "--kv-transfer-config", json.dumps(connector),
     ]
 
@@ -211,8 +237,12 @@ def worker_env(args: argparse.Namespace, worker: Worker) -> dict[str, str]:
 
 def lmcache_command(args: argparse.Namespace) -> list[str]:
     instance_id = "evidencestore-shared-pd" if args.lmcache_on_decode else "evidencestore-prefill"
+    mode = "blend" if args.prefill_mode else "default"
+    blend_flags = ["--supported-transfer-mode", "lmcache_driven", "--l1-align-bytes", "16777216"] if (
+        args.prefill_mode
+    ) else []
     return [
-        sys.executable, "-m", "lmcache.cli.main", "server", "--engine-type", "default",
+        sys.executable, "-m", "lmcache.cli.main", "server", "--engine-type", mode, *blend_flags,
         "--host", HOST, "--port", str(args.lmcache_port),
         "--http-host", HOST, "--http-port", str(args.lmcache_http_port),
         "--l1-size-gb", str(args.lmcache_size_gb), "--eviction-policy", "LRU",
@@ -298,7 +328,47 @@ def await_health(endpoints: dict[str, str], children: list[Child], timeout: floa
             time.sleep(0.3)
 
 
-def await_lmcache_registrations(url, workers, children, stopped, receipt):
+def lmcache_status(url):
+    with OPENER.open(f"{url}/status", timeout=2) as response:
+        status = json.load(response)
+    if not isinstance(status, dict):
+        raise RuntimeError("LMCache status must be a JSON object")
+    return status
+
+
+def require_blend_server(status):
+    if (
+        status.get("is_healthy") is not True
+        or status.get("chunk_size") != 256
+        or not isinstance(status.get("registered_cb_rope_instances"), list)
+        or not isinstance(status.get("cb_rope_meta"), dict)
+        or "active_cb_lookups" not in status
+    ):
+        raise ValueError("Expected a healthy LMCache blend server reporting 256-token chunks and CB RoPE status")
+
+
+def await_idle_blend_server(url, children, stopped, timeout, receipt):
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if stopped():
+            raise InterruptedError("LMCache server check interrupted")
+        check_children(children)
+        status = lmcache_status(url)
+        require_blend_server(status)
+        ready = (
+            status.get("registered_gpu_ids") == []
+            and status.get("cache_context_meta") == {}
+            and status["registered_cb_rope_instances"] == []
+            and status["cb_rope_meta"] == {}
+        )
+        write_json(receipt, {"verified": ready, "server_engine": "blend", "server_status": status})
+        if ready:
+            return
+        time.sleep(0.5)
+    raise TimeoutError(f"Previous LMCache GPU or RoPE registrations did not clear; see {receipt}")
+
+
+def await_lmcache_registrations(url, workers, children, stopped, receipt, *, prefill_mode=None, model=None):
     deadline = time.monotonic() + 30
     child_logs = {child.name: child.log for child in children}
     while time.monotonic() < deadline:
@@ -306,13 +376,12 @@ def await_lmcache_registrations(url, workers, children, stopped, receipt):
             raise InterruptedError("LMCache registration interrupted")
         check_children(children)
         try:
-            with OPENER.open(f"{url}/status", timeout=2) as response:
-                last = json.load(response)
+            last = lmcache_status(url)
         except (OSError, ValueError):
             time.sleep(0.3)
             continue
-        if not isinstance(last, dict):
-            raise RuntimeError("LMCache status must be a JSON object")
+        if prefill_mode:
+            require_blend_server(last)
         ids = last.get("registered_gpu_ids", [])
         contexts = last.get("cache_context_meta", {})
         valid_ids = isinstance(ids, list) and all(type(item) is int for item in ids)
@@ -324,16 +393,43 @@ def await_lmcache_registrations(url, workers, children, stopped, receipt):
             if len(matches) == 1:
                 registrations[worker.id] = {"gpu_uuid": worker.gpu, "instance_id": matches.pop()}
         matched = {entry["instance_id"] for entry in registrations.values()}
-        verified = (
-            valid_ids and len(ids) == len(matched) == len(workers)
-            and registered == matched
+        complete = (
+            valid_ids and len(ids) == len(registered) == len(workers)
             and isinstance(contexts, dict) and set(contexts) == {str(item) for item in ids}
         )
-        write_json(receipt, {"verified": verified, "worker_registrations": registrations, "server_status": last})
+        verified = complete and registered == matched
+        details = {}
+        if prefill_mode:
+            complete = complete and all(
+                isinstance(context, dict) and context.get("model_name") == model
+                and context.get("world_size") == 1 for context in contexts.values()
+            )
+            cb_ids = last["registered_cb_rope_instances"]
+            cb_contexts = last["cb_rope_meta"]
+            if prefill_mode == "blend":
+                verified = complete and len(cb_ids) == len(registered) and all(
+                    type(item) is int for item in cb_ids
+                ) and set(cb_ids) == registered and cb_contexts == {
+                    str(item): [model, 1] for item in registered
+                }
+                method = "cb_rope_contexts"
+            else:
+                verified = complete and registered == matched and cb_ids == [] and cb_contexts == {}
+                method = "mp_worker_log"
+            details = {
+                "prefill_mode": prefill_mode,
+                "server_engine": "blend",
+                "registration_method": method,
+                "registered_instance_ids": sorted(registered),
+                "cb_rope_instance_ids": cb_ids,
+            }
+        write_json(receipt, {"verified": verified, "worker_registrations": registrations,
+                             "server_status": last, **details})
         if verified:
             return
         time.sleep(0.3)
-    raise RuntimeError(f"Expected {len(workers)} LMCache worker registrations; inspect {receipt} and logs/lmcache.log")
+    logs = "the prefiller logs" if prefill_mode else "logs/lmcache.log"
+    raise RuntimeError(f"Expected {len(workers)} LMCache worker registrations; inspect {receipt} and {logs}")
 
 
 def group_exists(child: Child) -> bool:
@@ -397,7 +493,7 @@ def lmcache_preflight(args: argparse.Namespace, source_pins: list[dict]) -> dict
         raise ValueError(f"Install {root} editable in the active Python environment for --lmcache")
     upstream = next(item["commit"] for item in source_pins if item["name"] == "lmcache")
     expected = upstream
-    if args.trace_lmcache_transfers:
+    if args.trace_lmcache_transfers or (args.prefill_mode and root == LMCACHE_TRACE_SOURCE.resolve()):
         receipt = json.loads((ROOT / "third_party/lmcache-pd-fork.json").read_text())
         if receipt["base_commit"] != upstream:
             raise ValueError("The LMCache tracing fork receipt does not match the upstream pin")
@@ -409,6 +505,32 @@ def lmcache_preflight(args: argparse.Namespace, source_pins: list[dict]) -> dict
         if subprocess.check_output(["git", "-C", str(root), *command], text=True).strip():
             raise ValueError("The pinned LMCache checkout must have zero remotes and clean tracked files")
     return {"commit": actual, "base_commit": upstream, "editable_source": str(root), "module": spec.origin}
+
+
+def blend_plugin_preflight() -> dict:
+    probe = """
+import inspect
+import json
+import sys
+from vllm.config import KVTransferConfig
+from vllm.distributed.kv_transfer.kv_connector.factory import KVConnectorFactory
+from vllm.distributed.kv_transfer.kv_connector.v1.base import KVConnectorBase_V1
+
+config = KVTransferConfig(kv_connector=sys.argv[1], kv_connector_module_path=sys.argv[2], kv_role="kv_both")
+connector = KVConnectorFactory.get_connector_class(config)
+if not issubclass(connector, KVConnectorBase_V1):
+    raise TypeError("Expected a vLLM v1 KV connector")
+print(json.dumps(inspect.getfile(connector)))
+"""
+    try:
+        lines = subprocess.check_output(
+            [sys.executable, "-c", probe, BLEND_CONNECTOR, BLEND_MODULE], text=True, timeout=60
+        ).splitlines()
+        source = Path(json.loads(lines[-1])).resolve(strict=True)
+    except (OSError, ValueError, IndexError, subprocess.SubprocessError) as error:
+        raise ValueError(f"The active runtime cannot load {BLEND_MODULE}.{BLEND_CONNECTOR}: {error}") from error
+    return {"connector": BLEND_CONNECTOR, "module_path": BLEND_MODULE, "source_file": str(source),
+            "source_sha256": hashlib.sha256(source.read_bytes()).hexdigest(), "settings": BLEND_SETTINGS}
 
 
 def preflight(args: argparse.Namespace, workers: list[Worker]) -> dict:
@@ -430,7 +552,8 @@ def preflight(args: argparse.Namespace, workers: list[Worker]) -> dict:
     changes = subprocess.check_output(["git", "-C", str(root), "status", "--porcelain"], text=True).splitlines()
     ports = [args.port, *(worker.port for worker in workers), *(worker.nixl_port for worker in workers)]
     cache_source = lmcache_preflight(args, source_pin) if args.lmcache else None
-    if args.lmcache:
+    blend_plugin = blend_plugin_preflight() if args.prefill_mode == "blend" else None
+    if args.lmcache and not args.external_lmcache:
         ports.extend((args.lmcache_port, args.lmcache_http_port))
     for port in ports:
         with socket.socket() as sock:
@@ -438,13 +561,16 @@ def preflight(args: argparse.Namespace, workers: list[Worker]) -> dict:
             sock.bind((HOST, port))
     return {"vllm_source": {"base_commit": expected, "commit": actual, "git_tree": tree,
                            "editable_source": str(root), "module": spec.origin, "working_tree_changes": changes},
-            "lmcache_source": cache_source}
+            "lmcache_source": cache_source, "blend_plugin": blend_plugin}
 
 
 def run(args: argparse.Namespace) -> int:
     if args.dry_run:
         workers = workers_for(args, ["GPU-slot-0", "GPU-slot-1", "GPU-slot-2", "GPU-slot-3"])
-        if args.lmcache:
+        if args.external_lmcache:
+            print(json.dumps({"id": "lmcache", "server_ownership": "external", "server_engine": "blend",
+                              "url": f"http://{HOST}:{args.lmcache_http_port}", "port": args.lmcache_port}))
+        elif args.lmcache:
             print(json.dumps({"id": "lmcache", "argv": lmcache_command(args), "environment": lmcache_env(args, workers)}))
         for worker in workers:
             print(json.dumps({**asdict(worker), "argv": worker_command(args, worker),
@@ -486,12 +612,19 @@ def run(args: argparse.Namespace) -> int:
             **endpoints["lmcache"], "source": identity["lmcache_source"],
             "mode": "shared_pd" if args.lmcache_on_decode else "prefill_only",
             "transfer_trace_enabled": args.trace_lmcache_transfers,
-            "port": args.lmcache_port, "l1_size_gb": args.lmcache_size_gb,
+            "port": args.lmcache_port, "l1_size_gb": None if args.external_lmcache else args.lmcache_size_gb,
             "chunk_size": args.lmcache_chunk_size,
             "prefill_workers": [worker.id for worker in workers if worker.role == "P"],
             "decode_workers": [worker.id for worker in workers if worker.role == "D" and uses_lmcache(args, worker.role)],
-            "argv": lmcache_command(args), "environment": lmcache_env(args, workers),
+            "argv": None if args.external_lmcache else lmcache_command(args),
+            "environment": None if args.external_lmcache else lmcache_env(args, workers),
         }
+    if args.prefill_mode:
+        manifest["prefill_mode"] = args.prefill_mode
+        manifest["lmcache"].update(
+            server_engine="blend", server_ownership="external" if args.external_lmcache else "launcher",
+            blend_plugin=identity["blend_plugin"],
+        )
     write_json(args.run_dir / "run_manifest.json", manifest)
 
     children: list[Child] = []
@@ -506,9 +639,13 @@ def run(args: argparse.Namespace) -> int:
     status = 0
     try:
         if args.lmcache:
-            children.append(start("lmcache", lmcache_command(args), lmcache_env(args, workers), args.run_dir))
+            if not args.external_lmcache:
+                children.append(start("lmcache", lmcache_command(args), lmcache_env(args, workers), args.run_dir))
             await_health({"lmcache": endpoints["lmcache"]["url"]}, children,
                          args.startup_timeout, lambda: stopped, path="/healthcheck")
+            if args.prefill_mode:
+                await_idle_blend_server(endpoints["lmcache"]["url"], children, lambda: stopped,
+                                        args.startup_timeout, args.run_dir / "lmcache-initial-status.json")
         for worker, command, env in plans:
             if stopped:
                 raise InterruptedError("worker launch interrupted")
@@ -519,6 +656,7 @@ def run(args: argparse.Namespace) -> int:
             await_lmcache_registrations(
                 endpoints["lmcache"]["url"], [worker for worker in workers if uses_lmcache(args, worker.role)],
                 children, lambda: stopped, args.run_dir / "lmcache-status.json",
+                prefill_mode=args.prefill_mode, model=args.model,
             )
         children.append(start(
             "router", [sys.executable, str(ROOT / "scripts/vllm_pd_gateway.py"), "--run-dir",

@@ -144,7 +144,7 @@ The same-worker repeat skipped 922 scheduled evidence tokens on P and reduced D'
 
 ## Full single-pass review
 
-Each fresh 2P/2D cohort sends all 2,417 development questions once, in the same order. Both cohorts embed the query, search the full Faiss HNSW index, read the returned chunks, and build the prompt live. The replay uses normal routing and waits for each response before sending the next question. [Full MuSiQue single-pass replay](../vllm-native-pd-runbook.md#full-musique-single-pass-replay)
+The full replay defaults to `2p2d-shared` and sends all 2,417 development questions once in dataset order. It embeds the query, searches the full Faiss HNSW index, reads the returned chunks, and builds the prompt live. The replay uses normal routing and waits for each response before sending the next question. For the paired comparison, add `--paired` to run a native cohort on the same inputs. [Full MuSiQue single-pass replay](../vllm-native-pd-runbook.md#full-musique-single-pass-replay)
 
 The paired report verifies the question IDs, prompt token hashes, and evidence spans across the two cohorts. It counts every occurrence after the first appearance of the same versioned chunk in another question, with separate counts for occurrences at the same or a changed prompt offset. The previous campaign found 8,248 repeat uses. The new run measures the scheduled P and D evidence tokens and completed KV movement for the naturally recurring chunks.
 

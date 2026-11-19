@@ -14,6 +14,8 @@ from time import monotonic_ns
 
 
 DOMAINS = ("clapnq", "cloud", "fiqa", "govt")
+PROMPT_FORMATS = ("standard", "legacy-blend")
+LEGACY_BLEND_SEPARATOR = "¶"
 
 
 def json_line(value):
@@ -430,6 +432,7 @@ class RenderedPrompt:
     token_ids: list[int]
     evidence: list[dict]
     dropped_chunk_ids: list[str]
+    blend_separator_token_spans: list[tuple[int, int]] | None = None
 
 
 def _append_stage(stages, stage, start_ns, end_ns, **fields):
@@ -441,11 +444,14 @@ def _chunk_stage_identity(chunk):
             "chunk_version": chunk["chunk_version"], "rank": chunk.get("rank")}
 
 
-def _render_parts(question, history, hits, *, chunk_stages=None):
+def _render_parts(question, history, hits, *, legacy_blend, chunk_stages=None):
     start_ns = monotonic_ns() if chunk_stages is not None else None
     parts = ["Answer the question using the evidence below.\n"]
-    parts.extend(f"{turn['speaker']}: {turn['text']}\n" for turn in history)
-    parts.append(f"Question: {question}\nEvidence:\n")
+    if legacy_blend:
+        parts.append("Evidence:")
+    else:
+        parts.extend(f"{turn['speaker']}: {turn['text']}\n" for turn in history)
+        parts.append(f"Question: {question}\nEvidence:\n")
     cursor = sum(map(len, parts))
     if chunk_stages is not None:
         _append_stage(chunk_stages, "prompt_template_prefix", start_ns, monotonic_ns(),
@@ -454,15 +460,27 @@ def _render_parts(question, history, hits, *, chunk_stages=None):
     for hit in hits:
         start_ns = monotonic_ns() if chunk_stages is not None else None
         text = hit["text"]
+        if legacy_blend:
+            parts.append(LEGACY_BLEND_SEPARATOR)
+            cursor += len(LEGACY_BLEND_SEPARATOR)
+            # Source whitespace can merge into the next separator token.
+            text = f"[Doc_{hit['chunk_id']}] {text}\n[/Doc]"
         spans.append((cursor, cursor + len(text)))
-        parts.extend((text, "\n\n"))
-        cursor += len(text) + 2
+        parts.append(text)
+        cursor += len(text)
+        if not legacy_blend:
+            parts.append("\n\n")
+            cursor += 2
         if chunk_stages is not None:
             _append_stage(chunk_stages, "prompt_chunk_append", start_ns, monotonic_ns(),
                           **_chunk_stage_identity(hit), char_start=spans[-1][0],
                           char_end=spans[-1][1], retained=False)
     start_ns = monotonic_ns() if chunk_stages is not None else None
-    parts.append("Answer:")
+    suffix = "Answer:"
+    if legacy_blend:
+        history_text = "".join(f"{turn['speaker']}: {turn['text']}\n" for turn in history)
+        suffix = f"{LEGACY_BLEND_SEPARATOR}\n\nConversation:\n{history_text}Question: {question}\nAnswer:"
+    parts.append(suffix)
     if chunk_stages is not None:
         _append_stage(chunk_stages, "prompt_template_suffix", start_ns, monotonic_ns(),
                       char_start=cursor, char_end=cursor + len(parts[-1]))
@@ -473,18 +491,44 @@ def _render_parts(question, history, hits, *, chunk_stages=None):
     return text, spans
 
 
-def render_prompt(tokenizer, question, history, hits, max_prompt_tokens, *, chunk_stages=None):
+def _legacy_blend_separator_spans(text, encoded, delimiter_ids, expected_count):
+    if not delimiter_ids:
+        raise ValueError("The legacy Blend separator encodes to an empty token sequence")
+    positions = [offset for offset, character in enumerate(text) if character == LEGACY_BLEND_SEPARATOR]
+    if len(positions) != expected_count:
+        raise ValueError("Legacy Blend input contains the reserved separator ¶")
+    tokens = encoded["input_ids"]
+    offsets = encoded["offset_mapping"]
+    if len(offsets) != len(tokens):
+        raise ValueError("Legacy Blend tokenizer returned a different number of tokens and offsets")
+    width = len(delimiter_ids)
+    spans = [(start, start + width) for start in range(len(tokens) - width + 1)
+             if tokens[start:start + width] == delimiter_ids]
+    if len(spans) != len(positions) or any(
+        any(tuple(offset) != (position, position + 1) for offset in offsets[start:end])
+        for position, (start, end) in zip(positions, spans)
+    ):
+        raise ValueError("Legacy Blend separator tokens do not match their whole-prompt character spans")
+    return spans
+
+
+def render_prompt(
+    tokenizer, question, history, hits, max_prompt_tokens, *, prompt_format="standard", chunk_stages=None,
+):
     """Map each evidence occurrence against the final whole-prompt tokenization."""
     if not tokenizer.is_fast:
         raise ValueError("A fast tokenizer is required for exact prompt-token offsets")
+    if prompt_format not in PROMPT_FORMATS:
+        raise ValueError(f"Unsupported prompt format {prompt_format!r}")
+    legacy_blend = prompt_format == "legacy-blend"
     kept = list(hits)
     dropped = []
     attempt = 0
     while True:
         attempt_stages = [] if chunk_stages is not None else None
-        text, spans = _render_parts(question, history, kept, chunk_stages=attempt_stages)
+        text, spans = _render_parts(question, history, kept, legacy_blend=legacy_blend, chunk_stages=attempt_stages)
         tokenize_start = monotonic_ns() if attempt_stages is not None else None
-        encoded = tokenizer(text, return_offsets_mapping=True, add_special_tokens=True, truncation=False)
+        encoded = tokenizer(text, return_offsets_mapping=True, add_special_tokens=not legacy_blend, truncation=False)
         tokenize_end = monotonic_ns() if attempt_stages is not None else None
         token_count = len(encoded["input_ids"])
         fits = token_count <= max_prompt_tokens
@@ -501,6 +545,10 @@ def render_prompt(tokenizer, question, history, hits, max_prompt_tokens, *, chun
         if not kept:
             raise ValueError(f"Question and reference history exceed {max_prompt_tokens} tokens")
         dropped.append(kept.pop()["chunk_id"])
+    separator_spans = None
+    if legacy_blend:
+        delimiter_ids = list(tokenizer.encode(LEGACY_BLEND_SEPARATOR, add_special_tokens=False))
+        separator_spans = _legacy_blend_separator_spans(text, encoded, delimiter_ids, len(kept) + 1)
     evidence = []
     append_stages = ([stage for stage in attempt_stages if stage["stage"] == "prompt_chunk_append"]
                      if attempt_stages is not None else None)
@@ -508,6 +556,11 @@ def render_prompt(tokenizer, question, history, hits, max_prompt_tokens, *, chun
         map_start = monotonic_ns() if append_stages is not None else None
         indices = [index for index, (start, end) in enumerate(encoded["offset_mapping"])
                    if start < char_end and end > char_start and end > start]
+        if separator_spans is not None and (
+            not indices
+            or (indices[0], indices[-1] + 1) != (separator_spans[index][1], separator_spans[index + 1][0])
+        ):
+            raise ValueError(f"Legacy Blend evidence does not cover its token segment for {hit['chunk_id']}")
         if append_stages is not None:
             map_end = monotonic_ns()
             append_stages[index]["retained"] = bool(indices)
@@ -524,4 +577,4 @@ def render_prompt(tokenizer, question, history, hits, max_prompt_tokens, *, chun
             if field in hit:
                 row[field] = hit[field]
         evidence.append(row)
-    return RenderedPrompt(encoded["input_ids"], evidence, list(reversed(dropped)))
+    return RenderedPrompt(encoded["input_ids"], evidence, list(reversed(dropped)), separator_spans)
