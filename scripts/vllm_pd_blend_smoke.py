@@ -13,7 +13,7 @@ import sys
 import time
 
 from vllm_pd_cluster import (
-    HOST, MODEL, REVISION, ROOT, TOPOLOGIES, assigned_gpus, await_health,
+    HOST, LMCACHE_TRACE_SOURCE, MODEL, REVISION, ROOT, TOPOLOGIES, assigned_gpus, await_health,
     check_children, start, stop_children, write_json,
 )
 from vllm_pd_replay import load_tokenizer
@@ -106,10 +106,13 @@ def replay_cases(directory, mode):
         capture_case(CACHE_HTTP, run_dir, case, command)
 
 
-def run_topology(directory, topology, gpus, cache_source):
+def run_topology(directory, topology, gpus, cache_source, *, trace_enabled):
     from vllm_pd_blend_receipts import verify_topology
 
     (directory / "logs").mkdir()
+    trace_mode = "on" if trace_enabled else "off"
+    trace_gate = "1" if trace_enabled else "0"
+    cache_trace = directory / "lmcache-trace"
     cache_cmd = [sys.executable, "-m", "lmcache.cli.main", "server", "--engine-type", "blend",
                  "--supported-transfer-mode", "lmcache_driven", "--host", HOST, "--port", str(CACHE_PORT),
                  "--http-host", HOST, "--http-port", str(HTTP_PORT), "--chunk-size", str(CHUNK_SIZE),
@@ -117,12 +120,15 @@ def run_topology(directory, topology, gpus, cache_source):
                  "--eviction-policy", "LRU", "--instance-id", f"blend-{topology}-{os.environ['SLURM_JOB_ID']}"]
     cache_env = {
         "CUDA_VISIBLE_DEVICES": ",".join(gpus[:TOPOLOGIES[topology][0]]),
-        "EVIDENCESTORE_TRACE_LMCACHE_TRANSFERS": "0",
+        "EVIDENCESTORE_TRACE_LMCACHE_TRANSFERS": trace_gate,
+        "EVIDENCESTORE_TRACE_LMCACHE_BLEND": trace_gate,
+        "EVIDENCESTORE_TRACE_DIR": str(cache_trace),
+        "EVIDENCESTORE_RUN_ID": f"{directory.parent.name}/{topology}",
     }
     server = start("lmcache", cache_cmd, cache_env, directory)
     try:
         write_json(directory / "lmcache-server.json", {
-            "pid": server.process.pid, "argv": cache_cmd, "environment": cache_env,
+            "pid": server.process.pid, "argv": cache_cmd, "environment": cache_env, "trace_enabled": trace_enabled,
         })
         await_health({"lmcache": CACHE_HTTP}, [server], 60, lambda: False, path="/healthcheck")
         for mode in CASES:
@@ -130,10 +136,11 @@ def run_topology(directory, topology, gpus, cache_source):
             command = [sys.executable, str(ROOT / "scripts/vllm_pd_cluster.py"), "--run-dir", str(directory / mode),
                        "--topology", topology, "--prefill-mode", mode, "--lmcache", "--external-lmcache",
                        "--lmcache-port", str(CACHE_PORT), "--lmcache-http-port", str(HTTP_PORT),
-                       "--lmcache-source", str(cache_source), "--prefix-cache", "off", "--trace", "on",
+                       "--lmcache-source", str(cache_source), "--prefix-cache", "off", "--trace", trace_mode,
+                       "--minimum-nixl-reads", str(len(CASES[mode])),
                        "--", sys.executable, str(SCRIPT),
                        "--run-root", str(directory / "inputs"), "--workload", mode]
-            launcher = start(f"{mode}-launch", command, {"EVIDENCESTORE_TRACE_GPU": "1"}, directory)
+            launcher = start(f"{mode}-launch", command, {"EVIDENCESTORE_TRACE_GPU": trace_gate}, directory)
             try:
                 while launcher.process.poll() is None:
                     check_children([server])
@@ -147,12 +154,27 @@ def run_topology(directory, topology, gpus, cache_source):
                         launcher.process.wait(timeout=25)
                     except subprocess.TimeoutExpired:
                         stop_children([launcher])
-        verify_topology(directory, topology, CASES)
     finally:
         cleanup = stop_children([server])
         write_json(directory / "lmcache-cleanup.json", cleanup)
         if cleanup["remaining_process_groups"] or cleanup["unverified_process_groups"]:
             raise RuntimeError(f"LMCache cleanup could not be verified in {directory}")
+    summary = verify_topology(directory, topology, CASES, trace_enabled=trace_enabled)
+    try:
+        if trace_enabled:
+            from vllm_pd_blend_trace_join import join_lmcache_trace
+
+            joined = join_lmcache_trace(directory)
+            summary["lmcache_request_trace"] = joined.name
+            summary["measurement_scope"]["lmcache_scatter_h2d_payload"] = "Completed host-to-GPU payload in the joined trace."
+            print(f"Joined LMCache trace: {joined}", flush=True)
+        elif any(cache_trace.glob("*.jsonl")):
+            raise ValueError(f"Trace-off Blend run wrote LMCache events in {cache_trace}")
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        summary.update(status="failed", lmcache_trace_error=str(error))
+        raise ValueError(f"LMCache trace verification failed: {error}") from error
+    finally:
+        write_json(directory / "blend-summary.json", summary)
 
 
 def main():
@@ -160,6 +182,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--run-root", type=Path, required=True, help="A fresh node-local output directory")
     parser.add_argument("--topology", choices=("both", *TOPOLOGIES), default="both")
+    parser.add_argument("--trace", choices=("on", "off"), default="on",
+                        help="toggle client, gateway, engine, NIXL, and LMCache request traces")
     parser.add_argument("--prepare-only", action="store_true", help="Validate prompt fixtures on CPU")
     parser.add_argument("--workload", choices=tuple(CASES), help=argparse.SUPPRESS)
     args = parser.parse_args()
@@ -168,6 +192,7 @@ def main():
         if args.workload:
             replay_cases(root, args.workload)
             return
+        trace_enabled = args.trace == "on"
         gpus = cache_source = plugin = None
         if not args.prepare_only:
             if not os.environ.get("SLURM_JOB_ID"):
@@ -180,6 +205,8 @@ def main():
             if not cache_spec or not cache_spec.origin:
                 raise ValueError("Activate the verified vLLM and LMCache runtime first")
             cache_source = Path(cache_spec.origin).resolve().parents[1]
+            if trace_enabled and cache_source != LMCACHE_TRACE_SOURCE.resolve():
+                raise ValueError("Trace-on Blend requires a runtime built with EVIDENCESTORE_LMCACHE_TRACE=1")
             gpus = assigned_gpus()
             # Check the fixed ports before starting a cache process. An active
             # PD replay in this allocation will already own its worker ports.
@@ -196,7 +223,7 @@ def main():
             directory = root / topology
             prepare_probes(tokenizer, directory / "inputs", topology)
             if gpus is not None:
-                run_topology(directory, topology, gpus, cache_source)
+                run_topology(directory, topology, gpus, cache_source, trace_enabled=trace_enabled)
         print("Blend prompts prepared." if args.prepare_only else "Blend GPU smoke passed.")
     except (OSError, RuntimeError, ValueError, subprocess.SubprocessError) as error:
         parser.exit(1, f"Blend smoke failed: {error}\n")

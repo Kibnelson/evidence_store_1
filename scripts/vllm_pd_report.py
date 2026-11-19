@@ -15,6 +15,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--run-dir", type=Path, required=True)
     parser.add_argument("--capture", choices=("before", "after"))
+    parser.add_argument("--minimum-nixl-reads", type=int, default=0,
+                        help="wait for this many new decode reads during --capture after")
     parser.add_argument("--timeline-limit", type=int, default=32)
     parser.add_argument("--timeline-request", help="render just the supplied request ID")
     parser.add_argument("--check", action="store_true")
@@ -25,9 +27,11 @@ def main():
         parser.error("--timeline-limit must be positive")
     if args.smoke_sample and args.capture:
         parser.error("--smoke-sample requires a trace report")
+    if args.minimum_nixl_reads < 0 or (args.minimum_nixl_reads and args.capture != "after"):
+        parser.error("--minimum-nixl-reads requires --capture after and a nonnegative count")
     run_dir = args.run_dir.resolve()
     if args.capture:
-        capture_metrics(run_dir, args.capture)
+        capture_metrics(run_dir, args.capture, minimum_nixl_reads=args.minimum_nixl_reads)
         return 0
     result = report(
         run_dir, timeline_limit=args.timeline_limit, all_pairs=args.all_pairs or bool(args.smoke_sample),

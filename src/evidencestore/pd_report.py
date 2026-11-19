@@ -76,7 +76,7 @@ def _nixl_totals(events):
     return totals
 
 
-def capture_metrics(run_dir, label, *, output_dir=None, nixl_events=None):
+def capture_metrics(run_dir, label, *, output_dir=None, nixl_events=None, minimum_nixl_reads=0):
     output_dir = run_dir if output_dir is None else output_dir
     endpoints = json.loads((run_dir / "endpoints.json").read_text())
     workers = endpoints["prefill"] + endpoints["decode"]
@@ -84,8 +84,13 @@ def capture_metrics(run_dir, label, *, output_dir=None, nixl_events=None):
     manifest_path = run_dir / "run_manifest.json"
     manifest = json.loads(manifest_path.read_text()) if manifest_path.exists() else {}
     expected = {}
-    if label == "after" and before_path.exists() and manifest.get("engine_trace_enabled", True):
+    decoders = [worker["id"] for worker in endpoints["decode"]]
+    if minimum_nixl_reads and (label != "after" or not before_path.is_file()):
+        raise ValueError("A minimum NIXL read count requires both counter snapshots")
+    before = {}
+    if label == "after" and before_path.is_file():
         before = json.loads(before_path.read_text())
+    if before and manifest.get("engine_trace_enabled", True):
         totals = _nixl_totals(
             load_events(run_dir, event_name="nixl_read_complete") if nixl_events is None else nixl_events
         )
@@ -97,10 +102,14 @@ def capture_metrics(run_dir, label, *, output_dir=None, nixl_events=None):
     deadline = time.monotonic() + 30
     while True:
         snapshot, raw = _capture_native(workers)
-        if not any(
+        minimum_met = not minimum_nixl_reads or sum(
+            snapshot[worker]["count"] - before[worker]["count"] for worker in decoders
+        ) >= minimum_nixl_reads
+        current = not any(
             worker in snapshot and any(snapshot[worker][key] < target[key] for key in target)
             for worker, target in expected.items()
-        ) or time.monotonic() >= deadline:
+        )
+        if (minimum_met and current) or time.monotonic() >= deadline:
             break
         time.sleep(0.5)
 
@@ -110,6 +119,8 @@ def capture_metrics(run_dir, label, *, output_dir=None, nixl_events=None):
         with urlopen(lmcache["url"].rstrip("/") + "/metrics", timeout=10) as response:
             (output_dir / f"lmcache-metrics-{label}.prom").write_bytes(response.read())
     (output_dir / f"metrics-{label}.json").write_text(json.dumps(snapshot, indent=2) + "\n")
+    if not minimum_met:
+        raise ValueError(f"Native decode counters did not record {minimum_nixl_reads} completed NIXL reads")
 
 
 def _lmcache_counter_samples(snapshot):

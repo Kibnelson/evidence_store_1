@@ -9,6 +9,9 @@ import time
 
 class TraceWriter:
     def __init__(self, run_dir, component):
+        self.enabled = os.environ.get("EVIDENCESTORE_TRACE_REQUESTS", "1") == "1"
+        if not self.enabled:
+            return
         run_dir = Path(run_dir).resolve()
         trace_dir = run_dir / "trace"
         trace_dir.mkdir(parents=True, exist_ok=True)
@@ -22,6 +25,8 @@ class TraceWriter:
         }
 
     def emit(self, event, **fields):
+        if not self.enabled:
+            return
         row = {
             **self.common,
             "event": event,

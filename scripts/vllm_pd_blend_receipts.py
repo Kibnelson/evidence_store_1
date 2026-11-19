@@ -23,7 +23,7 @@ from evidencestore.pd_report import (
     summarize_request,
     trace_view,
 )
-from evidencestore.retrieval import prompt_sha256, read_jsonl
+from evidencestore.retrieval import prompt_sha256, read_jsonl, sha256_file
 
 
 METRIC_NAMES = {
@@ -183,15 +183,57 @@ def _case_metrics(run_dir, case):
     return delta
 
 
-def _verify_request(run_dir, fixture, case, groups):
+def _verify_replay(run_dir, fixture_path, case):
+    fixture = _one_row(fixture_path)
     replay = run_dir / "client" / case
     manifest = _read_json(replay / "manifest.json")
+    frozen_path = replay / "frozen.jsonl"
     response = _one_row(replay / "responses.jsonl")
-    if (manifest["mode"] != "frozen" or (manifest["requested"], manifest["succeeded"], manifest["failed"]) != (1, 1, 0)
+    digest = prompt_sha256(fixture["prompt_token_ids"])
+    if (manifest["mode"] != "frozen" or manifest["concurrency"] != 1
+            or (manifest["requested"], manifest["succeeded"], manifest["failed"], manifest["frozen_rows"])
+            != (1, 1, 0, 1)
+            or manifest["input_sha256"] != sha256_file(fixture_path)
+            or manifest["frozen_sha256"] != sha256_file(frozen_path)
+            or _one_row(frozen_path) != fixture
             or response["success"] is not True or response["label"] != case or response["case"] != case
+            or fixture["case"] != case or response["pd_route"] != fixture["pd_route"]
             or response["request_key"] != fixture["request_key"]
-            or response["prompt_sha256"] != prompt_sha256(fixture["prompt_token_ids"])):
+            or response["prompt_sha256"] != digest or fixture["prompt_sha256"] != digest
+            or not response["output_token_ids_sha256"] or not response["completion_tokens"]):
         raise ValueError(f"{case} replay failed or used an unexpected request")
+    return fixture, response
+
+
+def _request_without_trace(fixture, response):
+    return {
+        "request_id": response["request_id"],
+        "case": response["case"],
+        **fixture["pd_route"],
+        "route_source": "requested",
+        "request_level_trace_status": "trace_disabled",
+        "prompt_sha256": response["prompt_sha256"],
+        "prompt_tokens": len(fixture["prompt_token_ids"]),
+        "output_token_ids_sha256": response["output_token_ids_sha256"],
+        "completion_tokens": response["completion_tokens"],
+        "evidence": [
+            {**chunk, "occurrence": index, "token_work": None}
+            for index, chunk in enumerate(fixture["evidence"])
+        ],
+        "ttft_ms": None,
+        "dispatch_to_first_token_ms": None,
+        "dispatch_to_last_token_ms": None,
+        "end_to_end_ms": None,
+        "p_scheduler_prompt_tokens": None,
+        "p_scheduler_evidence_tokens": None,
+        "completed_nixl_bytes": None,
+        "full_nixl_handoff": None,
+        "nixl_transfers": None,
+        "bytes": None,
+    }
+
+
+def _verify_traced_request(fixture, response, case, groups):
     matches = [(key, rows) for key, rows in groups.items() if key[0] == response["request_id"]]
     if len(matches) != 1:
         raise ValueError(f"{case} has {len(matches)} joined request attempts")
@@ -203,7 +245,7 @@ def _verify_request(run_dir, fixture, case, groups):
         {name: value for name, value in chunk.items() if name not in {"occurrence", "token_work"}}
         for chunk in native["evidence"]
     ]
-    if ({"prefill": prefill, "decode": decode} != route or response["pd_route"] != route
+    if ({"prefill": prefill, "decode": decode} != route
             or native["case"] != case or native["prompt_sha256"] != fixture["prompt_sha256"]
             or native["prompt_tokens"] != len(fixture["prompt_token_ids"])
             or native_evidence != fixture["evidence"]
@@ -224,11 +266,12 @@ def _verify_request(run_dir, fixture, case, groups):
     native["p_scheduler_evidence_tokens"] = sum(
         chunk["token_work"].get("P", {}).get("scheduled_prompt_tokens", 0) for chunk in native["evidence"]
     ) if steps else None
-    native["lmcache_counter_delta"] = _case_metrics(run_dir, case)
+    native["route_source"] = "gateway"
+    native["request_level_trace_status"] = "captured"
     return native
 
 
-def verify_topology(directory, topology, cases):
+def verify_topology(directory, topology, cases, *, trace_enabled=True):
     """Validate every completed native PD phase independently in this topology."""
     requests, reconciliations = {}, {}
     server_endpoint = None
@@ -237,37 +280,59 @@ def verify_topology(directory, topology, cases):
         manifest = _read_json(run_dir / "run_manifest.json")
         endpoints = _read_json(run_dir / "endpoints.json")
         cache = manifest["lmcache"]
-        if (manifest["topology"] != topology or manifest["engine_trace_enabled"] is not True
+        if (manifest["topology"] != topology or manifest["engine_trace_enabled"] is not trace_enabled
                 or manifest["prefill_mode"] != mode
                 or manifest["prefix_cache_by_role"]["D"] != "off"
                 or cache["decode_workers"] != [] or cache["server_ownership"] != "external"
                 or cache["server_engine"] != "blend"):
-            raise ValueError(f"{topology} {mode} requires traced native NIXL and a bare, prefix-disabled decoder")
+            raise ValueError(f"{topology} {mode} does not match the trace mode and bare NIXL decoder configuration")
         endpoint = {"http_url": cache["url"], "rpc_port": cache["port"]}
         if (endpoint["http_url"] != endpoints["lmcache"]["url"]
                 or (server_endpoint is not None and endpoint != server_endpoint)):
             raise ValueError(f"{topology} {mode} used a different LMCache server endpoint")
         server_endpoint = endpoint
-        events = list(load_events(run_dir))
-        groups, unjoined = request_joins(events)
-        if len(groups) != len(names) or unjoined:
-            raise ValueError(f"{topology} {mode} has unexpected requests or unjoined events: {dict(unjoined)}")
-        workers = {worker["id"] for side in ("prefill", "decode") for worker in endpoints[side]}
-        reconciliation = _reconcile(run_dir, events, workers, True)
-        if reconciliation["status"] != "matched":
+        events = []
+        if trace_enabled:
+            events = list(load_events(run_dir))
+            groups, unjoined = request_joins(events)
+            if len(groups) != len(names) or unjoined:
+                raise ValueError(f"{topology} {mode} has unexpected requests or unjoined events: {dict(unjoined)}")
+        elif any((run_dir / "trace").glob("*.jsonl")):
+            raise ValueError(f"{topology} {mode} emitted detailed JSONL with tracing disabled")
+        prefill_workers, decode_workers = ({worker["id"] for worker in endpoints[side]} for side in ("prefill", "decode"))
+        reconciliation = _reconcile(run_dir, events, prefill_workers | decode_workers, trace_enabled)
+        expected_status = "matched" if trace_enabled else "trace_disabled"
+        if reconciliation["status"] != expected_status:
             raise ValueError(f"{topology} {mode} NIXL counter reconciliation: {reconciliation['status']}")
-        reconciliations[mode] = reconciliation
+        by_decoder = Counter()
         for case in names:
-            fixture = _one_row(directory / "inputs" / f"{case}.jsonl")
-            requests[case] = _verify_request(run_dir, fixture, case, groups)
-        _save_json(run_dir / "blend-receipts" / "native-timeline.json",
-                   trace_view(groups, len(names), None, lmcache_enabled=True))
+            fixture, response = _verify_replay(run_dir, directory / "inputs" / f"{case}.jsonl", case)
+            native = (_verify_traced_request(fixture, response, case, groups) if trace_enabled
+                      else _request_without_trace(fixture, response))
+            if native["prefill"] not in prefill_workers or native["decode"] not in decode_workers:
+                raise ValueError(f"{topology} {mode}/{case} used an unknown worker")
+            native["lmcache_counter_delta"] = _case_metrics(run_dir, case)
+            requests[case] = native
+            by_decoder[native["decode"]] += 1
+        deltas = {worker: row["prometheus"] for worker, row in reconciliation["workers"].items()}
+        for worker, count in by_decoder.items():
+            if deltas[worker]["sum"] <= 0 or deltas[worker]["count"] < count:
+                raise ValueError(f"{topology} {mode} needs positive NIXL bytes and at least {count} transfers on {worker}")
+        reconciliation["aggregate"] = {
+            "completed_bytes": sum(delta["sum"] for delta in deltas.values()),
+            "completed_transfers": sum(delta["count"] for delta in deltas.values()),
+        }
+        reconciliations[mode] = reconciliation
+        if trace_enabled:
+            _save_json(run_dir / "blend-receipts" / "native-timeline.json",
+                       trace_view(groups, len(names), None, lmcache_enabled=True))
 
     if requests["seed-exact"]["prompt_sha256"] != requests["exact"]["prompt_sha256"]:
-        raise ValueError("The exact seed and repeat traces have different prompt hashes")
+        raise ValueError("The exact seed and repeat have different prompt hashes")
     summary = {
         "status": "passed",
         "topology": topology,
+        "engine_trace_enabled": trace_enabled,
         "lmcache_server_endpoint": server_endpoint,
         "cases": requests,
         "nixl_reconciliation_by_phase": reconciliations,
@@ -275,7 +340,9 @@ def verify_topology(directory, topology, cases):
             requests["seed-exact"]["output_token_ids_sha256"] == requests["exact"]["output_token_ids_sha256"]
         ),
         "measurement_scope": {
-            "p_scheduler_prompt_tokens": "Native vLLM scheduler token positions; excludes private repair instrumentation.",
+            "p_scheduler_prompt_tokens": "Native vLLM scheduler token positions." if trace_enabled else None,
+            "request_level_trace": "captured" if trace_enabled else "unavailable_trace_disabled",
+            "nixl_aggregate": "Native counters per worker and phase.",
             "lmcache_counter_delta": "Server-wide counters bracketed around one serial request.",
             "private_blend_repair_token_positions": None,
             "private_blend_scatter_bytes": None,

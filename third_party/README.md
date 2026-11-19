@@ -38,3 +38,7 @@ python3 scripts/vllm_pd_prepare.py --export
 ```
 
 Carry `vllm-native-pd.bundle` and `vllm-fork.json` with the experiment repo. The prepare command can fast-forward a clean local branch to a newer bundled commit. The launcher records the current local commit, tree, and any working-tree changes to identify the source measured. [Allocation runbook](../docs/vllm-native-pd-runbook.md)
+
+## Editable LMCache fork
+
+`scripts/lmcache_pd_prepare.py` restores the no-remote LMCache fork from `lmcache-pd.bundle` and verifies its [source receipt](lmcache-pd-fork.json). The source gates `EVIDENCESTORE_TRACE_LMCACHE_TRANSFERS=1` and `EVIDENCESTORE_TRACE_LMCACHE_BLEND=1` enable ordinary transfer and Blend lookup and scatter events, respectively. The Blend smoke sets both gates with its `--trace` option. [Blend smoke runbook](../docs/vllm-native-pd-runbook.md#switch-prefix-prefill-to-blend-on-one-lmcache-server)

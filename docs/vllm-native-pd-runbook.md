@@ -253,10 +253,10 @@ python3 scripts/vllm_pd_blend_smoke.py --prepare-only \
   --run-root "/tmp/musique-blend-prompts-$(date -u +%Y%m%dT%H%M%SZ)"
 ```
 
-For the GPU smoke, use an idle four-GPU allocation and a verified runtime from current `main` in node-local scratch. Install the approved `lmcache-cacheblend` plugin compatible with the pinned vLLM and LMCache. Record the plugin version and artifact digest with the runtime receipt. Use the previous in-process run card for a historical 1B/3D reproduction. The previous run's separate prefix and Blend caches cannot establish this cross-mode restore. [LMCache plugin setup](https://docs.lmcache.ai/mp/operator.html#deploying-a-cacheblendengine) · [Previous Full Blend run card](../../context_pilot_paper/docs/evidencestore/implementation/scheduler_v2_phase2_native_and_three_modes_run_card.md#full-blend-flow-and-pressure-behavior)
+For the GPU smoke, use an idle four-GPU allocation and a verified runtime from current `main` in node-local scratch. Build the runtime with `EVIDENCESTORE_LMCACHE_TRACE=1` and use that build for both trace settings. Install the approved `lmcache-cacheblend` plugin compatible with the pinned vLLM and LMCache. Record the plugin version and artifact digest with the runtime receipt. Use the previous in-process run card for a historical 1B/3D reproduction. The previous run's separate prefix and Blend caches cannot establish this cross-mode restore. [LMCache plugin setup](https://docs.lmcache.ai/mp/operator.html#deploying-a-cacheblendengine) · [Previous Full Blend run card](../../context_pilot_paper/docs/evidencestore/implementation/scheduler_v2_phase2_native_and_three_modes_run_card.md#full-blend-flow-and-pressure-behavior)
 
 ```bash
-if "$PYTHON" "$REPO/scripts/vllm_pd_blend_smoke.py" \
+if "$PYTHON" "$REPO/scripts/vllm_pd_blend_smoke.py" --trace on \
     --run-root "$REPO/reports/runs/blend-smoke-${SLURM_JOB_ID}-$(date -u +%Y%m%dT%H%M%SZ)"; then
   printf 'Shared-cache Blend smoke passed.\n'
 else
@@ -264,7 +264,9 @@ else
 fi
 ```
 
-Add `--topology 1p3d` or `--topology 2p2d` to run an individual layout. The exact probe verifies prefix restore. The shifted probe uses evidence from a separate P seed and requires a non-prefix hit and successful scatter. Review those cache metrics alongside the full NIXL receipts. The GPU smoke verifies the restore path and native request and transfer measurements. Per-layer repair positions and exact Blend scatter bytes require telemetry from the compatible plugin and server path.
+Add `--topology 1p3d` or `--topology 2p2d` to run an individual layout. `--trace on` is the default. It records the client and gateway timeline, vLLM scheduler work and CUDA batch times, native NIXL transfers, and LMCache lookups and completions. The exact probe verifies prefix restore. The shifted probe uses evidence from a separate P seed and requires a non-prefix hit and successful scatter. In each topology directory, `lmcache-request-trace.jsonl` joins cache events to native request IDs and maps completed host-to-GPU payload and old and new token ranges to evidence spans. Per-layer repair positions inside the private connector remain unavailable.
+
+Run the same command in a fresh output directory with `--trace off` to disable these detailed traces. Check the output hashes and cases in `blend-summary.json` and the aggregate NIXL counters and LMCache reuse checks in either mode. Trace-off reports leave request-level transfer and scheduler measurements unavailable.
 
 ## 1. Prepare the runtime and the inputs
 

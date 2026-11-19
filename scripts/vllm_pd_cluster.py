@@ -62,6 +62,8 @@ def arguments() -> argparse.Namespace:
     parser.add_argument("--topology", choices=TOPOLOGIES, default="1p3d")
     parser.add_argument("--prefix-cache", choices=("off", "on"), default="off")
     parser.add_argument("--trace", choices=("off", "on"), default="on", help="gate native source instrumentation")
+    parser.add_argument("--minimum-nixl-reads", type=int, default=0,
+                        help="wait for this many new decode reads after a successful workload")
     parser.add_argument("--model", default=MODEL)
     parser.add_argument("--revision", default=REVISION)
     parser.add_argument("--source", type=Path, default=SOURCE)
@@ -105,8 +107,13 @@ def arguments() -> argparse.Namespace:
         parser.error("--trace-lmcache-transfers requires --lmcache and --trace on")
     if args.trace_lmcache_transfers and args.prefill_mode:
         parser.error("--prefill-mode pilots use blend-server counters and do not support --trace-lmcache-transfers")
+    if args.minimum_nixl_reads < 0 or (args.minimum_nixl_reads and not args.client):
+        parser.error("--minimum-nixl-reads requires a workload and a nonnegative count")
+    args.trace_blend_server = bool(args.prefill_mode and not args.external_lmcache and args.trace == "on")
     if args.lmcache_source is None:
-        args.lmcache_source = LMCACHE_TRACE_SOURCE if args.trace_lmcache_transfers else LMCACHE_SOURCE
+        args.lmcache_source = LMCACHE_TRACE_SOURCE if args.trace_lmcache_transfers or args.trace_blend_server else LMCACHE_SOURCE
+    if args.trace_blend_server and args.lmcache_source.expanduser().resolve() != LMCACHE_TRACE_SOURCE.resolve():
+        parser.error("For a traced Blend server, install and use the verified LMCache trace fork")
     if args.max_model_len < 16 or args.max_num_seqs < 1:
         parser.error("max-model-len must be at least 16 and max-num-seqs must be positive")
     if (not 0 < args.gpu_memory_utilization <= 1 or not math.isfinite(args.startup_timeout)
@@ -251,9 +258,12 @@ def lmcache_command(args: argparse.Namespace) -> list[str]:
 
 
 def lmcache_env(args: argparse.Namespace, workers: list[Worker]) -> dict[str, str]:
+    trace_transfers = args.trace_lmcache_transfers or args.trace_blend_server
     env = {"CUDA_VISIBLE_DEVICES": ",".join(worker.gpu for worker in workers if uses_lmcache(args, worker.role)),
-           "EVIDENCESTORE_TRACE_LMCACHE_TRANSFERS": "1" if args.trace_lmcache_transfers else "0"}
-    if args.trace_lmcache_transfers:
+           "EVIDENCESTORE_TRACE_LMCACHE_TRANSFERS": "1" if trace_transfers else "0"}
+    if args.prefill_mode:
+        env["EVIDENCESTORE_TRACE_LMCACHE_BLEND"] = "1" if args.trace_blend_server else "0"
+    if trace_transfers:
         env.update(EVIDENCESTORE_TRACE_DIR=str(args.run_dir / "trace"), EVIDENCESTORE_RUN_ID=args.run_dir.name)
     return env
 
@@ -476,11 +486,13 @@ def stop_children(children: list[Child]) -> dict:
             "exit_status": {child.name: child.process.poll() for child in children}}
 
 
-def capture_metrics(run_dir: Path, period: str) -> None:
+def capture_metrics(run_dir: Path, period: str, *, minimum_nixl_reads: int = 0) -> None:
+    command = [sys.executable, str(ROOT / "scripts/vllm_pd_report.py"), "--run-dir", str(run_dir), "--capture", period]
+    if minimum_nixl_reads:
+        command.extend(("--minimum-nixl-reads", str(minimum_nixl_reads)))
     with (run_dir / "logs" / f"metrics-{period}.log").open("x", encoding="utf-8") as log:
         subprocess.run(
-            [sys.executable, str(ROOT / "scripts/vllm_pd_report.py"), "--run-dir", str(run_dir),
-             "--capture", period],
+            command,
             cwd=ROOT, stdout=log, stderr=subprocess.STDOUT, check=True,
             env={**os.environ, "NO_PROXY": "localhost,127.0.0.1", "no_proxy": "localhost,127.0.0.1"},
         )
@@ -621,14 +633,19 @@ def run(args: argparse.Namespace) -> int:
         }
     if args.prefill_mode:
         manifest["prefill_mode"] = args.prefill_mode
+        manifest["request_trace_enabled"] = args.trace == "on"
         manifest["lmcache"].update(
             server_engine="blend", server_ownership="external" if args.external_lmcache else "launcher",
             blend_plugin=identity["blend_plugin"],
+            blend_trace_enabled=None if args.external_lmcache else args.trace_blend_server,
         )
     write_json(args.run_dir / "run_manifest.json", manifest)
 
     children: list[Child] = []
     stopped = False
+    http_env = {"NO_PROXY": "localhost,127.0.0.1", "no_proxy": "localhost,127.0.0.1"}
+    if args.prefill_mode:
+        http_env["EVIDENCESTORE_TRACE_REQUESTS"] = "1" if args.trace == "on" else "0"
 
     def stop(_signal, _frame):
         nonlocal stopped
@@ -661,7 +678,7 @@ def run(args: argparse.Namespace) -> int:
         children.append(start(
             "router", [sys.executable, str(ROOT / "scripts/vllm_pd_gateway.py"), "--run-dir",
                        str(args.run_dir), "--port", str(args.port)],
-            {"NO_PROXY": "localhost,127.0.0.1", "no_proxy": "localhost,127.0.0.1"}, args.run_dir,
+            http_env, args.run_dir,
         ))
         await_health({"router": router}, children, 30, lambda: stopped)
         print(f"Native PD ready at {router} in {args.run_dir}", flush=True)
@@ -672,7 +689,7 @@ def run(args: argparse.Namespace) -> int:
             client = start(
                 "workload", args.client,
                 {"EVIDENCESTORE_RUN_DIR": str(args.run_dir), "EVIDENCESTORE_GATEWAY": router,
-                 "NO_PROXY": "localhost,127.0.0.1", "no_proxy": "localhost,127.0.0.1"},
+                 **http_env},
                 args.run_dir,
             )
             children.append(client)
@@ -681,7 +698,7 @@ def run(args: argparse.Namespace) -> int:
                 time.sleep(0.2)
             if not stopped:
                 status = client.process.returncode or 0
-                capture_metrics(args.run_dir, "after")
+                capture_metrics(args.run_dir, "after", minimum_nixl_reads=args.minimum_nixl_reads if not status else 0)
                 if status:
                     print(f"Workload exited with {status}; see {client.log}", file=sys.stderr)
         else:
