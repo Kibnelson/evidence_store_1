@@ -8,7 +8,7 @@ The default is **1P/3D**. The **2P/2D** arm reassigns one GPU from decode to pre
 
 Run section 0 on the cluster login node. Run section 1 onward from the compute-node shell of **one single-node Slurm allocation with four GPUs**. The launcher supervises its workers, gateway, and workload inside that allocation. Startup, both layouts, dataset ingestion and replay, shutdown, and reporting all use the same allocation. The earlier run card supplies the model, runtime settings, and frozen input format. [Prior native PD run card](../../context_pilot_paper/docs/evidencestore/implementation/scheduler_v2_phase2_native_and_three_modes_run_card.md)
 
-For a smoke-only run, follow [login and allocation](#0-prepare-the-login-shell-and-request-the-allocation), [runtime setup](#1-prepare-the-runtime-and-the-inputs), and [FiQA smoke](#one-dataset-smoke). After both smoke receipts pass, you can [save the receipts](#3-check-the-receipts-in-the-allocation) or continue to the [full dataset inputs](#dataset-inputs).
+For the new per-chunk instrumentation, follow the [MuSiQue chunk smoke from a fresh login shell](#musique-chunk-smoke-from-a-fresh-login-shell). For the original FiQA smoke, follow [login and allocation](#0-prepare-the-login-shell-and-request-the-allocation), [runtime setup](#1-prepare-the-runtime-and-the-inputs), and [FiQA smoke](#one-dataset-smoke). After both FiQA smoke receipts pass, you can [save the receipts](#3-check-the-receipts-in-the-allocation) or continue to the [full dataset inputs](#dataset-inputs).
 
 ## What carries over from the earlier run
 
@@ -106,6 +106,79 @@ Paste the complete block into the verified login Bash shell. Once the `gpu-grad-
     --gpus=4 -c 16 --mem=192G -t 12:00:00 --pty bash -l
 )
 ```
+
+## MuSiQue chunk smoke from a fresh login shell
+
+Start here when the previous job has ended and `pwd` prints `/home/2023/nbore/evidence_store_1` at the login prompt. This smoke runs seven live MuSiQue requests and four controlled probes in each 2P/2D cohort. It builds the trace-enabled LMCache runtime inside the new allocation and checks both cohorts before the full MuSiQue rerun. [What the smoke must prove](datasets/musique.md#what-must-pass)
+
+### Request a new allocation
+
+From `bash-5.1$` on the login node, load Slurm and request four GPUs on the same node as the earlier run.
+
+```bash
+if [[ -n "${SLURM_JOB_ID:-}" ]]; then
+  printf 'Already inside job %s. Continue with the compute-node step.\n' "$SLURM_JOB_ID"
+elif module load slurm && srun --version; then
+  srun -p all -A oana2026 -q research12h -N 1 -w gpu-grad-01 \
+    --gpus=4 -c 16 --mem=192G -t 12:00:00 --pty bash -l ||
+    printf 'Slurm step ended with an error. Check the output above.\n' >&2
+fi
+```
+
+### Clone and build on the compute node
+
+Wait for the `gpu-grad-01` shell. The checkout and build below use node-local scratch, including Git objects, the venv, and dependency caches. This keeps the setup outside the home checkout that hit its quota during publication.
+
+```bash
+if [[ -n "${SLURM_JOB_ID:-}" ]] &&
+    node_scratch="/tmp/$(id -un)" &&
+    mkdir -p "$node_scratch" &&
+    [[ -O "$node_scratch" && ! -L "$node_scratch" ]] &&
+    smoke_source=$(mktemp -d "$node_scratch/musique-source-${SLURM_JOB_ID}.XXXXXX") &&
+    git clone --depth=1 --branch main --no-tags \
+      https://github.com/Kibnelson/evidence_store_1.git "$smoke_source" &&
+    test -s "$smoke_source/third_party/lmcache-pd.bundle" &&
+    test -r "$smoke_source/scripts/vllm_pd_chunk_smoke.sh" &&
+    git -C "$smoke_source" rev-parse --short HEAD &&
+    env -u CUDA_HOME EVIDENCESTORE_LMCACHE_TRACE=1 \
+      bash "$smoke_source/scripts/vllm_pd_runtime.sh"; then
+  printf 'Run the exact source command printed above in this allocation shell.\n'
+else
+  printf 'Setup stopped. Check the error above and the runtime check/setup.log if it was created.\n' >&2
+fi
+```
+
+Setup succeeds when it prints `Runtime verified` followed by a `source` command. Run that exact command in the `gpu-grad-01` shell. It activates the new scratch runtime and sets `REPO`, `PYTHON`, and `PD_EXEC_ROOT`.
+
+### Run the MuSiQue smoke
+
+This uses the previous MuSiQue index if its files are still on `gpu-grad-01`. Otherwise it stages the pinned development split and builds the full MuSiQue index before replaying the small sample. `MUSIQUE_PREPARED` can point to another retained full index and its prepared inputs.
+
+```bash
+prior_musique="/tmp/$(id -un)/espd-30450.wi1VL0/repo/reports/runs/native-vllm-30453-20261119T031129Z/data/musique"
+retained_musique="${MUSIQUE_PREPARED:-$prior_musique}"
+if (
+  unset MUSIQUE_PREPARED MUSIQUE_DEV
+  if [[ -r "$retained_musique/manifest.json" &&
+        -r "$retained_musique/corpus.jsonl" &&
+        -r "$retained_musique/queries.jsonl" &&
+        -r "$retained_musique/index/manifest.json" &&
+        -r "$retained_musique/index/index.faiss" &&
+        -r "$retained_musique/index/chunks.jsonl" ]]; then
+    MUSIQUE_PREPARED="$retained_musique" bash "$REPO/scripts/vllm_pd_chunk_smoke.sh"
+  elif musique_dev=$("$PYTHON" "$REPO/scripts/vllm_pd_stage_inputs.py" musique "$PD_EXEC_ROOT/chunk-inputs"); then
+    MUSIQUE_DEV="$musique_dev" bash "$REPO/scripts/vllm_pd_chunk_smoke.sh"
+  else
+    exit 1
+  fi
+); then
+  printf 'Both MuSiQue smoke cohorts passed. Review the receipts before the full rerun.\n'
+else
+  printf 'Smoke stopped. The allocation shell is still open for inspection.\n' >&2
+fi
+```
+
+Use the path printed after `MuSiQue chunk smoke artifacts`. Under that run, review `2p2d-native/chunk-review/summary.json` and `2p2d-shared/chunk-review/summary.json`. The `probe_cases` section shows prefill token work, completed NIXL bytes, and LMCache staging bytes for the four controlled requests. The paired-input check verifies the seven live requests before the driver prints `MuSiQue chunk smoke passed`. Set `RUN_ROOT` to the printed artifact path before copying the run and setup receipts with [section 3](#3-check-the-receipts-in-the-allocation). [MuSiQue acceptance checks](datasets/musique.md#what-must-pass)
 
 ## 1. Prepare the runtime and the inputs
 

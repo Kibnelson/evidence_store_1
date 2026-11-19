@@ -118,21 +118,7 @@ The new trace records each retained chunk's corpus-row read and bytes, prompt ap
 
 ### Run inside the Slurm allocation
 
-Start a four-GPU job using the runbook. Use a current Git checkout as the runtime source. If home-directory quota blocks a pull, clone `main` into node-local scratch once the compute shell opens and run the setup from that checkout. [Allocation steps](../vllm-native-pd-runbook.md#03-request-the-four-gpu-allocation)
-
-```bash
-EVIDENCESTORE_LMCACHE_TRACE=1 bash scripts/vllm_pd_runtime.sh
-```
-
-Source the `activate.sh` command printed by setup. Reuse a full prepared MuSiQue directory by setting `MUSIQUE_PREPARED` to it, or stage the pinned development split and run the smoke in the same allocation.
-
-```bash
-if musique_dev=$("$PYTHON" "$REPO/scripts/vllm_pd_stage_inputs.py" musique "$PD_EXEC_ROOT/chunk-inputs"); then
-  if MUSIQUE_DEV="$musique_dev" bash "$REPO/scripts/vllm_pd_chunk_smoke.sh"; then
-    printf 'MuSiQue chunk smoke passed.\n'
-  fi
-fi
-```
+Use the fresh-job runbook to allocate four GPUs, clone and build on node-local scratch, stage or reuse the MuSiQue index, and run the smoke. [MuSiQue chunk smoke from a fresh login shell](../vllm-native-pd-runbook.md#musique-chunk-smoke-from-a-fresh-login-shell)
 
 ### What must pass
 
