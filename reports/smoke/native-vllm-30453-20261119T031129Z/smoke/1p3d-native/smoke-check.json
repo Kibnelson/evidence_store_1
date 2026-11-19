@@ -1,0 +1,46 @@
+{
+  "status": "passed",
+  "sample": {
+    "requests": 10,
+    "isolated_requests": [
+      "mtrag:4a8369b7403e54df94d7fa495a4eff27<::>1",
+      "mtrag:8040ccdfc0a0ffb8e3f82d94f92ddb5c<::>1"
+    ],
+    "conversations": [
+      {
+        "id": "2f94b6fb4c6f941decd0609eb126610b",
+        "request_keys": [
+          "mtrag:2f94b6fb4c6f941decd0609eb126610b<::>1",
+          "mtrag:2f94b6fb4c6f941decd0609eb126610b<::>2",
+          "mtrag:2f94b6fb4c6f941decd0609eb126610b<::>3",
+          "mtrag:2f94b6fb4c6f941decd0609eb126610b<::>4"
+        ]
+      },
+      {
+        "id": "a6eab3f851684c4ba01ae141ce590342",
+        "request_keys": [
+          "mtrag:a6eab3f851684c4ba01ae141ce590342<::>1",
+          "mtrag:a6eab3f851684c4ba01ae141ce590342<::>2",
+          "mtrag:a6eab3f851684c4ba01ae141ce590342<::>3",
+          "mtrag:a6eab3f851684c4ba01ae141ce590342<::>4"
+        ]
+      }
+    ],
+    "corpus_rows": 83,
+    "reference_passages": 19,
+    "queries_sha256": "c513fd16f35ebce700c7b4603f111830ed78b731f372a914a408f289a6149347",
+    "corpus_sha256": "8e0210112ef5c3c77d355c883ba017407522c9e2349216ad6024f1814c0eef5e"
+  },
+  "request_ids": {
+    "mtrag:4a8369b7403e54df94d7fa495a4eff27<::>1": "pd-3e9f6bd1628270539fae2207",
+    "mtrag:8040ccdfc0a0ffb8e3f82d94f92ddb5c<::>1": "pd-724fadd6a713cff80dd17a1d",
+    "mtrag:2f94b6fb4c6f941decd0609eb126610b<::>1": "pd-4202e86ff3f9e3d1ef996ce9",
+    "mtrag:2f94b6fb4c6f941decd0609eb126610b<::>2": "pd-8c07f56cbe5d8d88237f85d3",
+    "mtrag:2f94b6fb4c6f941decd0609eb126610b<::>3": "pd-9fa55eaec0474d3d47e59505",
+    "mtrag:2f94b6fb4c6f941decd0609eb126610b<::>4": "pd-fcb188b941778620f07bd615",
+    "mtrag:a6eab3f851684c4ba01ae141ce590342<::>1": "pd-0d9531082642311c591c5df5",
+    "mtrag:a6eab3f851684c4ba01ae141ce590342<::>2": "pd-0ddf1ff6290d18910ef838fc",
+    "mtrag:a6eab3f851684c4ba01ae141ce590342<::>3": "pd-82d1c8ffb7833546d36345a3",
+    "mtrag:a6eab3f851684c4ba01ae141ce590342<::>4": "pd-7cc97f1b14ea8f7fa89bc72f"
+  }
+}

@@ -1,0 +1,94 @@
+{
+  "engine_trace_enabled": true,
+  "gpu_event_timing": true,
+  "unexpected_engine_events": 0,
+  "requests": 19,
+  "requests_by_phase": {
+    "measured": 19
+  },
+  "datasets": {
+    "fixture": 9,
+    "mtrag": 10
+  },
+  "routes": {
+    "p0\u2192d0": 7,
+    "p0\u2192d1": 6,
+    "p0\u2192d2": 6
+  },
+  "missing_routes": [],
+  "incomplete_requests": [],
+  "unjoined": {},
+  "gpu_by_worker": {
+    "d0": {
+      "timed_batches": 224,
+      "batch_gpu_time_ns": 8673376548
+    },
+    "d1": {
+      "timed_batches": 192,
+      "batch_gpu_time_ns": 7438103343
+    },
+    "d2": {
+      "timed_batches": 192,
+      "batch_gpu_time_ns": 7560381141
+    },
+    "p0": {
+      "timed_batches": 19,
+      "batch_gpu_time_ns": 3018057792
+    }
+  },
+  "full_nixl_handoff_required": true,
+  "nixl_handoff_statuses": {
+    "full": 19
+  },
+  "nixl_reconciliation": {
+    "status": "matched",
+    "workers": {
+      "p0": {
+        "prometheus": {
+          "sum": 0,
+          "count": 0
+        },
+        "trace": {
+          "sum": 0,
+          "count": 0
+        },
+        "matched": true
+      },
+      "d0": {
+        "prometheus": {
+          "sum": 1210318848,
+          "count": 7
+        },
+        "trace": {
+          "sum": 1210318848,
+          "count": 7
+        },
+        "matched": true
+      },
+      "d1": {
+        "prometheus": {
+          "sum": 1174929408,
+          "count": 6
+        },
+        "trace": {
+          "sum": 1174929408,
+          "count": 6
+        },
+        "matched": true
+      },
+      "d2": {
+        "prometheus": {
+          "sum": 1177288704,
+          "count": 6
+        },
+        "trace": {
+          "sum": 1177288704,
+          "count": 6
+        },
+        "matched": true
+      }
+    }
+  },
+  "lmcache": null,
+  "issues": []
+}

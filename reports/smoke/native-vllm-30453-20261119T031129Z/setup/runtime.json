@@ -1,0 +1,13 @@
+2026-11-18 21:47:25 NIXL INFO    _api.py:281 Initialized NIXL agent: pd-preflight-213428
+2026-11-18 21:47:26 NIXL INFO    _api.py:405 Backend UCX was instantiated
+{
+  "vllm": "0.1.dev3+gfb42da53d.precompiled",
+  "nixl": "1.5.2",
+  "lmcache": "0.1.dev1",
+  "torch": "2.14.0+cu132",
+  "torch_cuda": "13.2",
+  "ucx_memory_types": [
+    "DRAM_SEG",
+    "VRAM_SEG"
+  ]
+}

@@ -1,0 +1,1 @@
+Managed Python verified: 3.12.14 at /tmp/nbore/espd-30450.wi1VL0/uv-python/cpython-3.12.14-linux-x86_64-gnu/bin/python3.12

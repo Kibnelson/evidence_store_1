@@ -1,0 +1,317 @@
+{
+  "schema_version": 1,
+  "run_id": "native-vllm-30453-20261119T031129Z",
+  "topology": "1p3d",
+  "cohorts": {
+    "native": {
+      "controlled_requests": 9,
+      "fiqa_requests": 10,
+      "nixl_counters": "matched",
+      "vllm_commit": "d03cffa9407114620e4dfe11058d88f882f88149"
+    },
+    "shared": {
+      "controlled_requests": 9,
+      "fiqa_requests": 10,
+      "nixl_counters": "matched",
+      "vllm_commit": "d03cffa9407114620e4dfe11058d88f882f88149"
+    }
+  },
+  "files": {
+    "e5-model.txt": {
+      "bytes": 61,
+      "sha256": "32fdec9019729d09f68699efadb968f8244380b8a8b5c3115dd43bc1f5063088"
+    },
+    "python-packages.txt": {
+      "bytes": 5345,
+      "sha256": "653414247567ad72f12795514cd48fb1b3aac5b17cf7f8ebca9461810b650dfa"
+    },
+    "setup/cuda-toolkit.txt": {
+      "bytes": 316,
+      "sha256": "faed76555bc9bcd86425b7b2db5d3dba4f51845b6f724849b118cdb1864ea474"
+    },
+    "setup/experiment-source-refresh-30453.txt": {
+      "bytes": 41,
+      "sha256": "e60b840bea2ecfa6c77097f8396e16e96997665a272dbd2b5a6352a05c757931"
+    },
+    "setup/experiment-source.txt": {
+      "bytes": 41,
+      "sha256": "5492c63f3c63d5fcecbcaabe9b2eaa538aad14ee3f287cbd0bf56fd1ba521fe9"
+    },
+    "setup/python.txt": {
+      "bytes": 123,
+      "sha256": "3abe9c7e7cc4ced52a40d9d36bb475046ef096d7162b35d510fb01814191891d"
+    },
+    "setup/runtime.json": {
+      "bytes": 366,
+      "sha256": "07a6bc13036237e61553a0f07ce4d8679eb7623332ad9eb307752235d25a81b5"
+    },
+    "setup/vllm-build.txt": {
+      "bytes": 82,
+      "sha256": "0d5bf53d3f58466724e3188463281854bff830f389a8032ae26e17fd4982a826"
+    },
+    "smoke/1p3d-native/cleanup.json": {
+      "bytes": 206,
+      "sha256": "27e6e5e1370b97d46eee04bc75efb9d6f2aa6d8979b6d2c200ca9b2712195230"
+    },
+    "smoke/1p3d-native/client/controlled/manifest.json": {
+      "bytes": 503,
+      "sha256": "312813496cbd0c3cd3b8a88b9762a764fd063424390f910ad6c510fe3d7c6f0f"
+    },
+    "smoke/1p3d-native/client/mtrag-smoke/manifest.json": {
+      "bytes": 1061,
+      "sha256": "6d3b44708db0b049c13d5a89563ef8dc8e2bc563b68da491ceb65ea7a4665e3a"
+    },
+    "smoke/1p3d-native/endpoints.json": {
+      "bytes": 312,
+      "sha256": "3d27874753189202f9197abab91134b37a668d8a7a8734d97ca3526abb51ef6e"
+    },
+    "smoke/1p3d-native/metrics-after.json": {
+      "bytes": 290,
+      "sha256": "a355485f5e6a7319f65ca02ff0c05fcd1e0856bd792f4238b722e4fdea947e72"
+    },
+    "smoke/1p3d-native/metrics-before.json": {
+      "bytes": 263,
+      "sha256": "74c3ff75c12878675cac45ab6ba589a4a56550644749d89ed17bc8b7a829f304"
+    },
+    "smoke/1p3d-native/native-metrics-after-d0.prom": {
+      "bytes": 75968,
+      "sha256": "36366c59603d4bbafd34d95fb5a00c83ae80c0c536d0c9658a696d6eae20c703"
+    },
+    "smoke/1p3d-native/native-metrics-after-d1.prom": {
+      "bytes": 75964,
+      "sha256": "2b7545d6b0043597d15e53eb6f95a6d9615d8f772092c082af4e81d3ef644cca"
+    },
+    "smoke/1p3d-native/native-metrics-after-d2.prom": {
+      "bytes": 75958,
+      "sha256": "7e43e7f3448049fa0caaa3c114ab2d7c0b0af7b48b4ff121324b25ce010ccf9d"
+    },
+    "smoke/1p3d-native/native-metrics-after-p0.prom": {
+      "bytes": 75397,
+      "sha256": "80cf9c4a897877ccdd397b02e33b5cd68831fac034e3c286460cf35bc1600503"
+    },
+    "smoke/1p3d-native/native-metrics-before-d0.prom": {
+      "bytes": 70786,
+      "sha256": "5cb4995e227933dc36b4c59c153899bf0d7a54ab064539db10e02da511756f32"
+    },
+    "smoke/1p3d-native/native-metrics-before-d1.prom": {
+      "bytes": 70768,
+      "sha256": "6f7837498f1733f2f0a7510f5dbb1f737fb7210ad53eaa23078d7f7271f89129"
+    },
+    "smoke/1p3d-native/native-metrics-before-d2.prom": {
+      "bytes": 70765,
+      "sha256": "25f6e9f22c89c2ca10d3f69f3f1687830fec52d76fa406c08e8f507ed7927be4"
+    },
+    "smoke/1p3d-native/native-metrics-before-p0.prom": {
+      "bytes": 70074,
+      "sha256": "0888abe6e944e993dc39a469e9a44d59b2da8ec519a0820f207bd197a5a2147d"
+    },
+    "smoke/1p3d-native/requests.jsonl": {
+      "bytes": 100679,
+      "sha256": "fe30d9e78f16ae3c0d3268804451f429957bb4861046410d0bc8c3cf080a8f51"
+    },
+    "smoke/1p3d-native/run_manifest.json": {
+      "bytes": 8523,
+      "sha256": "3e9716f73bcf5a7e487ba9740bb11e9531ea1365ee2d68cfdcc21f113f4b2a73"
+    },
+    "smoke/1p3d-native/smoke-check.json": {
+      "bytes": 1966,
+      "sha256": "d7cfac0895d2b254ab80697fe3d645ff3635abc458718c18a0919ec1743e95de"
+    },
+    "smoke/1p3d-native/summary.json": {
+      "bytes": 1765,
+      "sha256": "dc55c0874eecf28dc9dc6575dcaabbd4e35e6402cd84d7b2c09323f557fe4bac"
+    },
+    "smoke/1p3d-native/timeline.json": {
+      "bytes": 2192028,
+      "sha256": "b0fdb5bc623bc66763799b4c78eede6df98fc42cedc933f4810398a22448a59e"
+    },
+    "smoke/1p3d-native/trace/client-216510.jsonl": {
+      "bytes": 178800,
+      "sha256": "31d56a4dc31a145f120fee3332a87101720b1a1b54d56b5b6f896f7d5f8d1ba1"
+    },
+    "smoke/1p3d-native/trace/client-216528.jsonl": {
+      "bytes": 270800,
+      "sha256": "07bf44f8a5264fb4f4ecd2b32ed7881bc11ad2cb34432ec8105f77feb552d723"
+    },
+    "smoke/1p3d-native/trace/gateway-216499.jsonl": {
+      "bytes": 95091,
+      "sha256": "13a14ed57ca34126591bdca8cf1d27e2e8036fd7a5b3df10ad9e90dad65ed2cc"
+    },
+    "smoke/1p3d-native/trace/vllm-d0-215556.jsonl": {
+      "bytes": 2590,
+      "sha256": "a5cceb44750ea9c1d53de8b0246b41299cea7bf5d2e840e3dcb5c8e7e677d7d4"
+    },
+    "smoke/1p3d-native/trace/vllm-d0-215802.jsonl": {
+      "bytes": 365056,
+      "sha256": "486028dfbddff8456e5332e04ed8e2e5a92cbcf30130049abf4f66edde42685a"
+    },
+    "smoke/1p3d-native/trace/vllm-d1-215557.jsonl": {
+      "bytes": 2220,
+      "sha256": "4b68cea99ef02693994f49e9d2289a2ff660d9b143d80909fa26c5992d922a62"
+    },
+    "smoke/1p3d-native/trace/vllm-d1-215816.jsonl": {
+      "bytes": 312935,
+      "sha256": "ee034c82200749618b5337f9ee7c601d194676dcabde87b40ddf426d28283477"
+    },
+    "smoke/1p3d-native/trace/vllm-d2-215558.jsonl": {
+      "bytes": 2220,
+      "sha256": "e5e6956a668f492f439c3e48deb4023311b823b6751c8ec0a516904153406e73"
+    },
+    "smoke/1p3d-native/trace/vllm-d2-215823.jsonl": {
+      "bytes": 312933,
+      "sha256": "e67eec6c9d8062444c99c21fb5228b5bb6bb9a95a158eec307dcf735c036a66c"
+    },
+    "smoke/1p3d-native/trace/vllm-p0-215555.jsonl": {
+      "bytes": 7030,
+      "sha256": "71632a607a9a1016d0b8d927d19b714c5c8e311cbd7130dbd8517bceb0b5b94e"
+    },
+    "smoke/1p3d-native/trace/vllm-p0-215815.jsonl": {
+      "bytes": 63647,
+      "sha256": "962b4803ef0b543b7db68ac107283830534dbb11db4cc4dec455dc60f57605cb"
+    },
+    "smoke/1p3d-shared/cleanup.json": {
+      "bytes": 226,
+      "sha256": "9e56bc995c0280975fcf8ba6c7e18d69810a9efe4f20f6d523807df40a6b8423"
+    },
+    "smoke/1p3d-shared/client/controlled/manifest.json": {
+      "bytes": 503,
+      "sha256": "312813496cbd0c3cd3b8a88b9762a764fd063424390f910ad6c510fe3d7c6f0f"
+    },
+    "smoke/1p3d-shared/client/mtrag-smoke/manifest.json": {
+      "bytes": 1061,
+      "sha256": "6d3b44708db0b049c13d5a89563ef8dc8e2bc563b68da491ceb65ea7a4665e3a"
+    },
+    "smoke/1p3d-shared/endpoints.json": {
+      "bytes": 388,
+      "sha256": "eeb882e1169b66c228ec5c4677e8ad598cfee7a9b594cd84141101cb96c1ecd2"
+    },
+    "smoke/1p3d-shared/lmcache-metrics-after.prom": {
+      "bytes": 14994,
+      "sha256": "588d362736b41ebcbe79dfd8f5bad7099cee12c6c523f10d7c489618905cbf97"
+    },
+    "smoke/1p3d-shared/lmcache-metrics-before.prom": {
+      "bytes": 4656,
+      "sha256": "76916e94717efe58e48b2bf79b13b57cf34a8b50384bae5cbbadab4e4ab1c7c1"
+    },
+    "smoke/1p3d-shared/lmcache-status.json": {
+      "bytes": 11038,
+      "sha256": "1a1512ad317f7aa2a188b1f96ee851fc8ed48be309ad9350039d7791ad944881"
+    },
+    "smoke/1p3d-shared/metrics-after.json": {
+      "bytes": 290,
+      "sha256": "4b9a032ed7f1e9878ed13858ef6c340fc2b7ef432bbf5f247bc70cf4e616ca7e"
+    },
+    "smoke/1p3d-shared/metrics-before.json": {
+      "bytes": 263,
+      "sha256": "74c3ff75c12878675cac45ab6ba589a4a56550644749d89ed17bc8b7a829f304"
+    },
+    "smoke/1p3d-shared/native-metrics-after-d0.prom": {
+      "bytes": 78321,
+      "sha256": "5e589287b6041b5a38c7584f820da5532911584f7a1b9231e4e3965b7f540c10"
+    },
+    "smoke/1p3d-shared/native-metrics-after-d1.prom": {
+      "bytes": 78333,
+      "sha256": "9e763389a8d3fe5a080bcaad16a9ccb7d8a86472e3cb2c7176797a0e87a40a7e"
+    },
+    "smoke/1p3d-shared/native-metrics-after-d2.prom": {
+      "bytes": 78340,
+      "sha256": "f37c7b7d905a74bdeef1240f54399e30a2434c414a6d26abcbe54afa5885ede6"
+    },
+    "smoke/1p3d-shared/native-metrics-after-p0.prom": {
+      "bytes": 78477,
+      "sha256": "e84a290b8db7572ec6e2abb3237d92922733d257c2a64493c0576862be1c1bc0"
+    },
+    "smoke/1p3d-shared/native-metrics-before-d0.prom": {
+      "bytes": 73114,
+      "sha256": "9cf228619598cc07478e9c307ac14040b33654e7b6ef07e0e3ac95e5d6e58735"
+    },
+    "smoke/1p3d-shared/native-metrics-before-d1.prom": {
+      "bytes": 73104,
+      "sha256": "52910cd32865e9a8338ac4861b5b90cc0f8feb77a0d14717ae6c0fe3ba8ca106"
+    },
+    "smoke/1p3d-shared/native-metrics-before-d2.prom": {
+      "bytes": 73102,
+      "sha256": "a40d9685633827c34029a7de8f28af84a91fff0cdd66ac5ae88b841fecf06c34"
+    },
+    "smoke/1p3d-shared/native-metrics-before-p0.prom": {
+      "bytes": 73095,
+      "sha256": "effe97ee928269e5c06cb5ae3f9d6fc3f0f0d1dff866623b52c2673072a9cd74"
+    },
+    "smoke/1p3d-shared/requests.jsonl": {
+      "bytes": 107512,
+      "sha256": "6c34a3731c8772c756fa47678d9d6356a70b484cd59468aa2d49c34b37c789d4"
+    },
+    "smoke/1p3d-shared/run_manifest.json": {
+      "bytes": 11554,
+      "sha256": "0d21fbc1e5aa737f10887ffd0bf977c2c95e38bdae2539553e1d5d075437c8f2"
+    },
+    "smoke/1p3d-shared/smoke-check.json": {
+      "bytes": 1966,
+      "sha256": "d7cfac0895d2b254ab80697fe3d645ff3635abc458718c18a0919ec1743e95de"
+    },
+    "smoke/1p3d-shared/summary.json": {
+      "bytes": 11725,
+      "sha256": "85a3ea1f8bbb60f87c977460456a607ba5514455e0810bb6d59f6f9b053644fe"
+    },
+    "smoke/1p3d-shared/timeline.json": {
+      "bytes": 2200761,
+      "sha256": "6a67a1e70d2fc249d7c01fbe82e9f80fb10d613e2f72e53a6396628daeb51b23"
+    },
+    "smoke/1p3d-shared/trace/client-217734.jsonl": {
+      "bytes": 178800,
+      "sha256": "f02c6c0dc0bd8db0c8f07e8b1416516afaf32ec1e6f6ae9a2217595bf31a6994"
+    },
+    "smoke/1p3d-shared/trace/client-217755.jsonl": {
+      "bytes": 270800,
+      "sha256": "d1e50764861861206fd9473e4b1c866788123594dfb65bcba19c5c9881236f7c"
+    },
+    "smoke/1p3d-shared/trace/gateway-217723.jsonl": {
+      "bytes": 95091,
+      "sha256": "61bc3289fa571f7e8733916a6112a07e56e6b03d8a2c7cded82474e2238f39a5"
+    },
+    "smoke/1p3d-shared/trace/vllm-d0-216745.jsonl": {
+      "bytes": 2590,
+      "sha256": "979f64a698051673587e11b609e2482d3734e32d912a070e975232f91e4e52cf"
+    },
+    "smoke/1p3d-shared/trace/vllm-d0-217001.jsonl": {
+      "bytes": 367764,
+      "sha256": "ae30a8aa01d6f0d943fc0d57c5bc8725130d3ad9f337897edbb8d04604e35118"
+    },
+    "smoke/1p3d-shared/trace/vllm-d1-216746.jsonl": {
+      "bytes": 2220,
+      "sha256": "8f6cd1f3d491279b47372109cd79e8ec3161549bd4acdc036b42b48f17c13cf2"
+    },
+    "smoke/1p3d-shared/trace/vllm-d1-217008.jsonl": {
+      "bytes": 315255,
+      "sha256": "c59d19f6a3b1d220d189c4193e4eb0c9352b1debdab6a9f703c82e017969a932"
+    },
+    "smoke/1p3d-shared/trace/vllm-d2-216747.jsonl": {
+      "bytes": 2220,
+      "sha256": "87812522f623634ade6710cb28756a6e26146ed2be1132fbdd3624235e6c2f6a"
+    },
+    "smoke/1p3d-shared/trace/vllm-d2-217015.jsonl": {
+      "bytes": 315258,
+      "sha256": "bc35541b41006043f376dffbe5b9e16a3942236d50ad94023dc2a2b893d6ebe5"
+    },
+    "smoke/1p3d-shared/trace/vllm-p0-216744.jsonl": {
+      "bytes": 7030,
+      "sha256": "9f4dd6f34c46221bde7bf169b068e7d461d2de7912de4d7829175dabb795816a"
+    },
+    "smoke/1p3d-shared/trace/vllm-p0-216994.jsonl": {
+      "bytes": 62722,
+      "sha256": "62f89e2760ca45225a3722441a00121f946e141ec785301929e2c5ecf4e88baa"
+    },
+    "smoke/controlled-1p3d.jsonl": {
+      "bytes": 51645,
+      "sha256": "bb509415068d285c4441bfbca4b099a7c83eb8b3eb97014d7f421624c98b6b48"
+    },
+    "smoke/fiqa-sample/index/manifest.json": {
+      "bytes": 490,
+      "sha256": "e740aa02884e711fbb0be46be64781db441b7877145407b76f13d0de42e4e059"
+    },
+    "smoke/fiqa-sample/manifest.json": {
+      "bytes": 842,
+      "sha256": "7c71c57d9d6146c0a2722b65065227ff9d2cbd5eca515242fff078fc3d9f9205"
+    }
+  }
+}

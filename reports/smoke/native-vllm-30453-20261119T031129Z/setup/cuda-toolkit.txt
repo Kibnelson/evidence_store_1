@@ -1,0 +1,6 @@
+CUDA toolkit: /tmp/nbore/espd-30450.wi1VL0/venv/lib/python3.12/site-packages/nvidia/cu13 (scratch-wheel)
+nvcc: NVIDIA (R) Cuda compiler driver
+Copyright (c) 2005-2026 NVIDIA Corporation
+Built on Thu_Mar_19_11:12:51_PM_PDT_2026
+Cuda compilation tools, release 13.2, V13.2.78
+Build cuda_13.2.r13.2/compiler.37668154_0

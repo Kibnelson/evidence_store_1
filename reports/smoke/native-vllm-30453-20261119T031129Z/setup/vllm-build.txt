@@ -1,0 +1,1 @@
+vLLM build: precompiled-cu132 (upstream b24eda7127a9c5c317f699db3f580135eec7322b)
