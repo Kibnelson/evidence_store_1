@@ -1,0 +1,6 @@
+/.DS_Store
+**/.DS_Store
+/third_party/checkouts/
+/third_party/forks/
+/reports/runs/
+__pycache__/
