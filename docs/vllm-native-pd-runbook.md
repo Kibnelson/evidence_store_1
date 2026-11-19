@@ -19,24 +19,33 @@ Run section 0 on the cluster login node. Run section 1 onward from the compute-n
 
 ## 0. Prepare the login shell and request the allocation
 
-If you are already in the four-GPU compute-node shell, start at section 1 from the staged repo. Otherwise, connect to McGill's CS research login and replace `YOUR_CS_USERNAME` with your CS account. [McGill research Slurm instructions](https://docs.sci.mcgill.ca/COMP/slurm/#research-usage)
+If you are already in the four-GPU compute-node shell, start at section 1 from the staged repo. Use a cluster login shell where Slurm is available. To open a research login, replace `YOUR_CS_USERNAME` with your CS account. [McGill research Slurm instructions](https://docs.sci.mcgill.ca/COMP/slurm/#research-usage)
 
 ```bash
 ssh YOUR_CS_USERNAME@research.cs.mcgill.ca
 ```
 
-The Phase 2 card loaded the Slurm module before `srun`. The earlier native controls used login-node `tmux` on `teach-node-05` or `teach-node-06`. For this interactive allocation, `tmux` keeps the login shell available if SSH disconnects. [Phase 2 launcher](../../context_pilot_paper/scripts/scheduler_v2_phase1_native_1p3d_gpu_card.sh#L29) · [Earlier login hosts and tmux setup](../../context_pilot_paper/docs/evidencestore/implementation/scheduler_v1_native_pd_controls_runbook.md#40-login-host-enter-a-persistent-bash-shell)
+The Phase 2 card loaded the Slurm module before `srun`. The earlier native controls used login-node `tmux` on `teach-node-05` or `teach-node-06`. For this interactive allocation, `tmux` keeps the login shell available if SSH disconnects. You can also run directly from the verified Bash login shell. [Phase 2 launcher](../../context_pilot_paper/scripts/scheduler_v2_phase1_native_1p3d_gpu_card.sh#L29) · [Earlier login hosts and tmux setup](../../context_pilot_paper/docs/evidencestore/implementation/scheduler_v1_native_pd_controls_runbook.md#40-login-host-enter-a-persistent-bash-shell)
 
-On the login node, optionally start or attach the session.
+From the SSH shell outside `tmux`, load and verify Slurm.
 
 ```bash
-tmux new-session -A -s evidence-store-pd
+module load slurm && srun --version
 ```
 
-At the login prompt, enter Bash if the current shell is different.
+For a direct run, perform this check in the Bash shell you will use for the allocation.
+
+For a new `tmux` session, start the dedicated server from that same SSH shell. The server inherits the loaded Slurm environment. The pane starts Bash with that environment and skips startup files that could reset it. Other `tmux` sessions keep running on their own server. [tmux environment and socket options](https://man.openbsd.org/tmux.1#GLOBAL_AND_SESSION_ENVIRONMENT)
 
 ```bash
-exec bash -l
+tmux -L evidence-store-slurm -f /dev/null new-session -s evidence-store-pd \
+  /bin/bash --noprofile --norc -i
+```
+
+At the new pane's Bash prompt, verify it inherited Slurm. If this fails, continue in the original SSH shell where the check passed.
+
+```bash
+srun --version
 ```
 
 Keep the experiment repo on a filesystem shared with the compute node. On the first visit, clone it from GitHub.
@@ -51,7 +60,7 @@ For an existing cluster checkout, update its `main` branch before the allocation
 git -C "$HOME/evidence_store_1" pull --ff-only origin main
 ```
 
-The commands assume `~/evidence_store_1`. Use the actual checkout path and set `EVIDENCESTORE_CLUSTER_REPO` if it differs. Paste the complete block below. It checks the login shell, source files, and Slurm client before requesting the allocation. To check Slurm from a login shell without allocating GPUs, run `module load slurm && srun --version`.
+The commands assume `~/evidence_store_1`. Use the actual checkout path and set `EVIDENCESTORE_CLUSTER_REPO` if it differs. Paste the complete block below into the verified Bash shell. It checks the login shell, source files, and Slurm client before requesting the allocation.
 
 ```bash
 (
@@ -68,9 +77,11 @@ The commands assume `~/evidence_store_1`. Use the actual checkout path and set `
       exit 1
     fi
   done
-  if ! command -v module >/dev/null || ! module load slurm; then
-    printf 'Could not load the Slurm module on %s. Check your Bash login or reconnect via research.cs.mcgill.ca.\n' "$login_host" >&2
-    exit 1
+  if ! command -v srun >/dev/null; then
+    if ! command -v module >/dev/null || ! module load slurm; then
+      printf 'Could not load Slurm on %s. Run the Slurm check in the SSH shell outside tmux.\n' "$login_host" >&2
+      exit 1
+    fi
   fi
   if ! command -v srun || ! srun --version; then
     printf 'The Slurm client srun is unavailable on %s after loading the module.\n' "$login_host" >&2
@@ -81,7 +92,11 @@ The commands assume `~/evidence_store_1`. Use the actual checkout path and set `
 )
 ```
 
-Detach from `tmux` with `Ctrl+b` then `d`. After reconnecting to the same login node, run `tmux attach-session -t evidence-store-pd` to return to the running shell.
+Detach from `tmux` with `Ctrl+b` then `d`. After reconnecting to the same login node, use the same socket to attach to the live session.
+
+```bash
+tmux -L evidence-store-slurm attach-session -t evidence-store-pd
+```
 
 ## 1. Prepare the runtime and the inputs
 
