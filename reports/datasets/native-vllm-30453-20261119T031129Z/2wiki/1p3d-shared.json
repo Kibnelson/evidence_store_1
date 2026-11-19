@@ -1,0 +1,342 @@
+{
+  "campaign": "native-vllm-30453-20261119T031129Z",
+  "cohort": "1p3d-shared",
+  "completion_tokens": 402431,
+  "concurrency": 8,
+  "connector_selections_by_role": {
+    "D": {
+      "NixlPullConnector": {
+        "matched_tokens": 9619938,
+        "selections": 12576
+      }
+    }
+  },
+  "conversations": 0,
+  "counter_reconciliation": {
+    "status": "matched",
+    "workers": {
+      "d0": {
+        "matched": true,
+        "prometheus": {
+          "count": 4192,
+          "sum": 477127507968
+        },
+        "trace": {
+          "count": 4192,
+          "sum": 477127507968
+        }
+      },
+      "d1": {
+        "matched": true,
+        "prometheus": {
+          "count": 4192,
+          "sum": 476724068352
+        },
+        "trace": {
+          "count": 4192,
+          "sum": 476724068352
+        }
+      },
+      "d2": {
+        "matched": true,
+        "prometheus": {
+          "count": 4192,
+          "sum": 478521851904
+        },
+        "trace": {
+          "count": 4192,
+          "sum": 478521851904
+        }
+      },
+      "p0": {
+        "matched": true,
+        "prometheus": {
+          "count": 0,
+          "sum": 0
+        },
+        "trace": {
+          "count": 0,
+          "sum": 0
+        }
+      }
+    }
+  },
+  "dataset": "2wiki",
+  "evidence": {
+    "distinct_documents": 35446,
+    "occurrences": 75456,
+    "requests_with_evidence": 12576,
+    "token_work_by_role": {
+      "D": {
+        "observed_local_prefix_tokens": 0,
+        "observed_remote_prefix_tokens": 9330772,
+        "scheduled_prompt_tokens": 0
+      },
+      "P": {
+        "observed_local_prefix_tokens": 0,
+        "observed_remote_prefix_tokens": 0,
+        "scheduled_prompt_tokens": 9330772
+      }
+    }
+  },
+  "frozen_sha256": "d371f4f12e9db66c43e76e97ec862d18dfcd6167c18ec7de7b2d0a96c6276486",
+  "gpu_forward": {
+    "by_role": {
+      "D": {
+        "batch_gpu_time_ns": 8958696686595,
+        "forward_batches": 226021,
+        "timed_batches": 226021
+      },
+      "P": {
+        "batch_gpu_time_ns": 1243784460288,
+        "forward_batches": 10840,
+        "timed_batches": 10840
+      }
+    },
+    "by_worker": {
+      "d0": {
+        "batch_gpu_time_ns": 2973476713037,
+        "forward_batches": 75742,
+        "timed_batches": 75742
+      },
+      "d1": {
+        "batch_gpu_time_ns": 2971785486300,
+        "forward_batches": 75725,
+        "timed_batches": 75725
+      },
+      "d2": {
+        "batch_gpu_time_ns": 3013434487258,
+        "forward_batches": 74554,
+        "timed_batches": 74554
+      },
+      "p0": {
+        "batch_gpu_time_ns": 1243784460288,
+        "forward_batches": 10840,
+        "timed_batches": 10840
+      }
+    },
+    "forward_dispatch_ms_by_role": {
+      "D": {
+        "count": 226021,
+        "max": 75.810115,
+        "mean": 24.04465644705138,
+        "p50": 22.91213,
+        "p95": 33.742813
+      },
+      "P": {
+        "count": 10840,
+        "max": 68.51435,
+        "mean": 30.901391914114395,
+        "p50": 28.823042,
+        "p95": 43.672369
+      }
+    }
+  },
+  "http_payload_bytes": {
+    "gateway_decode_request_bytes": 55059259,
+    "gateway_prefill_request_bytes": 47478010,
+    "gateway_prefill_response_bytes": 60131317,
+    "gateway_sse_payload_bytes": 180660867,
+    "http_request_body_bytes": 70920064
+  },
+  "incomplete_requests": [],
+  "input_sha256": "d371f4f12e9db66c43e76e97ec862d18dfcd6167c18ec7de7b2d0a96c6276486",
+  "issues": [],
+  "label": "2wiki",
+  "latency_ms": {
+    "dispatch_to_first_token_ms": {
+      "count": 12576,
+      "max": 3998.015997,
+      "mean": 1072.9896827267812,
+      "p50": 840.195395,
+      "p95": 2478.398439
+    },
+    "dispatch_to_last_token_ms": {
+      "count": 12576,
+      "max": 5484.444285,
+      "mean": 2413.719438589615,
+      "p50": 2174.50135,
+      "p95": 3842.787632
+    },
+    "end_to_end_ms": {
+      "count": 12576,
+      "max": 5486.092379,
+      "mean": 2414.6480490213103,
+      "p50": 2175.670832,
+      "p95": 3843.649025
+    },
+    "ttft_ms": {
+      "count": 12576,
+      "max": 3999.159774,
+      "mean": 1073.3069477297233,
+      "p50": 840.50644,
+      "p95": 2478.704613
+    }
+  },
+  "lmcache": {
+    "counter_deltas": [
+      {
+        "after": 37399,
+        "before": 5675,
+        "delta": 31724,
+        "labels": {
+          "l1_tag": "_default"
+        },
+        "metric": "lmcache_mp_l1_evicted_chunks_total"
+      },
+      {
+        "after": 33963,
+        "before": 5492,
+        "delta": 28471,
+        "labels": {
+          "l1_tag": "_default"
+        },
+        "metric": "lmcache_mp_l1_read_chunks_total"
+      },
+      {
+        "after": 37571,
+        "before": 5837,
+        "delta": 31734,
+        "labels": {
+          "l1_tag": "_default"
+        },
+        "metric": "lmcache_mp_l1_write_chunks_total"
+      },
+      {
+        "after": 1418257760256,
+        "before": 220339372032,
+        "delta": 1197918388224,
+        "labels": {
+          "device_index": "0",
+          "direction": "d2h",
+          "phase": "kernel"
+        },
+        "metric": "lmcache_mp_transfer_phase_bytes_total"
+      },
+      {
+        "after": 1418257760256,
+        "before": 220339372032,
+        "delta": 1197918388224,
+        "labels": {
+          "device_index": "0",
+          "direction": "d2h",
+          "phase": "staging"
+        },
+        "metric": "lmcache_mp_transfer_phase_bytes_total"
+      }
+    ],
+    "endpoint_id": "lmcache",
+    "status": "captured"
+  },
+  "multi_turn_conversations": 0,
+  "nixl_bytes": {
+    "completed_bytes": 1432373428224,
+    "exclusive_evidence_bytes": 1213286842368,
+    "outside_evidence_bytes": 26131562496,
+    "shared_or_boundary_bytes": 192955023360,
+    "unmapped_bytes": 0
+  },
+  "nixl_handoff_statuses": {
+    "full": 6191,
+    "partial": 6385
+  },
+  "prompt_tokens": 9722098,
+  "provenance": {
+    "campaign_commit": "dfae6a5b23bf8f165dc8e4899f94f13130f0e2b5",
+    "lmcache": {
+      "commit": "042d47abdef0d460cf2cb0d5720e8a59280cda8a",
+      "mode": "shared_pd"
+    },
+    "model": "Qwen/Qwen3-4B-Instruct-2507",
+    "model_revision": "cdbee75f17c01a7cc42f958dc650907174af0554",
+    "prefix_cache_by_role": {
+      "D": "on",
+      "P": "on"
+    },
+    "topology": "1p3d",
+    "vllm_commit": "d03cffa9407114620e4dfe11058d88f882f88149"
+  },
+  "replay_mode": "frozen",
+  "requests": 12576,
+  "requests_per_second": 3.3118758306244542,
+  "routes": {
+    "p0\u2192d0": 4192,
+    "p0\u2192d1": 4192,
+    "p0\u2192d2": 4192
+  },
+  "schema_version": 1,
+  "stage_duration_ms": 3797243.810807,
+  "stage_spans_ms": {
+    "D/engine_queued": {
+      "count": 12576,
+      "max": 3375.278789,
+      "mean": 832.0750315694975,
+      "p50": 608.219242,
+      "p95": 2108.485352
+    },
+    "D/engine_remote_kv_wait_begin": {
+      "count": 12576,
+      "max": 3332.02029,
+      "mean": 793.9772046472646,
+      "p50": 568.833713,
+      "p95": 2074.185088
+    },
+    "D/nixl_read_submit": {
+      "count": 12576,
+      "max": 3294.590615,
+      "mean": 758.7191488724554,
+      "p50": 531.439623,
+      "p95": 2038.406878
+    },
+    "P/engine_queued": {
+      "count": 12576,
+      "max": 495.735457,
+      "mean": 7.19190664638995,
+      "p50": 3.236318,
+      "p95": 5.467308
+    },
+    "client/client_request_start": {
+      "count": 12576,
+      "max": 5486.092379,
+      "mean": 2414.6480490213103,
+      "p50": 2175.670832,
+      "p95": 3843.649025
+    },
+    "gateway/gateway_dispatch_decode": {
+      "count": 12576,
+      "max": 4938.339951,
+      "mean": 2240.945301321724,
+      "p50": 2014.581011,
+      "p95": 3544.418999
+    },
+    "gateway/gateway_dispatch_prefill": {
+      "count": 12576,
+      "max": 934.572181,
+      "mean": 171.33837727798982,
+      "p50": 137.174907,
+      "p95": 412.019928
+    },
+    "gateway/gateway_received": {
+      "count": 12576,
+      "max": 3.172327,
+      "mean": 0.2635061107665394,
+      "p50": 0.239743,
+      "p95": 0.435436
+    }
+  },
+  "status": "passed",
+  "token_work_by_role": {
+    "D": {
+      "observed_local_prefix_tokens": 102160,
+      "observed_remote_prefix_tokens": 9619938,
+      "scheduled_decode_tokens": 389855,
+      "scheduled_prompt_tokens": 12576
+    },
+    "P": {
+      "observed_local_prefix_tokens": 104128,
+      "observed_remote_prefix_tokens": 0,
+      "scheduled_decode_tokens": 0,
+      "scheduled_prompt_tokens": 9617970
+    }
+  }
+}
