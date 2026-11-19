@@ -100,64 +100,24 @@ tmux -L evidence-store-slurm attach-session -t evidence-store-pd
 
 ## 1. Prepare the runtime and the inputs
 
-Start in the staged cluster copy of `evidence_store_1`. A build needs a compatible CUDA development environment, GCC/G++ 13 or later, and `uv`. The setup reconstructs the committed, source-instrumented vLLM fork from the pinned seed and local Git bundle. Install the fork in editable mode on the allocated node. [Local fork provenance](../third_party/README.md#editable-vllm-fork) · [Pinned vLLM source-build instructions](https://github.com/vllm-project/vllm/blob/b24eda7127a9c5c317f699db3f580135eec7322b/docs/getting_started/installation/gpu.cuda.inc.md)
+Start in the staged cluster checkout inside the allocation. As in the earlier run, the helper stages the committed experiment tree under `/tmp/$USER` on the GPU node. It puts the venv, editable vLLM and LMCache trees, build files, and run output there. It reuses the node-local uv and Hugging Face caches and prints free disk space and inodes before installation. [Prior allocation-local setup](../../context_pilot_paper/docs/evidencestore/implementation/scheduler_v2_phase1_comparison_gpu_steps.sh#L96) · [uv storage paths](https://docs.astral.sh/uv/reference/storage/)
+
+The helper reconstructs the editable fork from its pinned seed and bundle. With the CUDA 13.2 toolkit and Python-only vLLM edits, it uses the published wheel from the exact upstream commit for native libraries, as the earlier run did for its pin. The runtime uses the CUDA 13.2 build of Torch 2.14. Check the toolkit with `nvcc --version`. If the login environment selects CUDA 12, set `CUDA_HOME` to an installed CUDA 13 toolkit, preferably 13.2, before running setup. The full-source build also requires GCC/G++ 13 or later. Use `CC` and `CXX` to select that compiler pair when needed. [Previous native install](../../context_pilot_paper/scripts/scheduler_v1_prepare_rtx_host_runtime.sh#L248) · [Pinned vLLM build instructions](https://github.com/vllm-project/vllm/blob/b24eda7127a9c5c317f699db3f580135eec7322b/docs/getting_started/installation/gpu.cuda.inc.md#python-only-build) · [Published CUDA 13.2 wheel metadata](https://wheels.vllm.ai/b24eda7127a9c5c317f699db3f580135eec7322b/cu132/vllm/metadata.json) · [Torch CUDA 13.2 wheel index](https://download.pytorch.org/whl/cu132/torch/)
 
 ```bash
-set -euo pipefail
-umask 077
-test -n "${SLURM_JOB_ID:-}"
-test "${SLURM_JOB_NUM_NODES:-${SLURM_NNODES:-1}}" = 1
-unset PYTHONPATH PYTHONHOME PYTHONOPTIMIZE VLLM_USE_V2_MODEL_RUNNER
-export PYTHONNOUSERSITE=1
-command -v uv nvcc g++
-REPO="$PWD"
-nvidia-smi --query-gpu=uuid,name --format=csv
-CHECK_ROOT="$REPO/reports/runs/pd-check-${SLURM_JOB_ID}-$(date -u +%Y%m%dT%H%M%SZ)"
-mkdir -p "$CHECK_ROOT"
-
-python3 scripts/checkout_sources.py vllm lmcache faiss mt-rag
-python3 scripts/vllm_pd_prepare.py
-VLLM_SOURCE="$REPO/third_party/forks/vllm"
-PD_ENV="${SLURM_TMPDIR:-$REPO/reports/runs}/vllm-pd-env-$SLURM_JOB_ID"
-mkdir -p "$(dirname "$PD_ENV")"
-uv venv --python 3.12 "$PD_ENV"
-source "$PD_ENV/bin/activate"
-PYTHON="$(command -v python)"
-uv pip install --torch-backend=auto --editable "$VLLM_SOURCE"
-uv pip install 'nixl==1.5.2' faiss-cpu
-LMCACHE_SOURCE="$REPO/third_party/checkouts/lmcache"
-uv pip install -r "$LMCACHE_SOURCE/requirements/build.txt"
-uv pip install --no-build-isolation --editable "$LMCACHE_SOURCE"
-"$PYTHON" - <<'PY' | tee "$CHECK_ROOT/runtime.json"
-from importlib.metadata import version
-import json
-import os
-import torch
-from nixl._api import nixl_agent, nixl_agent_config
-
-if torch.cuda.device_count() != 4 or not torch.version.cuda:
-    raise SystemExit("Expected a CUDA build with exactly four visible GPUs")
-agent = nixl_agent(f"pd-preflight-{os.getpid()}", nixl_agent_config(backends=[]))
-if "UCX" not in {str(item) for item in agent.get_plugin_list()}:
-    raise SystemExit("NIXL cannot load the UCX backend")
-agent.create_backend("UCX", {})
-memory_types = sorted(str(item) for item in agent.get_backend_mem_types("UCX"))
-if not any("VRAM" in item.upper() for item in memory_types):
-    raise SystemExit(f"NIXL UCX does not advertise GPU memory: {memory_types}")
-print(json.dumps({"vllm": version("vllm"), "nixl": version("nixl"),
-                  "lmcache": version("lmcache"), "torch": version("torch"),
-                  "torch_cuda": torch.version.cuda, "ucx_memory_types": memory_types}, indent=2))
-PY
+if ! bash scripts/vllm_pd_runtime.sh; then
+  printf 'Setup failed. See check/setup.log under the printed runtime scratch directory.\n' >&2
+fi
 ```
 
-Build LMCache against the same Torch installation as the editable vLLM fork. [Pinned LMCache installation from source](https://github.com/LMCache/LMCache/blob/042d47abdef0d460cf2cb0d5720e8a59280cda8a/docs/source/getting_started/installation.rst#L283)
+On success, copy and run the printed `source` command in the same allocation shell. It activates the venv and changes into the scratch copy for the smoke and full replay. `check/setup.log` retains the build log and `check/runtime.json` records the four-GPU CUDA and NIXL probe. LMCache builds against the Torch loaded by the editable vLLM fork. [Pinned LMCache installation from source](https://github.com/LMCache/LMCache/blob/042d47abdef0d460cf2cb0d5720e8a59280cda8a/docs/source/getting_started/installation.rst#L283)
 
 ### Historical native check
 
 This optional check reuses the earlier five-conversation donor. It gives 5 warm-up and 36 measured requests at the original 9,216-token limit. If the prior checkout and its Git evidence are available, generate the frozen file below. An existing frozen file for the same donor also works. The dataset smoke runs independently and can go first. [Prior native input contract](../../context_pilot_paper/scripts/scheduler_v2_phase1_native_1p3d_inputs.py#L111)
 
 ```bash
-PRIOR_REPO="${PRIOR_REPO:-$REPO/../context_pilot_paper}"
+PRIOR_REPO="${PRIOR_REPO:-$PD_HOME_REPO/../context_pilot_paper}"
 PRIOR_SOURCE="e8cb79f3d668a795c44e2d878b2baf2c47444ad2"
 if [[ -z "${DOCS8K_FROZEN:-}" ]]; then
   DOCS8K_FROZEN="$CHECK_ROOT/docs8k-frozen.json"
@@ -406,6 +366,16 @@ The default timeline shows the first 32 requests. To inspect one from a full dat
 The NIXL completion counter measures connector payload. The single-node route can use a local GPU transfer, so physical interface traffic requires its own device counter readout. A batch's GPU event duration belongs to that batch. Attribute token work to chunks using the mapped spans.
 
 An interrupted cohort retains its partial evidence and closes the process groups it started. Inspect `logs/` and `cleanup.json`. For a rerun, choose a fresh cohort directory and use the existing frozen input receipts for prompts whose retrieval completed. Verify the allocation still owns the four GPUs with `nvidia-smi` before launching again.
+
+Before leaving the allocation, copy the run and setup receipts to shared storage with enough quota. Set `EVIDENCESTORE_RESULTS_DIR` to that location.
+
+```bash
+: "${EVIDENCESTORE_RESULTS_DIR:?Set a writable results location on shared storage}"
+archive_dir="$EVIDENCESTORE_RESULTS_DIR/$(basename "$RUN_ROOT")"
+mkdir -p "$archive_dir"
+rsync -a "$CHECK_ROOT/" "$archive_dir/setup/"
+rsync -a "$RUN_ROOT/" "$archive_dir/run/"
+```
 
 ## Measure the same build with tracing on and off
 
