@@ -36,11 +36,18 @@ def check_cohorts(root, topology):
         if (launch["topology"] != topology or launch["run_id"] != cohort.name
                 or (launch.get("lmcache") or {}).get("mode") != ("shared_pd" if mode == "shared" else None)):
             raise ValueError(f"Unexpected topology or cache mode at {cohort}")
-        if (summary["issues"] != [] or summary["nixl_reconciliation"]["status"] != "matched"
-                or receipt["status"] != "passed" or receipt["sample"] != sample
-                or len(receipt["request_ids"]) != sample["requests"]
-                or cleanup["remaining_process_groups"] != [] or cleanup["unverified_process_groups"] != []):
-            raise ValueError(f"Incomplete or failed smoke at {cohort}")
+        if summary["issues"] != []:
+            raise ValueError(f"{cohort}: summary reported issues: {summary['issues']}")
+        if (status := summary["nixl_reconciliation"]["status"]) != "matched":
+            raise ValueError(f"{cohort}: NIXL reconciliation was {status}, expected matched")
+        if receipt["status"] != "passed":
+            raise ValueError(f"{cohort}: smoke receipt status was {receipt['status']}, expected passed")
+        if receipt["sample"] != sample or len(receipt["request_ids"]) != sample["requests"]:
+            raise ValueError(f"{cohort}: smoke receipt differs from the FiQA sample manifest")
+        remaining = cleanup["remaining_process_groups"]
+        unverified = cleanup["unverified_process_groups"]
+        if remaining != [] or unverified != {}:
+            raise ValueError(f"{cohort}: incomplete process cleanup (remaining={remaining}, unverified={unverified})")
         if mode == "shared" and (summary["lmcache"]["status"] != "captured"
                                  or not read_json(cohort / "lmcache-status.json")["verified"]):
             raise ValueError(f"Unverified shared LMCache counters or worker registration at {cohort}")
