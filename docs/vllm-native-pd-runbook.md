@@ -109,42 +109,36 @@ Paste the complete block into the verified login Bash shell. Once the `gpu-grad-
 
 ## 1. Prepare the runtime and the inputs
 
+If setup failed and the `gpu-grad-01` prompt is still open with a Slurm job ID, update the shared checkout from that shell and retry section 1.2 in the same allocation. The previous placeholder value for `CUDA_HOME` can be cleared before retrying.
+
+```bash
+git -C "${EVIDENCESTORE_CLUSTER_REPO:-$HOME/evidence_store_1}" pull --ff-only origin main
+unset CUDA_HOME
+```
+
 ### 1.1 Verify the compute shell and toolkit
 
-Expect `gpu-grad-01`, a job ID, and four RTX A5000 GPUs. Check the active toolkit before building.
+Expect `gpu-grad-01`, a job ID, and four RTX A5000 GPUs. The version below describes the host toolkit. CUDA 12.6 on the host is expected and setup installs the matching CUDA 13.2 compiler on scratch.
 
 ```bash
 if [[ -n "${SLURM_JOB_ID:-}" ]]; then
   printf 'Host %s, Slurm job %s\n' "$(hostname -s)" "$SLURM_JOB_ID"
   nvidia-smi --query-gpu=uuid,name,driver_version --format=csv
-  "${CUDA_HOME:+$CUDA_HOME/bin/}nvcc" --version
+  if command -v nvcc >/dev/null; then
+    nvcc --version
+  fi
 else
   printf 'Request the allocation in section 0.3 first.\n' >&2
 fi
-```
-
-Use CUDA 13.2 for the pinned precompiled build. If the current `nvcc` reports CUDA 12 or points to a different version, list the installed toolkits and their versions.
-
-```bash
-for nvcc_bin in /usr/local/pkgs/cuda/*/bin/nvcc; do
-  [[ -x "$nvcc_bin" ]] || continue
-  printf '%s\n' "${nvcc_bin%/bin/nvcc}"
-  "$nvcc_bin" --version | sed -n '/release/p'
-done
-```
-
-If an installed CUDA 13 toolkit is listed, use its directory below. Prefer 13.2 for the precompiled build. If no CUDA 13 toolkit is available, stop setup and retain the inventory for diagnosing the toolchain.
-
-```bash
-export CUDA_HOME=/absolute/path/to/the/installed/toolkit
-"$CUDA_HOME/bin/nvcc" --version
 ```
 
 ### 1.2 Build and activate on node-local scratch
 
 The helper stages the committed experiment tree, venv, editable vLLM and LMCache trees, and run output under `/tmp/$USER` on the GPU node. It reuses node-local uv and Hugging Face caches and prints free disk space and inodes before installation. [Prior allocation-local setup](../../context_pilot_paper/docs/evidencestore/implementation/scheduler_v2_phase1_comparison_gpu_steps.sh#L96) · [uv storage paths](https://docs.astral.sh/uv/reference/storage/)
 
-With CUDA 13.2 and Python-only vLLM edits, the helper uses the exact upstream wheel for native libraries and installs the instrumented Python source in editable mode. The full-source path uses GCC/G++ 13 or later. Use `CC` and `CXX` to select a compatible compiler pair when needed. [Previous native install](../../context_pilot_paper/scripts/scheduler_v1_prepare_rtx_host_runtime.sh#L248) · [Pinned vLLM build instructions](https://github.com/vllm-project/vllm/blob/b24eda7127a9c5c317f699db3f580135eec7322b/docs/getting_started/installation/gpu.cuda.inc.md#python-only-build) · [Published CUDA 13.2 wheel metadata](https://wheels.vllm.ai/b24eda7127a9c5c317f699db3f580135eec7322b/cu132/vllm/metadata.json) · [Torch CUDA 13.2 wheel index](https://download.pytorch.org/whl/cu132/torch/)
+The helper uses system CUDA 13.2 when available. Otherwise it installs NVIDIA's `cuda-toolkit[nvcc,cccl]==13.2.1` package into the scratch venv. This shares the CUDA runtime pinned by Torch. The helper selects the resulting `CUDA_HOME` and checks that it can compile and link a small RTX A5000 program. [NVIDIA CUDA toolkit package](https://pypi.org/project/cuda-toolkit/13.2.1/) · [Pinned Torch wheel metadata](https://download-r2.pytorch.org/whl/cu132/torch-2.14.0%2Bcu132-cp312-cp312-manylinux_2_28_x86_64.whl.metadata)
+
+For Python-only vLLM edits, the helper installs the instrumented source in editable mode and uses the exact upstream wheel for native libraries. The full-source path uses GCC/G++ 13 or later. Use `CC` and `CXX` to select a compatible compiler pair when needed. [Previous native install](../../context_pilot_paper/scripts/scheduler_v1_prepare_rtx_host_runtime.sh#L248) · [Pinned vLLM build instructions](https://github.com/vllm-project/vllm/blob/b24eda7127a9c5c317f699db3f580135eec7322b/docs/getting_started/installation/gpu.cuda.inc.md#python-only-build) · [Published CUDA 13.2 wheel metadata](https://wheels.vllm.ai/b24eda7127a9c5c317f699db3f580135eec7322b/cu132/vllm/metadata.json)
 
 ```bash
 if cd "${EVIDENCESTORE_CLUSTER_REPO:-$HOME/evidence_store_1}" &&
@@ -161,6 +155,7 @@ Verify the setup receipt and cache path before starting the smoke. The cache sho
 
 ```bash
 pwd
+cat "$CHECK_ROOT/cuda-toolkit.txt"
 cat "$CHECK_ROOT/runtime.json"
 uv cache dir
 ```

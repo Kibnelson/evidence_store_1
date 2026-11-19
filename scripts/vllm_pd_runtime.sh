@@ -41,9 +41,11 @@ mkdir -p "$REPO" "$CHECK_ROOT"
   df -h "$PD_EXEC_ROOT"
   df -i "$PD_EXEC_ROOT"
 
-  command -v uv nvcc nvidia-smi
-  export CUDA_HOME="${CUDA_HOME:-$(dirname "$(dirname "$(readlink -f "$(command -v nvcc)")")")}"
-  export PATH="$CUDA_HOME/bin:$PATH"
+  command -v uv nvidia-smi
+  cuda_home="${CUDA_HOME:-}"
+  if [[ -z "$cuda_home" ]] && system_nvcc="$(command -v nvcc)"; then
+    cuda_home="$(dirname "$(dirname "$(readlink -f "$system_nvcc")")")"
+  fi
   if [[ -z "${CC:-}${CXX:-}" ]] && command -v gcc-13 >/dev/null && command -v g++-13 >/dev/null; then
     CC=gcc-13
     CXX=g++-13
@@ -52,12 +54,6 @@ mkdir -p "$REPO" "$CHECK_ROOT"
   command -v "$CC" "$CXX"
   compiler_version="$("$CXX" -dumpfullversion -dumpversion)"
   printf 'Host compiler: %s %s\n' "$CXX" "$compiler_version"
-  cuda_info="$("$CUDA_HOME/bin/nvcc" --version)"
-  printf '%s\n' "$cuda_info"
-  if [[ "$cuda_info" != *'release 13.'* ]]; then
-    printf 'This runtime uses the pinned CUDA 13.2 Torch build. Select a CUDA 13 toolkit such as 13.2 with CUDA_HOME before building LMCache.\n' >&2
-    exit 1
-  fi
   nvidia-smi --query-gpu=uuid,name,driver_version --format=csv
   export MAX_JOBS="${MAX_JOBS:-4}"
   export TORCH_CUDA_ARCH_LIST="${TORCH_CUDA_ARCH_LIST:-8.6}"
@@ -70,8 +66,7 @@ mkdir -p "$REPO" "$CHECK_ROOT"
   LMCACHE_SOURCE="$REPO/third_party/checkouts/lmcache"
   vllm_base="$(python3 -c 'import json; print(json.load(open("third_party/vllm-fork.json"))["base_commit"])')"
   vllm_build=source
-  if [[ "$cuda_info" == *'release 13.2,'* ]] &&
-      git -C "$VLLM_SOURCE" diff --quiet "$vllm_base" HEAD -- . ':(exclude,glob)vllm/**/*.py'; then
+  if git -C "$VLLM_SOURCE" diff --quiet "$vllm_base" HEAD -- . ':(exclude,glob)vllm/**/*.py'; then
     vllm_build=precompiled-cu132
   elif [[ ! "$compiler_version" =~ ^[0-9]+(\.[0-9]+)*$ ]] || (( ${compiler_version%%.*} < 13 )); then
     printf 'The vLLM CUDA source build needs GCC/G++ 13 or later. %s reports %s. Set CC and CXX to a compatible pair.\n' \
@@ -83,6 +78,49 @@ mkdir -p "$REPO" "$CHECK_ROOT"
   uv cache dir
   uv venv --python 3.12.14 "$PD_ENV"
   PYTHON="$PD_ENV/bin/python"
+
+  toolkit_mode=system
+  cuda_info=""
+  if [[ -x "$cuda_home/bin/nvcc" ]]; then
+    cuda_info="$("$cuda_home/bin/nvcc" --version)" || cuda_info=""
+  fi
+  if [[ "$cuda_info" != *'release 13.2,'* ]]; then
+    printf 'Installing CUDA 13.2 compiler and headers in the scratch venv. System toolkit checked: %s\n' \
+      "${cuda_home:-none}"
+    if [[ -n "$cuda_info" ]]; then
+      printf '%s\n' "$cuda_info"
+    fi
+    toolkit_mode=scratch-wheel
+    uv pip install --python "$PYTHON" 'cuda-toolkit[nvcc,cccl]==13.2.1'
+    cuda_home="$("$PYTHON" -c 'import sysconfig; print(sysconfig.get_path("purelib") + "/nvidia/cu13")')"
+    # The runtime wheel ships the soname. Torch CUDAExtension links with -lcudart.
+    if [[ ! -e "$cuda_home/lib/libcudart.so" ]]; then
+      test -f "$cuda_home/lib/libcudart.so.13"
+      ln -s libcudart.so.13 "$cuda_home/lib/libcudart.so"
+    fi
+  fi
+  export CUDA_HOME="$cuda_home"
+  export PATH="$CUDA_HOME/bin:$PATH"
+  export CUDA_INC_PATH="$CUDA_HOME/include/cccl"
+  cuda_info="$("$CUDA_HOME/bin/nvcc" --version)"
+  {
+    printf 'CUDA toolkit: %s (%s)\n' "$CUDA_HOME" "$toolkit_mode"
+    printf '%s\n' "$cuda_info"
+  } | tee "$CHECK_ROOT/cuda-toolkit.txt"
+  if [[ "$cuda_info" != *'release 13.2,'* ]]; then
+    printf 'Expected CUDA 13.2 nvcc at %s/bin/nvcc\n' "$CUDA_HOME" >&2
+    exit 1
+  fi
+  cat > "$TMPDIR/nvcc-probe.cu" <<'CUDA'
+#include <cuda_runtime.h>
+#include <cub/cub.cuh>
+
+__global__ void probe() {}
+int main() { return static_cast<int>(cudaGetLastError()); }
+CUDA
+  "$CUDA_HOME/bin/nvcc" -arch=sm_86 -ccbin "$(command -v "$CXX")" --cudart shared \
+    "$TMPDIR/nvcc-probe.cu" -o "$TMPDIR/nvcc-probe"
+
   if [[ "$vllm_build" == precompiled-cu132 ]]; then
     VLLM_USE_PRECOMPILED=1 VLLM_PRECOMPILED_WHEEL_COMMIT="$vllm_base" VLLM_PRECOMPILED_WHEEL_VARIANT=cu132 \
       uv pip install --python "$PYTHON" --torch-backend=cu132 --editable "$VLLM_SOURCE"
@@ -92,7 +130,8 @@ mkdir -p "$REPO" "$CHECK_ROOT"
   fi
   uv pip install --python "$PYTHON" 'nixl==1.5.2' faiss-cpu
   uv pip install --python "$PYTHON" -r "$LMCACHE_SOURCE/requirements/build.txt"
-  uv pip install --python "$PYTHON" --no-build-isolation --editable "$LMCACHE_SOURCE"
+  BUILD_WITH_CUDA=1 NO_GPU_EXT=0 LMCACHE_CUDA_MAJOR=13 uv pip install --python "$PYTHON" \
+    --no-build-isolation --editable "$LMCACHE_SOURCE"
 
   "$PYTHON" - <<'PY' | tee "$CHECK_ROOT/runtime.json"
 from importlib.metadata import version
@@ -102,8 +141,10 @@ import os
 import torch
 from nixl._api import nixl_agent, nixl_agent_config
 
-if torch.cuda.device_count() != 4 or not torch.version.cuda:
-    raise SystemExit("Expected a CUDA build with exactly four visible GPUs")
+if torch.cuda.device_count() != 4 or torch.version.cuda != "13.2":
+    raise SystemExit("Expected Torch CUDA 13.2 with exactly four visible GPUs")
+import lmcache.cuda_ops
+
 agent = nixl_agent(f"pd-preflight-{os.getpid()}", nixl_agent_config(backends=[]))
 if "UCX" not in {str(item) for item in agent.get_plugin_list()}:
     raise SystemExit("NIXL cannot load the UCX backend")
@@ -122,7 +163,7 @@ PY
     for name in PD_HOME_REPO PD_EXEC_ROOT REPO CHECK_ROOT PD_ENV PYTHON PYTHONNOUSERSITE \
       UV_CACHE_DIR UV_PYTHON_INSTALL_DIR PIP_CACHE_DIR HF_HOME HF_HUB_CACHE HUGGINGFACE_HUB_CACHE \
       XDG_CACHE_HOME TMPDIR VLLM_RPC_BASE_PATH TORCH_EXTENSIONS_DIR TRITON_CACHE_DIR CUDA_CACHE_PATH \
-      CCACHE_DIR SCCACHE_DIR CUDA_HOME CC CXX MAX_JOBS TORCH_CUDA_ARCH_LIST; do
+      CCACHE_DIR SCCACHE_DIR CUDA_HOME CUDA_INC_PATH CC CXX MAX_JOBS TORCH_CUDA_ARCH_LIST; do
       printf 'export %s=%q\n' "$name" "${!name}"
     done
     printf 'export PATH=%q:"$PATH"\n' "$CUDA_HOME/bin"
