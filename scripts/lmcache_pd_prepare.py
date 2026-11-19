@@ -9,7 +9,7 @@ import subprocess
 import sys
 from tempfile import TemporaryDirectory
 
-from vllm_pd_prepare import THIRD_PARTY, git, require_ancestor, require_local_repo, sha256
+from vllm_pd_prepare import THIRD_PARTY, git, require_ancestor, require_local_repo, restore_detached_fork, sha256
 
 
 SEED = THIRD_PARTY / "checkouts/lmcache"
@@ -22,28 +22,27 @@ LEGACY_SEED = SEED.with_name("lmcache-legacy-base")
 LEGACY_FORK = FORK.with_name("lmcache-full-blend")
 LEGACY_BUNDLE = THIRD_PARTY / "lmcache-full-blend.bundle"
 LEGACY_RECEIPT = THIRD_PARTY / "lmcache-full-blend-fork.json"
-LEGACY_REF = "refs/heads/evidencestore/legacy-full-blend"
 
 
-def seed_pin(seed=SEED):
+def seed_pin():
     entries = json.loads((THIRD_PARTY / "sources.json").read_text())["sources"]
-    pin = next(item["commit"] for item in entries if item["name"] == seed.name)
+    pin = next(item["commit"] for item in entries if item["name"] == "lmcache")
     if not isinstance(pin, str) or not re.fullmatch(r"[0-9a-f]{40}", pin):
         raise ValueError("LMCache needs a full Git source pin")
-    require_local_repo(seed)
+    require_local_repo(SEED)
     if (
-        git(seed, "rev-parse", "HEAD").stdout.strip() != pin
-        or git(seed, "symbolic-ref", "--quiet", "HEAD", check=False).returncode != 1
-        or git(seed, "status", "--porcelain", "--untracked-files=no").stdout.strip()
+        git(SEED, "rev-parse", "HEAD").stdout.strip() != pin
+        or git(SEED, "symbolic-ref", "--quiet", "HEAD", check=False).returncode != 1
+        or git(SEED, "status", "--porcelain", "--untracked-files=no").stdout.strip()
     ):
         raise ValueError("The LMCache seed must be clean and detached at the upstream pin")
     return pin
 
 
-def require_bundle_head(bundle, source, *, seed=SEED, ref=REF):
-    heads = git(seed, "bundle", "list-heads", bundle).stdout.splitlines()
-    if len(heads) != 1 or heads[0].split() != [source, ref]:
-        raise ValueError(f"The LMCache bundle must contain exactly {source} {ref}")
+def require_bundle_head(bundle, source):
+    heads = git(SEED, "bundle", "list-heads", bundle).stdout.splitlines()
+    if len(heads) != 1 or heads[0].split() != [source, REF]:
+        raise ValueError(f"The LMCache bundle must contain exactly {source} {REF}")
 
 
 def require_fork(path, pin):
@@ -109,44 +108,6 @@ def export(pin):
         receipt.replace(RECEIPT)
 
 
-def require_legacy_fork(path, pin, source, tree):
-    require_local_repo(path)
-    revisions = git(path, "rev-parse", "HEAD", "HEAD^{tree}", "HEAD^").stdout.splitlines()
-    if (
-        revisions != [source, tree, pin]
-        or git(path, "symbolic-ref", "--quiet", "HEAD", check=False).returncode != 1
-        or git(path, "status", "--porcelain").stdout.strip()
-    ):
-        raise ValueError(f"Expected the clean detached Full Blend snapshot at {path}")
-
-
-def restore_legacy(pin):
-    receipt = json.loads(LEGACY_RECEIPT.read_text())
-    source, tree = receipt["source_commit"], receipt["historical_tree"]
-    if (
-        receipt["base_commit"] != pin or receipt["ref"] != LEGACY_REF
-        or sha256(LEGACY_BUNDLE) != receipt["bundle_sha256"]
-    ):
-        raise ValueError("The legacy Full Blend receipt, source pin, and bundle digest disagree")
-    require_bundle_head(LEGACY_BUNDLE, source, seed=LEGACY_SEED, ref=LEGACY_REF)
-    git(LEGACY_SEED, "bundle", "verify", LEGACY_BUNDLE)
-
-    if LEGACY_FORK.exists() or LEGACY_FORK.is_symlink():
-        require_legacy_fork(LEGACY_FORK, pin, source, tree)
-        return
-
-    LEGACY_FORK.parent.mkdir(parents=True, exist_ok=True)
-    with TemporaryDirectory(prefix=".lmcache-full-blend-", dir=LEGACY_FORK.parent) as tmp:
-        checkout = Path(tmp) / "repo"
-        checkout.mkdir()
-        git(checkout, "init", "--quiet")
-        git(checkout, "fetch", "--quiet", "--no-tags", "--depth=1", LEGACY_SEED.as_uri(), pin)
-        git(checkout, "fetch", "--quiet", "--no-tags", LEGACY_BUNDLE, LEGACY_REF)
-        git(checkout, "switch", "--quiet", "--detach", "FETCH_HEAD")
-        require_legacy_fork(checkout, pin, source, tree)
-        checkout.rename(LEGACY_FORK)
-
-
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     mode = parser.add_mutually_exclusive_group()
@@ -155,7 +116,7 @@ def main():
     args = parser.parse_args()
     try:
         if args.legacy_full_blend:
-            restore_legacy(seed_pin(LEGACY_SEED))
+            restore_detached_fork(LEGACY_SEED, LEGACY_FORK, LEGACY_BUNDLE, LEGACY_RECEIPT)
         else:
             (export if args.export else restore)(seed_pin())
     except (KeyError, OSError, StopIteration, ValueError, subprocess.CalledProcessError) as exc:

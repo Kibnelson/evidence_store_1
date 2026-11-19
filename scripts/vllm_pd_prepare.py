@@ -18,6 +18,10 @@ BUNDLE = THIRD_PARTY / "vllm-native-pd.bundle"
 RECEIPT = THIRD_PARTY / "vllm-fork.json"
 BRANCH = "evidencestore/native-pd"
 REF = f"refs/heads/{BRANCH}"
+LEGACY_SEED = SEED.with_name("vllm-legacy-base")
+LEGACY_FORK = FORK.with_name("vllm-full-blend")
+LEGACY_BUNDLE = THIRD_PARTY / "vllm-full-blend.bundle"
+LEGACY_RECEIPT = THIRD_PARTY / "vllm-full-blend-fork.json"
 
 
 def git(root, *args, check=True):
@@ -29,11 +33,11 @@ def git(root, *args, check=True):
     )
 
 
-def source_pin():
+def source_pin(seed=SEED):
     entries = json.loads((THIRD_PARTY / "sources.json").read_text())["sources"]
-    pin = next((item["commit"] for item in entries if item["name"] == "vllm"), None)
+    pin = next((item["commit"] for item in entries if item["name"] == seed.name), None)
     if not isinstance(pin, str) or len(pin) != 40 or any(char not in "0123456789abcdef" for char in pin):
-        raise ValueError("The vLLM source manifest needs a full Git commit pin")
+        raise ValueError(f"The source manifest needs a full Git commit pin for {seed.name}")
     return pin
 
 
@@ -57,20 +61,50 @@ def sha256(path):
     return digest.hexdigest()
 
 
-def require_bundle_head(repo, bundle, source):
+def require_bundle_head(repo, bundle, source, *, ref=REF):
     heads = git(repo, "bundle", "list-heads", bundle).stdout.splitlines()
-    if len(heads) != 1 or heads[0].split() != [source, REF]:
-        raise ValueError(f"The vLLM bundle must contain exactly {source} {REF}")
+    if len(heads) != 1 or heads[0].split() != [source, ref]:
+        raise ValueError(f"The source bundle must contain exactly {source} {ref}")
+
+
+def require_clean_detached(path, *revisions):
+    require_local_repo(path)
+    objects = ("HEAD", "HEAD^{tree}", "HEAD^")[:len(revisions)]
+    if (
+        git(path, "rev-parse", *objects).stdout.splitlines() != list(revisions)
+        or git(path, "symbolic-ref", "--quiet", "HEAD", check=False).returncode != 1
+        or git(path, "status", "--porcelain", "--untracked-files=no").stdout.strip()
+    ):
+        raise ValueError(f"Expected a clean detached checkout at the recorded revision in {path}")
+
+
+def restore_detached_fork(seed, fork, bundle, receipt_path):
+    pin = source_pin(seed)
+    require_clean_detached(seed, pin)
+    receipt = json.loads(receipt_path.read_text())
+    source, tree, ref = receipt["source_commit"], receipt["historical_tree"], receipt["ref"]
+    if receipt["base_commit"] != pin or sha256(bundle) != receipt["bundle_sha256"]:
+        raise ValueError(f"The source receipt, base pin, and bundle digest disagree for {fork.name}")
+    require_bundle_head(seed, bundle, source, ref=ref)
+    git(seed, "bundle", "verify", bundle)
+    if fork.exists() or fork.is_symlink():
+        require_clean_detached(fork, source, tree, pin)
+        return
+
+    fork.parent.mkdir(parents=True, exist_ok=True)
+    with TemporaryDirectory(prefix=f".{fork.name}-", dir=fork.parent) as tmp:
+        checkout = Path(tmp) / "repo"
+        checkout.mkdir()
+        git(checkout, "init", "--quiet")
+        git(checkout, "fetch", "--quiet", "--no-tags", "--depth=1", seed.as_uri(), pin)
+        git(checkout, "fetch", "--quiet", "--no-tags", bundle, ref)
+        git(checkout, "switch", "--quiet", "--detach", "FETCH_HEAD")
+        require_clean_detached(checkout, source, tree, pin)
+        checkout.rename(fork)
 
 
 def prepare(pin):
-    require_local_repo(SEED)
-    if (
-        git(SEED, "rev-parse", "HEAD").stdout.strip() != pin
-        or git(SEED, "symbolic-ref", "--quiet", "HEAD", check=False).returncode != 1
-        or git(SEED, "status", "--porcelain", "--untracked-files=no").stdout.strip()
-    ):
-        raise ValueError("The vLLM seed must be clean and detached at its upstream pin")
+    require_clean_detached(SEED, pin)
 
     receipt = json.loads(RECEIPT.read_text())
     if receipt["base_commit"] != pin or receipt["ref"] != REF:
@@ -145,15 +179,19 @@ def export(pin):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--export", action="store_true", help="Package committed changes from the local fork")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--export", action="store_true", help="Package committed changes from the local PD fork")
+    mode.add_argument("--legacy-full-blend", action="store_true", help="Restore the detached Full Blend vLLM source")
     args = parser.parse_args()
     try:
-        pin = source_pin()
-        (export if args.export else prepare)(pin)
+        if args.legacy_full_blend:
+            restore_detached_fork(LEGACY_SEED, LEGACY_FORK, LEGACY_BUNDLE, LEGACY_RECEIPT)
+        else:
+            (export if args.export else prepare)(source_pin())
     except (KeyError, OSError, ValueError, subprocess.CalledProcessError) as exc:
         print(getattr(exc, "stderr", "") or str(exc), file=sys.stderr)
         return 1
-    print(FORK)
+    print(LEGACY_FORK if args.legacy_full_blend else FORK)
     return 0
 
 

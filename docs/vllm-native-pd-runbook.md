@@ -300,6 +300,8 @@ Run the same command in a fresh output directory with `--trace off` to disable t
 
 ## Natural MuSiQue Blend smoke
 
+For the public in-process Full Blend baseline with its own build, see the [independent Full Blend runbook](vllm-legacy-full-blend-runbook.md).
+
 Use the same trace-enabled runtime and `CBKVConnector` plugin as the controlled smoke. This run starts a fresh LMCache server for **1B/3D** and another fresh server for **2B/2D**. The Blend workers in each layout share their server. Both layouts replay ten distinct MuSiQue questions once through live Faiss retrieval and normal gateway routing. The questions form two groups that retrieved recurring chunks in the [earlier MuSiQue archive](https://github.com/Kibnelson/evidence_store_1/tree/e1c8b5096cf4b9fc9721614b95dedb7280300bf5/reports/datasets/native-vllm-30453-20261119T031129Z/details/musique). Evidence uses the `¶` prompt format. The first ordinary requests populate the cache.
 
 Run from the active venv in an idle four-GPU allocation. This uses the full MuSiQue corpus index already prepared for the prefix campaign. Set `MUSIQUE_PREPARED` if you have another copy. Use `--index-dir` if its Faiss index is stored separately.

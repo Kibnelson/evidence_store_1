@@ -5,6 +5,7 @@
 | Checkout | Upstream ref | Fork-point commit |
 | --- | --- | --- |
 | [vLLM](https://github.com/vllm-project/vllm) | `main` | [`b24eda7127a9c5c317f699db3f580135eec7322b`](https://github.com/vllm-project/vllm/commit/b24eda7127a9c5c317f699db3f580135eec7322b) |
+| [vLLM Full Blend base](https://github.com/vllm-project/vllm/tree/v0.23.0) | `v0.23.0` | [`0fc695fc6d1d82e9a5ac6835ac8e4e1c83703665`](https://github.com/vllm-project/vllm/commit/0fc695fc6d1d82e9a5ac6835ac8e4e1c83703665) |
 | [LMCache](https://github.com/LMCache/LMCache) | `dev` | [`042d47abdef0d460cf2cb0d5720e8a59280cda8a`](https://github.com/LMCache/LMCache/commit/042d47abdef0d460cf2cb0d5720e8a59280cda8a) |
 | [LMCache Full Blend base](https://github.com/LMCache/LMCache/tree/v0.5.0) | `v0.5.0` | [`389b9cfcb5cec502dbba6b5d13725bf2e024610d`](https://github.com/LMCache/LMCache/commit/389b9cfcb5cec502dbba6b5d13725bf2e024610d) |
 | [Legacy LMCache](https://github.com/LMCache/LMCache_inprocess) | `main` | [`0aebefd026f5c479d3f6bcbee0d5facd1b2856ec`](https://github.com/LMCache/LMCache_inprocess/commit/0aebefd026f5c479d3f6bcbee0d5facd1b2856ec) |
@@ -46,15 +47,16 @@ Carry `vllm-native-pd.bundle` and `vllm-fork.json` with the experiment repo. The
 
 ## Historical Full Blend source
 
-Restore the exact LMCache source that ran inside the vLLM producer in Full Blend job `29538`.
+Restore the LMCache and assembled vLLM source trees used in Full Blend job `29538`.
 
 ```sh
-python3 scripts/checkout_sources.py lmcache-legacy-base
+python3 scripts/checkout_sources.py lmcache-legacy-base vllm-legacy-base
 python3 scripts/lmcache_pd_prepare.py --legacy-full-blend
+python3 scripts/vllm_pd_prepare.py --legacy-full-blend
 ```
 
-The first command fetches the public `v0.5.0` base into `checkouts/lmcache-legacy-base/`. The second restores `forks/lmcache-full-blend/` from the local Git bundle. Both checkouts have a detached HEAD and zero remotes. Repeat either command to verify the existing checkout. The restore verifies the bundle digest, the upstream parent, and the exact historical tree.
+The first command fetches the public upstream seeds. The two prepare commands restore `forks/lmcache-full-blend/` and `forks/vllm-full-blend/` from the local Git bundles. These checkouts have detached HEADs and zero remotes. Repeating the commands verifies the existing checkouts. The restore verifies the bundle digest, the upstream parent, and the historical tree.
 
 The [source receipt](lmcache-full-blend-fork.json) records the new standalone commit and its provenance. Its tree is `78f1dacf0b454fad5be4f40582ef260df834ed91`, copied from `server/sources/lmcache-v0.5.0-sched` at `context_pilot_paper` commit `e25c6fbba1075760894e230147ca28c630cd7ece`. The original runtime built this local source as editable LMCache `0.5.0` with CUDA support. The producer used `LMCacheConnectorV1` with layerwise blending and the `¶` separator. [Historical source](https://github.com/Kibnelson/context_pilot_paper/tree/e25c6fbba1075760894e230147ca28c630cd7ece/server/sources/lmcache-v0.5.0-sched) · [Original install script](https://github.com/Kibnelson/context_pilot_paper/blob/e25c6fbba1075760894e230147ca28c630cd7ece/scripts/scheduler_v1_prepare_rtx_host_runtime.sh#L318-L331)
 
-Use this checkout with the historical runtime to reproduce the in-process Full Blend baseline. The shared-server Blend smoke requires `CBKVConnector`. [Shared-server runbook](../docs/vllm-native-pd-runbook.md#natural-musique-blend-smoke)
+The [vLLM receipt](vllm-full-blend-fork.json) records the assembled 5,409-file tree and the original assembly digest. The allocation builder works from these bundles. It stages separate build copies, removes the two old experiment-specific fingerprint hooks, and adds gated request instrumentation. The restored source snapshots stay clean. [Independent Full Blend runbook](../docs/vllm-legacy-full-blend-runbook.md)

@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 from dataclasses import asdict, dataclass
 import hashlib
+from importlib.metadata import version
 import importlib.util
 import json
 import math
@@ -74,6 +75,8 @@ def arguments() -> argparse.Namespace:
     parser.add_argument("--worker-port-base", type=int, default=8100)
     parser.add_argument("--nixl-port-base", type=int, default=5600)
     parser.add_argument("--lmcache", action="store_true", help="use one shared prefill-side LMCache MP server")
+    parser.add_argument("--legacy-full-blend", action="store_true",
+                        help="use the historical in-process LMCache on each producer")
     parser.add_argument("--prefill-mode", choices=("prefix", "blend"),
                         help="use the selected prefiller connector with an LMCache blend server")
     parser.add_argument("--external-lmcache", action="store_true",
@@ -95,6 +98,11 @@ def arguments() -> argparse.Namespace:
     args = parser.parse_args()
     if args.client and args.client[0] == "--":
         args.client = args.client[1:]
+    if args.legacy_full_blend and (
+        args.lmcache or args.prefill_mode or args.prefix_cache != "off"
+        or not math.isfinite(args.lmcache_size_gb) or args.lmcache_size_gb <= 0
+    ):
+        parser.error("--legacy-full-blend requires prefix cache off and a positive per-producer cache size")
     if args.prefill_mode:
         args.lmcache = True
         if args.lmcache_on_decode or args.lmcache_chunk_size != 256:
@@ -177,11 +185,22 @@ def prefix_cache_for(args: argparse.Namespace, role: str) -> str:
 
 def worker_command(args: argparse.Namespace, worker: Worker) -> list[str]:
     connector = {
-        "kv_connector": "NixlPullConnector",
+        "kv_connector": "NixlConnector" if args.legacy_full_blend else "NixlPullConnector",
         "kv_role": "kv_producer" if worker.role == "P" else "kv_consumer",
         "kv_load_failure_policy": "fail",
     }
-    if uses_lmcache(args, worker.role):
+    if args.legacy_full_blend:
+        connector.update(kv_buffer_device="cuda", kv_connector_extra_config={
+            "backends": ["UCX"], "enforce_handshake_compat": True, "kv_recompute_threshold": 0,
+        })
+        if worker.role == "P":
+            cache = {"kv_connector": "LMCacheConnectorV1", "kv_role": "kv_both",
+                     "kv_connector_extra_config": {"use_native": False, "use_layerwise": True}}
+            connector = {"kv_connector": "MultiConnector", "kv_role": "kv_producer",
+                         "kv_load_failure_policy": "fail", "kv_connector_extra_config": {
+                             "connectors": [connector, cache],
+                         }}
+    elif uses_lmcache(args, worker.role):
         blend = args.prefill_mode == "blend"
         cache_extra = {
             "lmcache.mp.host": f"tcp://{HOST}",
@@ -205,10 +224,11 @@ def worker_command(args: argparse.Namespace, worker: Worker) -> list[str]:
         }
     prefix_flag = "--enable-prefix-caching" if prefix_cache_for(args, worker.role) == "on" else "--no-enable-prefix-caching"
     pilot_flags = ["--pipeline-parallel-size", "1", "--no-enable-chunked-prefill"] if (
-        args.prefill_mode and worker.role == "P"
+        (args.prefill_mode or args.legacy_full_blend) and worker.role == "P"
     ) else []
+    runner = ["env", "VLLM_USE_V2_MODEL_RUNNER=0"] if args.legacy_full_blend else []
     return [
-        sys.executable, "-m", "vllm.entrypoints.cli.main", "serve", args.model,
+        *runner, sys.executable, "-m", "vllm.entrypoints.cli.main", "serve", args.model,
         "--host", HOST, "--port", str(worker.port),
         "--revision", args.revision, "--tokenizer-revision", args.revision,
         "--tensor-parallel-size", "1", "--dtype", "bfloat16", "--block-size", "16",
@@ -239,6 +259,12 @@ def worker_env(args: argparse.Namespace, worker: Worker) -> dict[str, str]:
     }
     if uses_lmcache(args, worker.role):
         env["LMCACHE_LOG_LEVEL"] = "INFO"
+    if args.legacy_full_blend:
+        env.update(VLLM_DISABLE_REQUEST_ID_RANDOMIZATION="1", VLLM_ATTENTION_BACKEND="FLASH_ATTN",
+                   VLLM_KV_CACHE_LAYOUT="HND", PYTHONHASHSEED="0")
+        if worker.role == "P":
+            env.update(LMCACHE_CONFIG_FILE=str(args.run_dir / f"lmcache-{worker.id}.json"),
+                       LMCACHE_BLEND_SYNC_MODE="events", LMCACHE_TRACK_USAGE="false")
     return env
 
 
@@ -545,7 +571,28 @@ print(json.dumps(inspect.getfile(connector)))
             "source_sha256": hashlib.sha256(source.read_bytes()).hexdigest(), "settings": BLEND_SETTINGS}
 
 
+def legacy_runtime_identity(args: argparse.Namespace) -> dict:
+    receipt = Path(os.environ["CHECK_ROOT"]) / "runtime.json"
+    identity = json.loads(receipt.read_text(encoding="utf-8"))
+    for module, expected, source in (("vllm", "0.23.0", args.source),
+                                     ("lmcache", "0.5.0", args.lmcache_source)):
+        spec = importlib.util.find_spec(module)
+        if (version(module) != expected or not spec or not spec.origin or
+                Path(spec.origin).resolve() != source / f"{module}/__init__.py"):
+            raise ValueError(f"Activate the verified editable legacy {module} {expected} runtime")
+    return {"vllm_source": identity, "lmcache_source": str(args.lmcache_source), "blend_plugin": None}
+
+
 def preflight(args: argparse.Namespace, workers: list[Worker]) -> dict:
+    ports = [args.port, *(worker.port for worker in workers), *(worker.nixl_port for worker in workers)]
+    if args.lmcache and not args.external_lmcache:
+        ports.extend((args.lmcache_port, args.lmcache_http_port))
+    for port in ports:
+        with socket.socket() as sock:
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            sock.bind((HOST, port))
+    if args.legacy_full_blend:
+        return legacy_runtime_identity(args)
     root = args.source
     spec = importlib.util.find_spec("vllm")
     if spec is None or not spec.origin or Path(spec.origin).resolve() != root / "vllm/__init__.py":
@@ -562,15 +609,8 @@ def preflight(args: argparse.Namespace, workers: list[Worker]) -> dict:
         raise ValueError("The editable vLLM fork is missing its native tracing source")
     tree = subprocess.check_output(["git", "-C", str(root), "rev-parse", "HEAD^{tree}"], text=True).strip()
     changes = subprocess.check_output(["git", "-C", str(root), "status", "--porcelain"], text=True).splitlines()
-    ports = [args.port, *(worker.port for worker in workers), *(worker.nixl_port for worker in workers)]
     cache_source = lmcache_preflight(args, source_pin) if args.lmcache else None
     blend_plugin = blend_plugin_preflight() if args.prefill_mode == "blend" else None
-    if args.lmcache and not args.external_lmcache:
-        ports.extend((args.lmcache_port, args.lmcache_http_port))
-    for port in ports:
-        with socket.socket() as sock:
-            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            sock.bind((HOST, port))
     return {"vllm_source": {"base_commit": expected, "commit": actual, "git_tree": tree,
                            "editable_source": str(root), "module": spec.origin, "working_tree_changes": changes},
             "lmcache_source": cache_source, "blend_plugin": blend_plugin}
@@ -639,12 +679,24 @@ def run(args: argparse.Namespace) -> int:
             blend_plugin=identity["blend_plugin"],
             blend_trace_enabled=None if args.external_lmcache else args.trace_blend_server,
         )
+    if args.legacy_full_blend:
+        manifest["legacy_full_blend"] = {"mode": "in_process", "cache_per_producer_gib": args.lmcache_size_gb,
+                                         "lmcache_source": identity["lmcache_source"]}
+        for worker, _, env in plans:
+            if worker.role == "P":
+                write_json(Path(env["LMCACHE_CONFIG_FILE"]), {
+                    "local_cpu": True, "max_local_cpu_size": args.lmcache_size_gb,
+                    "chunk_size": 256, "use_layerwise": True, "enable_blending": True,
+                    "blend_special_str": "¶", "blend_check_layers": [1], "blend_recompute_ratios": [0.15],
+                    "enable_async_loading": False, "save_unfull_chunk": True,
+                    "pre_caching_hash_algorithm": "builtin",
+                })
     write_json(args.run_dir / "run_manifest.json", manifest)
 
     children: list[Child] = []
     stopped = False
     http_env = {"NO_PROXY": "localhost,127.0.0.1", "no_proxy": "localhost,127.0.0.1"}
-    if args.prefill_mode:
+    if args.prefill_mode or args.legacy_full_blend:
         http_env["EVIDENCESTORE_TRACE_REQUESTS"] = "1" if args.trace == "on" else "0"
 
     def stop(_signal, _frame):
@@ -725,7 +777,7 @@ def run(args: argparse.Namespace) -> int:
 def main() -> int:
     try:
         return run(arguments())
-    except (OSError, ValueError, subprocess.CalledProcessError) as error:
+    except (KeyError, OSError, ValueError, subprocess.CalledProcessError) as error:
         print(error, file=sys.stderr)
         return 1
 
