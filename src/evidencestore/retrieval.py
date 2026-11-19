@@ -10,6 +10,7 @@ import zipfile
 from dataclasses import dataclass
 from itertools import islice
 from pathlib import Path
+from time import monotonic_ns
 
 
 DOMAINS = ("clapnq", "cloud", "fiqa", "govt")
@@ -395,21 +396,32 @@ class HnswRetriever:
     def search(self, vector, top_k):
         return self.index.search(vector, top_k)
 
-    def materialize(self, scores, labels):
+    def materialize(self, scores, labels, *, chunk_stages=None):
         hits = []
+        reads = [] if chunk_stages is not None else None
         metadata_bytes = 0
         with self.chunks_path.open("rb") as handle:
             for label, score in zip(labels[0], scores[0]):
                 if label >= 0:
-                    handle.seek(self.offsets[label])
+                    offset = self.offsets[label]
+                    read_start = monotonic_ns() if reads is not None else None
+                    handle.seek(offset)
                     encoded = handle.readline()
+                    read_end = monotonic_ns() if reads is not None else None
                     metadata_bytes += len(encoded)
                     chunk = json.loads(encoded)
                     chunk["score"] = float(score)
                     hits.append(chunk)
+                    if reads is not None:
+                        reads.append((chunk, read_start, read_end, int(label), offset, len(encoded)))
         hits.sort(key=lambda chunk: (-chunk["score"], chunk["chunk_id"]))
         for rank, chunk in enumerate(hits, 1):
             chunk["rank"] = rank
+        if reads is not None:
+            for chunk, start_ns, end_ns, label, offset, row_bytes in reads:
+                _append_stage(chunk_stages, "corpus_row_read", start_ns, end_ns,
+                              **_chunk_stage_identity(chunk), row_bytes=row_bytes,
+                              row_label=label, byte_offset=offset)
         return hits, metadata_bytes
 
 
@@ -420,39 +432,89 @@ class RenderedPrompt:
     dropped_chunk_ids: list[str]
 
 
-def _render_parts(question, history, hits):
+def _append_stage(stages, stage, start_ns, end_ns, **fields):
+    stages.append({"stage": stage, "start_ns": start_ns, "end_ns": end_ns, **fields})
+
+
+def _chunk_stage_identity(chunk):
+    return {"doc_id": chunk["doc_id"], "chunk_id": chunk["chunk_id"],
+            "chunk_version": chunk["chunk_version"], "rank": chunk.get("rank")}
+
+
+def _render_parts(question, history, hits, *, chunk_stages=None):
+    start_ns = monotonic_ns() if chunk_stages is not None else None
     parts = ["Answer the question using the evidence below.\n"]
     parts.extend(f"{turn['speaker']}: {turn['text']}\n" for turn in history)
     parts.append(f"Question: {question}\nEvidence:\n")
     cursor = sum(map(len, parts))
+    if chunk_stages is not None:
+        _append_stage(chunk_stages, "prompt_template_prefix", start_ns, monotonic_ns(),
+                      char_start=0, char_end=cursor)
     spans = []
     for hit in hits:
+        start_ns = monotonic_ns() if chunk_stages is not None else None
         text = hit["text"]
         spans.append((cursor, cursor + len(text)))
         parts.extend((text, "\n\n"))
         cursor += len(text) + 2
+        if chunk_stages is not None:
+            _append_stage(chunk_stages, "prompt_chunk_append", start_ns, monotonic_ns(),
+                          **_chunk_stage_identity(hit), char_start=spans[-1][0],
+                          char_end=spans[-1][1], retained=False)
+    start_ns = monotonic_ns() if chunk_stages is not None else None
     parts.append("Answer:")
-    return "".join(parts), spans
+    if chunk_stages is not None:
+        _append_stage(chunk_stages, "prompt_template_suffix", start_ns, monotonic_ns(),
+                      char_start=cursor, char_end=cursor + len(parts[-1]))
+        start_ns = monotonic_ns()
+    text = "".join(parts)
+    if chunk_stages is not None:
+        _append_stage(chunk_stages, "prompt_join", start_ns, monotonic_ns(), prompt_char_count=len(text))
+    return text, spans
 
 
-def render_prompt(tokenizer, question, history, hits, max_prompt_tokens):
+def render_prompt(tokenizer, question, history, hits, max_prompt_tokens, *, chunk_stages=None):
     """Map each evidence occurrence against the final whole-prompt tokenization."""
     if not tokenizer.is_fast:
         raise ValueError("A fast tokenizer is required for exact prompt-token offsets")
     kept = list(hits)
     dropped = []
+    attempt = 0
     while True:
-        text, spans = _render_parts(question, history, kept)
+        attempt_stages = [] if chunk_stages is not None else None
+        text, spans = _render_parts(question, history, kept, chunk_stages=attempt_stages)
+        tokenize_start = monotonic_ns() if attempt_stages is not None else None
         encoded = tokenizer(text, return_offsets_mapping=True, add_special_tokens=True, truncation=False)
-        if len(encoded["input_ids"]) <= max_prompt_tokens:
+        tokenize_end = monotonic_ns() if attempt_stages is not None else None
+        token_count = len(encoded["input_ids"])
+        fits = token_count <= max_prompt_tokens
+        if attempt_stages is not None:
+            attempt += 1
+            _append_stage(attempt_stages, "prompt_tokenize", tokenize_start, tokenize_end,
+                          token_count=token_count, max_prompt_tokens=max_prompt_tokens,
+                          dropped_chunk_id=kept[-1]["chunk_id"] if kept and not fits else None)
+            for stage in attempt_stages:
+                stage.update(attempt=attempt, accepted_attempt=fits)
+            chunk_stages.extend(attempt_stages)
+        if fits:
             break
         if not kept:
             raise ValueError(f"Question and reference history exceed {max_prompt_tokens} tokens")
         dropped.append(kept.pop()["chunk_id"])
     evidence = []
-    for hit, (char_start, char_end) in zip(kept, spans):
+    append_stages = ([stage for stage in attempt_stages if stage["stage"] == "prompt_chunk_append"]
+                     if attempt_stages is not None else None)
+    for index, (hit, (char_start, char_end)) in enumerate(zip(kept, spans)):
+        map_start = monotonic_ns() if append_stages is not None else None
         indices = [index for index, (start, end) in enumerate(encoded["offset_mapping"])
                    if start < char_end and end > char_start and end > start]
+        if append_stages is not None:
+            map_end = monotonic_ns()
+            append_stages[index]["retained"] = bool(indices)
+            _append_stage(chunk_stages, "prompt_chunk_offset_map", map_start, map_end,
+                          **_chunk_stage_identity(hit), attempt=attempt, accepted_attempt=True,
+                          retained=bool(indices), char_start=char_start, char_end=char_end,
+                          start_token=indices[0] if indices else None, end_token=indices[-1] + 1 if indices else None)
         if not indices:
             dropped.append(hit["chunk_id"])
             continue

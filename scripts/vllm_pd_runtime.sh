@@ -95,6 +95,10 @@ PY
   "$PYTHON" scripts/vllm_pd_prepare.py
   VLLM_SOURCE="$REPO/third_party/forks/vllm"
   LMCACHE_SOURCE="$REPO/third_party/checkouts/lmcache"
+  if [[ "${EVIDENCESTORE_LMCACHE_TRACE:-0}" == 1 ]]; then
+    "$PYTHON" scripts/lmcache_pd_prepare.py
+    LMCACHE_SOURCE="$REPO/third_party/forks/lmcache"
+  fi
   vllm_base="$("$PYTHON" -c 'import json; print(json.load(open("third_party/vllm-fork.json"))["base_commit"])')"
   vllm_build=source
   if git -C "$VLLM_SOURCE" diff --quiet "$vllm_base" HEAD -- . ':(exclude,glob)vllm/**/*.py'; then

@@ -221,18 +221,22 @@ def serve_row(args, row, tracer, retriever, tokenizer):
             tracer.emit("hnsw_search_start", **fields, top_k=args.top_k)
             scores, labels = retriever.search(vector, args.top_k)
             tracer.emit("hnsw_search_end", **fields, returned_rows=int((labels[0] >= 0).sum()))
+            materialize_stage_fields = {"chunk_stages": []} if args.trace_chunk_stages else {}
             tracer.emit("chunk_materialize_start", **fields)
-            hits, metadata_bytes = retriever.materialize(scores, labels)
+            hits, metadata_bytes = retriever.materialize(scores, labels, **materialize_stage_fields)
             trace_hits = [{key: hit[key] for key in ("doc_id", "chunk_id", "chunk_version", "rank", "score")}
                           for hit in hits]
-            tracer.emit("chunk_materialize_end", **fields, hits=trace_hits, corpus_metadata_bytes=metadata_bytes)
+            tracer.emit("chunk_materialize_end", **fields, hits=trace_hits, corpus_metadata_bytes=metadata_bytes,
+                        **materialize_stage_fields)
+            render_stage_fields = {"chunk_stages": []} if args.trace_chunk_stages else {}
             tracer.emit("prompt_render_start", **fields)
             rendered = render_prompt(tokenizer, row["question"], row.get("reference_history", []),
-                                     hits, args.max_prompt_tokens)
+                                     hits, args.max_prompt_tokens, **render_stage_fields)
             tokens, evidence = rendered.token_ids, rendered.evidence
             prompt_hash = prompt_sha256(tokens)
             tracer.emit("prompt_render_end", **fields, prompt_token_count=len(tokens),
-                        prompt_sha256=prompt_hash, dropped_chunk_ids=rendered.dropped_chunk_ids)
+                        prompt_sha256=prompt_hash, dropped_chunk_ids=rendered.dropped_chunk_ids,
+                        **render_stage_fields)
             frozen = {**row, "prompt_token_ids": tokens, "prompt_sha256": prompt_hash,
                       "retrieval_hits": trace_hits, "evidence": evidence,
                       "dropped_chunk_ids": rendered.dropped_chunk_ids,
@@ -350,6 +354,8 @@ def replay(args):
         "frozen_sha256": sha256_file(output / "frozen.jsonl"),
         "index": retriever.manifest if retriever else None,
     }
+    if args.trace_chunk_stages:
+        manifest["trace_chunk_stages"] = retriever is not None
     (output / "manifest.json").write_text(json_line(manifest), encoding="utf-8")
     print(f"{manifest['succeeded']}/{manifest['requested']} complete. Receipts: {output}")
     return int(failed > 0)
@@ -404,6 +410,8 @@ def parse_args(argv=None):
     send.add_argument("--max-tokens", type=int, default=32)
     send.add_argument("--timeout", type=float, default=300)
     send.add_argument("--concurrency", type=int, default=1)
+    send.add_argument("--trace-chunk-stages", action="store_true",
+                      help="trace live corpus-row reads, prompt chunks, and whole-prompt assembly")
     return parser.parse_args(argv)
 
 

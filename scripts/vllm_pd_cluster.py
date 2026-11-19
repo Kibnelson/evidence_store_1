@@ -25,6 +25,7 @@ MODEL = "Qwen/Qwen3-4B-Instruct-2507"
 REVISION = "cdbee75f17c01a7cc42f958dc650907174af0554"
 SOURCE = ROOT / "third_party/forks/vllm"
 LMCACHE_SOURCE = ROOT / "third_party/checkouts/lmcache"
+LMCACHE_TRACE_SOURCE = ROOT / "third_party/forks/lmcache"
 TOPOLOGIES = {"1p3d": (1, 3), "2p2d": (2, 2)}
 # All cohort traffic stays on the allocated node, even when HTTP_PROXY is set.
 OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
@@ -71,7 +72,9 @@ def arguments() -> argparse.Namespace:
         "--lmcache-on-decode", action="store_true",
         help="also connect the decode workers to the same LMCache MP server",
     )
-    parser.add_argument("--lmcache-source", type=Path, default=LMCACHE_SOURCE)
+    parser.add_argument("--lmcache-source", type=Path)
+    parser.add_argument("--trace-lmcache-transfers", action="store_true",
+                        help="record completed LMCache staging transfers and verified token ranges")
     parser.add_argument("--lmcache-size-gb", type=float, default=8)
     parser.add_argument("--lmcache-chunk-size", type=int, default=256)
     parser.add_argument("--lmcache-port", type=int, default=6555)
@@ -84,6 +87,10 @@ def arguments() -> argparse.Namespace:
         args.client = args.client[1:]
     if args.lmcache_on_decode and not args.lmcache:
         parser.error("--lmcache-on-decode requires --lmcache")
+    if args.trace_lmcache_transfers and (not args.lmcache or args.trace != "on"):
+        parser.error("--trace-lmcache-transfers requires --lmcache and --trace on")
+    if args.lmcache_source is None:
+        args.lmcache_source = LMCACHE_TRACE_SOURCE if args.trace_lmcache_transfers else LMCACHE_SOURCE
     if args.max_model_len < 16 or args.max_num_seqs < 1:
         parser.error("max-model-len must be at least 16 and max-num-seqs must be positive")
     if (not 0 < args.gpu_memory_utilization <= 1 or not math.isfinite(args.startup_timeout)
@@ -214,7 +221,11 @@ def lmcache_command(args: argparse.Namespace) -> list[str]:
 
 
 def lmcache_env(args: argparse.Namespace, workers: list[Worker]) -> dict[str, str]:
-    return {"CUDA_VISIBLE_DEVICES": ",".join(worker.gpu for worker in workers if uses_lmcache(args, worker.role))}
+    env = {"CUDA_VISIBLE_DEVICES": ",".join(worker.gpu for worker in workers if uses_lmcache(args, worker.role)),
+           "EVIDENCESTORE_TRACE_LMCACHE_TRANSFERS": "1" if args.trace_lmcache_transfers else "0"}
+    if args.trace_lmcache_transfers:
+        env.update(EVIDENCESTORE_TRACE_DIR=str(args.run_dir / "trace"), EVIDENCESTORE_RUN_ID=args.run_dir.name)
+    return env
 
 
 def write_json(path: Path, value: dict) -> None:
@@ -384,14 +395,20 @@ def lmcache_preflight(args: argparse.Namespace, source_pins: list[dict]) -> dict
     spec = importlib.util.find_spec("lmcache")
     if spec is None or not spec.origin or Path(spec.origin).resolve() != root / "lmcache/__init__.py":
         raise ValueError(f"Install {root} editable in the active Python environment for --lmcache")
-    expected = next(item["commit"] for item in source_pins if item["name"] == "lmcache")
+    upstream = next(item["commit"] for item in source_pins if item["name"] == "lmcache")
+    expected = upstream
+    if args.trace_lmcache_transfers:
+        receipt = json.loads((ROOT / "third_party/lmcache-pd-fork.json").read_text())
+        if receipt["base_commit"] != upstream:
+            raise ValueError("The LMCache tracing fork receipt does not match the upstream pin")
+        expected = receipt["source_commit"]
     actual = subprocess.check_output(["git", "-C", str(root), "rev-parse", "HEAD"], text=True).strip()
     if actual != expected:
-        raise ValueError(f"LMCache source {actual} differs from the pinned commit {expected}")
+        raise ValueError(f"LMCache source {actual} differs from the selected commit {expected}")
     for command in (("remote",), ("status", "--porcelain", "--untracked-files=no")):
         if subprocess.check_output(["git", "-C", str(root), *command], text=True).strip():
             raise ValueError("The pinned LMCache checkout must have zero remotes and clean tracked files")
-    return {"commit": actual, "editable_source": str(root), "module": spec.origin}
+    return {"commit": actual, "base_commit": upstream, "editable_source": str(root), "module": spec.origin}
 
 
 def preflight(args: argparse.Namespace, workers: list[Worker]) -> dict:
@@ -468,6 +485,7 @@ def run(args: argparse.Namespace) -> int:
         manifest["lmcache"] = {
             **endpoints["lmcache"], "source": identity["lmcache_source"],
             "mode": "shared_pd" if args.lmcache_on_decode else "prefill_only",
+            "transfer_trace_enabled": args.trace_lmcache_transfers,
             "port": args.lmcache_port, "l1_size_gb": args.lmcache_size_gb,
             "chunk_size": args.lmcache_chunk_size,
             "prefill_workers": [worker.id for worker in workers if worker.role == "P"],
