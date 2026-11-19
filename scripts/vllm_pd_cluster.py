@@ -237,18 +237,30 @@ def start(name: str, command: list[str], env: dict[str, str], run_dir: Path) -> 
     return Child(name, process, log_path)
 
 
+def worker_exit_excerpt(log_path: Path) -> str:
+    limit = 64 * 1024
+    failures = (b"EngineCore encountered a fatal error.", b"EngineCore failed to start.")
+    with log_path.open("rb") as stream:
+        for line in stream:
+            if any(message in line for message in failures):
+                payload = line[:limit] + stream.read(max(0, limit - len(line)))
+                lines = payload.decode("utf-8", errors="replace").splitlines()[:100]
+                return "First EngineCore failure:\n" + "\n".join(lines)
+        stream.seek(0, os.SEEK_END)
+        stream.seek(max(0, stream.tell() - limit))
+        lines = stream.read().decode("utf-8", errors="replace").splitlines()[-80:]
+    return "Last lines from the worker log:\n" + "\n".join(lines) if lines else ""
+
+
 def check_children(children: list[Child]) -> None:
     for child in children:
         status = child.process.poll()
         if status is not None:
             message = f"{child.name} exited with {status}; see {child.log}"
             try:
-                with child.log.open("rb") as stream:
-                    stream.seek(0, os.SEEK_END)
-                    stream.seek(max(0, stream.tell() - 64 * 1024))
-                    lines = stream.read().decode("utf-8", errors="replace").splitlines()
-                if lines:
-                    message += "\nLast lines from the worker log:\n" + "\n".join(lines[-80:])
+                excerpt = worker_exit_excerpt(child.log)
+                if excerpt:
+                    message += "\n" + excerpt
             except OSError as error:
                 message += f"\nCould not read worker log: {error}"
             raise RuntimeError(message)

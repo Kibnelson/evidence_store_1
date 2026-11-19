@@ -249,7 +249,7 @@ For a smoke-only run, save the results in section 3 and exit the allocation. Con
 
 ### Inspect a failed smoke run
 
-Use the cohort directory printed by the launcher. The worker log contains the engine details, and the router and workload logs show the last request that reached each service. Inspect these together. A worker's process exit status can reflect API server shutdown after an engine error.
+Use the cohort directory printed by the launcher. Look for the first `EngineCore encountered a fatal error.` or `EngineCore failed to start.` and read the traceback that follows. A later `EngineDeadError` records that the API had already lost the engine. The router and workload logs show the requests around the failure.
 
 If the allocation shell is still open, read the logs there. If it has ended and the scratch directory is still present, use the following CPU-only allocation on the same node from the Slurm login shell. Paste the cohort directory ending in `smoke/1p3d-native` or the corresponding failed cohort when prompted. [Earlier same-node closeout](../../context_pilot_paper/docs/evidencestore/implementation/scheduler_v2_phase1_native_1p3d_gpu_run_card.md#L268)
 
@@ -265,7 +265,10 @@ fi
 for log in "$logs"/{p*,d*,router,workload,metrics-before}.log; do
   [[ -f "$log" ]] || continue
   printf '\n--- %s ---\n' "${log##*/}"
-  tail -n 80 -- "$log"
+  if ! grep -n -F -m 1 -A 100 -e 'EngineCore encountered a fatal error.' \
+      -e 'EngineCore failed to start.' -- "$log"; then
+    tail -n 80 -- "$log"
+  fi
 done
 NODE
 ```
