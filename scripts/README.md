@@ -11,6 +11,9 @@
 | `vllm_pd_report.py` | Capture native NIXL counters and generate the joined request timelines and report. |
 | `vllm_pd_publish_smoke.sh` | Archive and push a passed smoke pair from the shared checkout. |
 | `vllm_pd_full_campaign.sh` | Stage and index all dataset inputs and replay the four cohorts in the current allocation. |
+| `vllm_pd_chunk_smoke.sh` | Run the MuSiQue chunk-trace smoke or use `--full` to send every question once in each 2P/2D cohort. |
+| `vllm_pd_musique_repeat_report.py` | Verify the paired live inputs and compare naturally repeated chunks across cohorts. |
+| `vllm_pd_archive_musique.py` | Package the full MuSiQue chunk and transfer measurements for review. |
 | `vllm_pd_dataset_report.py` | Capture dataset counter boundaries and report joined request and document measurements. |
 | `vllm_pd_publish_dataset.py` | Commit and push verified dataset summaries or the detailed campaign review archive, and retry pending pushes. |
 | `vllm_pd_stage_inputs.py` | Download and verify the official labeled development files used by the full campaign. |

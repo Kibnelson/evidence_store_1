@@ -141,3 +141,11 @@ Slurm run `musique-chunk-smoke-30456.j8wv0l` passed in both 2P/2D cohorts. Each 
 | Reordered evidence | 924 | 135.00 | 924 | 132.75 | 108 MiB GPU → host |
 
 The same-worker repeat skipped 922 scheduled evidence tokens on P and reduced D's NIXL read from 60 blocks to one. The cross-prefill repeat needed 176 more evidence tokens on P than the same-worker repeat and restored 108 MiB from LMCache. Its D read stayed at one NIXL block. Reordering the same evidence brought P back to 924 scheduled evidence tokens and D back to 59 NIXL blocks. These are probe totals. The chunk records and transfer ledger retain each occurrence's token operations and its overlap with the transferred blocks.
+
+## Full single-pass review
+
+Each fresh 2P/2D cohort sends all 2,417 development questions once, in the same order. Both cohorts embed the query, search the full Faiss HNSW index, read the returned chunks, and build the prompt live. The replay uses normal routing and waits for each response before sending the next question. [Full MuSiQue single-pass replay](../vllm-native-pd-runbook.md#full-musique-single-pass-replay)
+
+The paired report verifies the question IDs, prompt token hashes, and evidence spans across the two cohorts. It counts every occurrence after the first appearance of the same versioned chunk in another question, with separate counts for occurrences at the same or a changed prompt offset. The previous campaign found 8,248 repeat uses. The new run measures the scheduled P and D evidence tokens and completed KV movement for the naturally recurring chunks.
+
+Use `repeated-chunks.jsonl` to find a chunk and its previous occurrence. The paired rows give the scheduled evidence tokens and exclusive NIXL and LMCache bytes in each cohort. The per-cohort `chunk-review` files link the same chunk to CPU preparation intervals, scheduler steps, and transferred ranges. Count each boundary block once in the transfer ledger even when it overlaps more than one chunk.

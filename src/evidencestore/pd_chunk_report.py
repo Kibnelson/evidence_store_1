@@ -24,8 +24,10 @@ _MILESTONES = (
 )
 _REQUEST_TIMELINE = set(_MILESTONES) | {
     "embedding_start", "embedding_end", "hnsw_search_start", "hnsw_search_end",
-    "gateway_received", "gateway_prompt_ready", "gateway_dispatch_prefill", "gateway_prefill_response",
-    "gateway_dispatch_decode", "gateway_stream_end", "engine_queued", "engine_scheduled",
+    "chunk_materialize_start", "chunk_materialize_end", "prompt_render_start", "prompt_render_end",
+    "gateway_received", "gateway_prompt_ready", "gateway_route_prefill", "gateway_dispatch_prefill",
+    "gateway_prefill_response", "gateway_route_decode", "gateway_dispatch_decode", "gateway_decode_headers",
+    "gateway_first_decode_bytes", "gateway_stream_end", "engine_queued", "engine_scheduled",
     "engine_remote_kv_wait_begin", "engine_remote_kv_wait_end",
 }
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Select pinned MuSiQue smoke queries and create serial forced-route probes."""
+"""Prepare pinned MuSiQue inputs and verify the controlled smoke."""
 
 import argparse
 import json
@@ -23,28 +23,29 @@ MUSIQUE_KEYS = (
     "musique:3hop1__19768_19788_19761",
 )
 LMCACHE_CHUNK_SIZE = 256
+MUSIQUE_DEV_REQUESTS = 2417
 
 
-def musique_sample(prepared):
+def musique_queries(prepared):
     manifest = json.loads((prepared / "manifest.json").read_text())
     if (
         manifest["dataset"] != "musique"
         or manifest["source_sha256"] != SOURCES["musique"][2]
-        or manifest["query_rows"] != 2417
+        or manifest["query_rows"] != MUSIQUE_DEV_REQUESTS
     ):
         raise ValueError("Expected data prepared from the pinned full MuSiQue-Ans development split")
-    rows = {
-        row["request_key"]: row
-        for row in read_jsonl(prepared / "queries.jsonl")
-        if row["request_key"] in MUSIQUE_KEYS
-    }
+    return list(read_jsonl(prepared / "queries.jsonl")), manifest
+
+
+def musique_sample(queries):
+    rows = {row["request_key"]: row for row in queries if row["request_key"] in MUSIQUE_KEYS}
     missing = set(MUSIQUE_KEYS) - rows.keys()
     if missing:
         raise ValueError(f"Prepared MuSiQue queries are missing smoke rows: {sorted(missing)}")
     questions = [rows[key] for key in MUSIQUE_KEYS]
     first = {**questions[0], "pd_route": {"prefill": "p0", "decode": "d0"}}
     exact = {**first, "request_key": first["request_key"] + ":smoke-repeat"}
-    return [first, exact, *questions[1:]], manifest
+    return [first, exact, *questions[1:]]
 
 
 def chunk_probes(tokenizer):
@@ -84,7 +85,16 @@ def write_jsonl(path, rows):
 
 
 def prepare_inputs(args):
-    questions, data = musique_sample(args.prepared)
+    queries, data = musique_queries(args.prepared)
+    if args.full:
+        if (len(queries) != MUSIQUE_DEV_REQUESTS
+                or len({row["request_key"] for row in queries}) != MUSIQUE_DEV_REQUESTS
+                or any(row["dataset"] != "musique" or row.get("pd_route") for row in queries)):
+            raise ValueError("Full MuSiQue expects 2,417 distinct questions with normal gateway routing")
+        questions, probes = queries, []
+    else:
+        questions = musique_sample(queries)
+        probes = chunk_probes(load_tokenizer(args.model, args.revision))
     corpus_hash = sha256_file(args.prepared / "corpus.jsonl")
     if args.retained_index:
         index = json.loads((args.retained_index / "manifest.json").read_text())
@@ -95,18 +105,19 @@ def prepare_inputs(args):
             != (args.embedding_model, args.embedding_revision)
         ):
             raise ValueError("Retained HNSW index differs from the prepared corpus or pinned embedder")
-    probes = chunk_probes(load_tokenizer(args.model, args.revision))
     args.output.mkdir()
     write_jsonl(args.output / "queries.jsonl", questions)
-    write_jsonl(args.output / "probes.jsonl", probes)
+    if probes:
+        write_jsonl(args.output / "probes.jsonl", probes)
     (args.output / "manifest.json").write_text(json_line({
         "dataset": "musique",
+        "workload": "full" if args.full else "smoke",
         "source_sha256": data["source_sha256"],
         "corpus_sha256": corpus_hash,
         "natural_queries": [row["request_key"] for row in questions],
         "probe_queries": [row["request_key"] for row in probes],
         "queries_sha256": sha256_file(args.output / "queries.jsonl"),
-        "probes_sha256": sha256_file(args.output / "probes.jsonl"),
+        **({"probes_sha256": sha256_file(args.output / "probes.jsonl")} if probes else {}),
     }), encoding="utf-8")
 
 
@@ -179,6 +190,7 @@ def main():
     prepare.add_argument("--retained-index", type=Path)
     prepare.add_argument("--embedding-model", required=True)
     prepare.add_argument("--embedding-revision", required=True)
+    prepare.add_argument("--full", action="store_true", help="stage all questions once using normal routing")
     drain = subparsers.add_parser("drain")
     drain.add_argument("--run-dir", type=Path, required=True)
     verify = subparsers.add_parser("verify-pair")

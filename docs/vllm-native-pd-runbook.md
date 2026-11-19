@@ -180,6 +180,68 @@ fi
 
 Use the path printed after `MuSiQue chunk smoke artifacts`. Under that run, review `2p2d-native/chunk-review/summary.json` and `2p2d-shared/chunk-review/summary.json`. The `probe_cases` section shows prefill token work, completed NIXL bytes, and LMCache staging bytes for the four controlled requests. The paired-input check verifies the seven live requests before the driver prints `MuSiQue chunk smoke passed`. Set `RUN_ROOT` to the printed artifact path before copying the run and setup receipts with [section 3](#3-check-the-receipts-in-the-allocation). [MuSiQue acceptance checks](datasets/musique.md#what-must-pass)
 
+## Full MuSiQue single-pass replay
+
+Use the four-GPU allocation and verified trace-enabled runtime from the MuSiQue smoke. The full run starts fresh 2P/2D native and shared cohorts. Each sends all 2,417 development questions once, in dataset order, with concurrency 1 and live Faiss retrieval. The gateway uses its normal routing. The first request for each chunk can seed the caches for later requests. Only naturally recurring evidence enters the repeat comparison. [MuSiQue analysis](datasets/musique.md#full-single-pass-review)
+
+If the verified runtime is still active, refresh the analysis and replay scripts from a node-local clone. The receipt comparisons verify that the existing runtime uses the same dependency pins and vLLM and LMCache forks. If the allocation ended, get a new one and build from current `main` using the allocation and build steps above, then continue to the replay command.
+
+```bash
+if [[ -n "${SLURM_JOB_ID:-}" && -n "${PD_EXEC_ROOT:-}" && -n "${REPO:-}" ]] &&
+    run_source=$(mktemp -d "$PD_EXEC_ROOT/musique-source.XXXXXX") &&
+    git clone --depth=1 --branch main --no-tags \
+      https://github.com/Kibnelson/evidence_store_1.git "$run_source" &&
+    cmp "$REPO/third_party/sources.json" "$run_source/third_party/sources.json" &&
+    cmp "$REPO/third_party/vllm-fork.json" "$run_source/third_party/vllm-fork.json" &&
+    cmp "$REPO/third_party/lmcache-pd-fork.json" "$run_source/third_party/lmcache-pd-fork.json" &&
+    git -C "$run_source" archive HEAD scripts/vllm_pd_chunk_smoke.sh \
+      scripts/vllm_pd_chunk_smoke_inputs.py scripts/vllm_pd_musique_repeat_report.py \
+      scripts/vllm_pd_archive_musique.py src/evidencestore/pd_chunk_report.py |
+      tar -xf - -C "$REPO"; then
+  git -C "$run_source" rev-parse HEAD | tee "$CHECK_ROOT/musique-runner-source.txt"
+else
+  printf 'Refresh stopped. Check the error before launching the full replay.\n' >&2
+fi
+```
+
+Launch from the allocation shell. The runner reuses the earlier full MuSiQue index when present. It stages the pinned input and builds the index in scratch otherwise. Set `MUSIQUE_PREPARED` and optionally `MUSIQUE_INDEX` to reuse another copy.
+
+```bash
+prior_musique="/tmp/$(id -un)/espd-30450.wi1VL0/repo/reports/runs/native-vllm-30453-20261119T031129Z/data/musique"
+retained_musique="${MUSIQUE_PREPARED:-$prior_musique}"
+if [[ -r "$retained_musique/manifest.json" && -r "$retained_musique/corpus.jsonl" &&
+      -r "$retained_musique/queries.jsonl" ]]; then
+  MUSIQUE_PREPARED="$retained_musique" bash "$REPO/scripts/vllm_pd_chunk_smoke.sh" --full ||
+    printf 'Replay stopped. Inspect the printed run directory.\n' >&2
+elif musique_dev=$("$PYTHON" "$REPO/scripts/vllm_pd_stage_inputs.py" musique "$PD_EXEC_ROOT/chunk-inputs"); then
+  MUSIQUE_PREPARED= MUSIQUE_DEV="$musique_dev" bash "$REPO/scripts/vllm_pd_chunk_smoke.sh" --full ||
+    printf 'Replay stopped. Inspect the printed run directory.\n' >&2
+fi
+```
+
+Set `RUN_ROOT` to the path printed after `MuSiQue chunk full artifacts`. During replay, count completed responses in `client/musique/responses.jsonl` or follow `logs/workload.log` inside the active cohort. At completion, `repeat-summary.json` verifies matched prompts and evidence positions in both cohorts and counts repeated chunk uses. `repeated-chunks.jsonl` pairs the compute and exclusive KV bytes for each repeat. Use each cohort's `chunk-review/kv-transfers.jsonl` for blocks crossing evidence boundaries.
+
+Keep the complete raw run on shared storage with the [copy commands in section 3](#3-check-the-receipts-in-the-allocation). For Git review, prepare the compressed measurements in the scratch clone from the refresh step. If you built a fresh runtime from `main`, use its node-local `PD_HOME_REPO` as the review checkout. Set the checkout's Git identity as for the earlier dataset pushes.
+
+```bash
+review_dir="reports/datasets/$(basename "$RUN_ROOT")/details/musique"
+publish_repo="${run_source:-$PD_HOME_REPO}"
+if git -C "$publish_repo" var GIT_AUTHOR_IDENT &&
+    git -C "$publish_repo" remote set-url --push origin git@github.com:Kibnelson/evidence_store_1.git &&
+    git -C "$publish_repo" pull --ff-only origin main &&
+    "$PYTHON" "$REPO/scripts/vllm_pd_archive_musique.py" \
+      --run-root "$RUN_ROOT" --output "$publish_repo/$review_dir" &&
+    git -C "$publish_repo" add -- "$review_dir" &&
+    git -C "$publish_repo" commit -m "Archive MuSiQue single-pass chunk measurements" -- "$review_dir" &&
+    git -C "$publish_repo" push origin main; then
+  printf 'MuSiQue measurements pushed.\n'
+else
+  printf 'Publication stopped. The allocation and its measurements are still available.\n' >&2
+fi
+```
+
+The archive manifest provides file sizes and checksums for verification after pulling. If the final push failed after the commit, retry `git -C "$publish_repo" push origin main` from the allocation.
+
 ## 1. Prepare the runtime and the inputs
 
 If setup failed and the `gpu-grad-01` prompt is still open with a Slurm job ID, update the shared checkout from that shell and retry section 1.2 in the same allocation. This also covers an `encodings` error from the shared managed Python install. The previous placeholder value for `CUDA_HOME` can be cleared before retrying.
