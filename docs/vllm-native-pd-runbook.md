@@ -245,7 +245,30 @@ for mode in native shared; do
 done
 ```
 
-For a smoke-only run, save the results in section 3 and exit the allocation. Continue below to run the full datasets in the same job.
+For a smoke-only run, publish the passed results below before leaving the allocation. Continue to [Dataset inputs](#dataset-inputs) to run the full datasets in the same job.
+
+### Publish the smoke receipts and traces to Git
+
+After both smoke receipts pass, run this in the same allocation shell. The publisher checks both cohorts, writes a tracked folder under `reports/smoke/`, commits that folder, and pushes `main`. The archive contains the request and timeline reports, raw traces and counters, input and output hashes, and setup provenance. Keep the complete run on scratch or copy it to shared storage using section 3.
+
+```bash
+if git -C "$PD_HOME_REPO" pull --ff-only origin main &&
+    bash "$PD_HOME_REPO/scripts/vllm_pd_publish_smoke.sh"; then
+  printf 'Run archive: reports/smoke/%s\n' "${RUN_ROOT##*/}"
+else
+  printf 'Publication stopped. Inspect the message above from this allocation shell.\n' >&2
+fi
+```
+
+After the push, pull `main` in the other checkout. The verifier prints the run ID and checks every archived file's size and SHA-256, along with both cohort receipts.
+
+```bash
+git pull --ff-only origin main
+for manifest in reports/smoke/*/archive-manifest.json; do
+  [[ -f "$manifest" ]] || continue
+  python3 scripts/vllm_pd_smoke_archive.py --verify "${manifest%/*}" || break
+done
+```
 
 ### Inspect a failed smoke run
 

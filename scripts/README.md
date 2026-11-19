@@ -9,5 +9,7 @@
 | `vllm_pd_cluster.py` | Launch 1P/3D or 2P/2D in an existing allocation and write the effective settings. |
 | `vllm_pd_replay.py` | Prepare and index the full data, run controlled cases, and replay live or frozen Faiss results. |
 | `vllm_pd_report.py` | Capture native NIXL counters and generate the joined request timelines and report. |
+| `vllm_pd_publish_smoke.sh` | Archive and push a passed smoke pair from the shared checkout. |
+| `vllm_pd_smoke_archive.py` | Verify a pulled smoke archive against its file hashes and cohort receipts. |
 
 The [native PD runbook](../docs/vllm-native-pd-runbook.md) gives the commands for the entire Slurm allocation.
