@@ -173,14 +173,20 @@ The smoke index has 83 passages from FiQA, including the 19 reference passages u
 RUN_ROOT="$REPO/reports/runs/native-vllm-${SLURM_JOB_ID}-$(date -u +%Y%m%dT%H%M%SZ)"
 SMOKE_ROOT="$RUN_ROOT/smoke"
 SMOKE_TOPOLOGY="${SMOKE_TOPOLOGY:-1p3d}"
-mkdir -p "$SMOKE_ROOT"
 MODEL="Qwen/Qwen3-4B-Instruct-2507"
 MODEL_REVISION="cdbee75f17c01a7cc42f958dc650907174af0554"
 E5_MODEL="intfloat/e5-base-v2"
+REPLAY="$REPO/scripts/vllm_pd_replay.py"
+export REPO PYTHON RUN_ROOT SMOKE_ROOT SMOKE_TOPOLOGY MODEL MODEL_REVISION E5_MODEL REPLAY
+export E5_REVISION="${E5_REVISION:-}"
+export PD_LMCACHE_SIZE_GB="${PD_LMCACHE_SIZE_GB:-8}"
+
+if bash <<'SMOKE'
+set -euo pipefail
+mkdir -p "$SMOKE_ROOT"
 E5_REVISION="${E5_REVISION:-$("$PYTHON" -c 'from huggingface_hub import model_info; print(model_info("intfloat/e5-base-v2").sha)')}"
 printf '%s\n' "$E5_MODEL@$E5_REVISION" > "$RUN_ROOT/e5-model.txt"
 uv pip freeze > "$RUN_ROOT/python-packages.txt"
-REPLAY="$REPO/scripts/vllm_pd_replay.py"
 "$PYTHON" "$REPLAY" prepare-data --dataset mtrag --source "$REPO/third_party/checkouts/mt-rag" \
   --output "$RUN_ROOT/data/mtrag"
 sample="$SMOKE_ROOT/fiqa-sample"
@@ -215,6 +221,15 @@ for mode in native shared; do
   "$PYTHON" scripts/vllm_pd_report.py --run-dir "$run_dir" --check --all-pairs \
     --timeline-limit 64 --smoke-sample "$sample"
 done
+SMOKE
+then
+  e5_receipt=$(<"$RUN_ROOT/e5-model.txt")
+  E5_REVISION="${e5_receipt#*@}"
+else
+  smoke_status=$?
+  printf 'Smoke stopped (exit %s). The allocation shell is available for inspecting %s.\n' \
+    "$smoke_status" "$SMOKE_ROOT" >&2
+fi
 ```
 
 Both runs must write `smoke-check.json` before proceeding. The checks cover completed turns, retrieval stage order, doc and chunk IDs and token spans across the gateway, P and D execution, NIXL payload reconciliation, and streaming through the last token. The shared arm uses the same D for cold and exact-repeat probes to verify that warm D-local reuse reduces NIXL bytes. Open each `timeline.json` to inspect the real requests. The receipt lists their request IDs.
@@ -231,6 +246,63 @@ done
 ```
 
 For a smoke-only run, save the results in section 3 and exit the allocation. Continue below to run the full datasets in the same job.
+
+### Inspect a failed smoke run
+
+Use the cohort directory printed by the launcher. The worker log contains the engine details, and the router and workload logs show the last request that reached each service. Inspect these together. A worker's process exit status can reflect API server shutdown after an engine error.
+
+If the allocation shell is still open, read the logs there. If it has ended and the scratch directory is still present, use the following CPU-only allocation on the same node from the Slurm login shell. Paste the cohort directory ending in `smoke/1p3d-native` or the corresponding failed cohort when prompted. [Earlier same-node closeout](../../context_pilot_paper/docs/evidencestore/implementation/scheduler_v2_phase1_native_1p3d_gpu_run_card.md#L268)
+
+```bash
+read -r -p 'Failed smoke cohort directory: ' FAILED_COHORT
+srun -p all -A oana2026 -q research12h -N 1 -w gpu-grad-01 \
+  -n 1 -c 1 --mem=1G -t 00:05:00 --chdir=/tmp bash -s -- "$FAILED_COHORT" <<'NODE'
+logs="$1/logs"
+if [[ ! -d "$logs" ]]; then
+  printf 'The run logs are unavailable at %s on %s.\n' "$logs" "$(hostname -s)" >&2
+  exit 1
+fi
+for log in "$logs"/{p*,d*,router,workload,metrics-before}.log; do
+  [[ -f "$log" ]] || continue
+  printf '\n--- %s ---\n' "${log##*/}"
+  tail -n 80 -- "$log"
+done
+NODE
+```
+
+### Retry a tracing fix with the retained runtime
+
+For the NIXL receive tracing fix, the upstream native wheel and dependency pins are the same. After pulling the fix and requesting a new four-GPU allocation on `gpu-grad-01`, you can reuse the previous scratch venv if it is still present. Run the original `source` command printed by runtime setup, then refresh the launcher and bundle below. A failed refresh leaves the shell open. If the scratch runtime is gone or the check fails, build a fresh runtime in section 1.2.
+
+```bash
+if bash <<'REFRESH'
+set -euo pipefail
+test -n "$SLURM_JOB_ID"
+test "$(hostname -s)" = gpu-grad-01
+old_commit=$(<"$CHECK_ROOT/experiment-source.txt")
+new_commit=$(git -C "$PD_HOME_REPO" rev-parse HEAD)
+if ! git -C "$PD_HOME_REPO" diff --quiet "$old_commit" "$new_commit" -- . \
+    ':(exclude)docs/vllm-native-pd-runbook.md' ':(exclude)scripts/vllm_pd_cluster.py' \
+    ':(exclude)third_party/vllm-fork.json' ':(exclude)third_party/vllm-native-pd.bundle'; then
+  printf 'The checkout changed beyond the tracing fix. Build a fresh runtime.\n' >&2
+  exit 1
+fi
+receipt_base='import json, sys; print(json.load(sys.stdin)["base_commit"])'
+old_base=$("$PYTHON" -c "$receipt_base" < "$REPO/third_party/vllm-fork.json")
+new_base=$(git -C "$PD_HOME_REPO" show "$new_commit:third_party/vllm-fork.json" | "$PYTHON" -c "$receipt_base")
+test "$old_base" = "$new_base"
+git -C "$PD_HOME_REPO" archive "$new_commit" docs/vllm-native-pd-runbook.md \
+  scripts/vllm_pd_cluster.py third_party/vllm-fork.json third_party/vllm-native-pd.bundle \
+  | tar -xf - -C "$REPO"
+"$PYTHON" "$REPO/scripts/vllm_pd_prepare.py"
+printf '%s\n' "$new_commit" > "$CHECK_ROOT/experiment-source-refresh-$SLURM_JOB_ID.txt"
+REFRESH
+then
+  printf 'Runtime refreshed. Start a fresh smoke run.\n'
+else
+  printf 'Refresh failed. Inspect the error above before starting the smoke.\n' >&2
+fi
+```
 
 ### Dataset inputs
 

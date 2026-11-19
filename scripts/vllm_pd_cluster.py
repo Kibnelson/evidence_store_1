@@ -241,7 +241,17 @@ def check_children(children: list[Child]) -> None:
     for child in children:
         status = child.process.poll()
         if status is not None:
-            raise RuntimeError(f"{child.name} exited with {status}; see {child.log}")
+            message = f"{child.name} exited with {status}; see {child.log}"
+            try:
+                with child.log.open("rb") as stream:
+                    stream.seek(0, os.SEEK_END)
+                    stream.seek(max(0, stream.tell() - 64 * 1024))
+                    lines = stream.read().decode("utf-8", errors="replace").splitlines()
+                if lines:
+                    message += "\nLast lines from the worker log:\n" + "\n".join(lines[-80:])
+            except OSError as error:
+                message += f"\nCould not read worker log: {error}"
+            raise RuntimeError(message)
 
 
 def await_health(endpoints: dict[str, str], children: list[Child], timeout: float, stopped,
