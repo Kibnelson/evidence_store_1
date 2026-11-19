@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Commit and push a completed dataset checkpoint from the shared checkout."""
+"""Commit and push dataset checkpoints or the detailed campaign review archive."""
 
 import argparse
 import fcntl
@@ -15,9 +15,10 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 COHORTS = {"1p3d-native", "1p3d-shared", "2p2d-native", "2p2d-shared"}
 GIT_TIMEOUT = 35
+PUSH_TIMEOUT = 300
 
 
-def git(*args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
+def git(*args: str, check: bool = True, timeout: int = GIT_TIMEOUT) -> subprocess.CompletedProcess[str]:
     env = {**os.environ, "GIT_TERMINAL_PROMPT": "0"}
     env.setdefault("GIT_SSH_COMMAND", "ssh -o BatchMode=yes -o ConnectTimeout=8")
     try:
@@ -27,10 +28,10 @@ def git(*args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
             stdin=subprocess.DEVNULL,
             capture_output=True,
             text=True,
-            timeout=GIT_TIMEOUT,
+            timeout=timeout,
         )
     except subprocess.TimeoutExpired as error:
-        raise RuntimeError(f"git {args[0]} timed out after {GIT_TIMEOUT}s") from error
+        raise RuntimeError(f"git {args[0]} timed out after {timeout}s") from error
     if check and result.returncode:
         raise RuntimeError(result.stderr.strip() or f"git {args[0]} failed")
     return result
@@ -40,6 +41,15 @@ def identifier(value: object, field: str) -> str:
     if not isinstance(value, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", value):
         raise ValueError(f"Invalid {field} identifier")
     return value
+
+
+def commit_path(path: str, message: str) -> None:
+    git("add", "--", path)
+    staged = git("diff", "--cached", "--quiet", "--", path, check=False)
+    if staged.returncode == 1:
+        git("commit", "--only", "-m", message, "--", path)
+    elif staged.returncode != 0:
+        raise RuntimeError(staged.stderr.strip() or f"Unable to inspect staged changes for {path}")
 
 
 def archive_report(source: Path) -> str:
@@ -84,13 +94,31 @@ def archive_report(source: Path) -> str:
             finally:
                 staging_path.unlink(missing_ok=True)
 
-    git("add", "--", relative_path)
-    staged = git("diff", "--cached", "--quiet", "--", relative_path, check=False)
-    if staged.returncode == 1:
-        git("commit", "--only", "-m", f"Archive PD dataset {campaign} {label} {cohort}", "--", relative_path)
-    elif staged.returncode != 0:
-        raise RuntimeError(staged.stderr.strip() or f"Unable to inspect staged changes for {relative_path}")
+    commit_path(relative_path, f"Archive PD dataset {campaign} {label} {cohort}")
     print(f"Dataset checkpoint archived at {target}", flush=True)
+    return campaign
+
+
+def archive_details(source: Path) -> str:
+    from vllm_pd_detail_archive import build_archive, verify_archive
+
+    source = source.resolve(strict=True)
+    campaign = identifier(source.parent.name if source.name == "run" else source.name, "campaign")
+    reports = ROOT / "reports" / "datasets" / campaign
+    target = reports / "details"
+    if target.resolve() != target:
+        raise ValueError(f"Dataset archive path contains a symlink: {target}")
+    if target.exists():
+        verify_archive(target, reports)
+    else:
+        if not reports.is_dir():
+            raise ValueError(f"Pull the published campaign summaries before archiving details: {reports}")
+        with tempfile.TemporaryDirectory(prefix=".details-", dir=reports) as tmp:
+            staged = Path(tmp) / "details"
+            build_archive(source, reports, staged)
+            staged.rename(target)
+    commit_path(target.relative_to(ROOT).as_posix(), f"Archive PD campaign review details {campaign}")
+    print(f"Campaign review details archived at {target}", flush=True)
     return campaign
 
 
@@ -107,14 +135,15 @@ def push_campaign(campaign: str) -> None:
     if unrelated.strip():
         raise RuntimeError(f"Local main has unpublished changes outside {campaign_directory}")
     if head != remote:
-        git("push", "--no-follow-tags", "origin", f"{head}:refs/heads/main")
-    print(f"Published campaign {campaign} dataset checkpoints through {head[:12]} to origin/main")
+        git("push", "--no-follow-tags", "origin", f"{head}:refs/heads/main", timeout=PUSH_TIMEOUT)
+    print(f"Published campaign {campaign} results through {head[:12]} to origin/main")
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     actions = parser.add_mutually_exclusive_group(required=True)
     actions.add_argument("--report", type=Path, help="completed dataset summary.json to archive and push")
+    actions.add_argument("--details", type=Path, metavar="RUN_ROOT", help="archive the completed run's review details")
     actions.add_argument("--retry", metavar="CAMPAIGN", help="push queued commits for this campaign")
     args = parser.parse_args()
 
@@ -129,9 +158,14 @@ def main() -> int:
                 fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
             except BlockingIOError as error:
                 raise RuntimeError("Another dataset publication is in progress") from error
-            campaign = archive_report(args.report) if args.report else identifier(args.retry, "campaign")
+            if args.report:
+                campaign = archive_report(args.report)
+            elif args.details:
+                campaign = archive_details(args.details)
+            else:
+                campaign = identifier(args.retry, "campaign")
             push_campaign(campaign)
-    except (OSError, ValueError, RuntimeError) as error:
+    except (OSError, ValueError, RuntimeError, KeyError) as error:
         print(f"Dataset publication pending: {error}", file=sys.stderr)
         return 1
     return 0

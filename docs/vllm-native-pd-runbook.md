@@ -454,6 +454,23 @@ rsync -a "$CHECK_ROOT/" "$archive_dir/setup/"
 rsync -a "$RUN_ROOT/" "$archive_dir/run/"
 ```
 
+### Publish the detailed campaign measurements
+
+After all 24 dataset summaries are pushed, use the completed run or its shared-storage copy to publish the review files. Run this in the original allocation shell. The publisher uses the shared checkout's SSH push URL.
+
+```bash
+if git -C "$PD_HOME_REPO" pull --ff-only origin main &&
+    "$PYTHON" "$PD_HOME_REPO/scripts/vllm_pd_publish_dataset.py" --details "$RUN_ROOT"; then
+  printf 'Detailed campaign results pushed.\n'
+else
+  printf 'Publication stopped. The allocation shell is still open.\n' >&2
+fi
+```
+
+The Git archive goes under `reports/datasets/<run-id>/details/`. It includes individual receipt metadata, joined request measurements, document and chunk measurements, and sample timelines. The archive manifest lists file hashes and request and document counts. Read `.jsonl.gz` files with `gzip -dc`. Keep the original streaming payloads, frozen prompts, corpus indexes, and raw engine events in the shared-storage copy above.
+
+To publish from the shared-storage copy later, pass `"$archive_dir/run"` to `--details`. If a push fails after the archive commit, retry with `python3 scripts/vllm_pd_publish_dataset.py --retry <run-id>` from the shared checkout.
+
 ## Measure the same build with tracing on and off
 
 The same editable fork serves both runs. `--trace on` sets `EVIDENCESTORE_PD_TRACE=1` on each worker and enables request, scheduler, GPU batch, and NIXL completion events. `EVIDENCESTORE_TRACE_DIR` supplies their output directory. `--trace off` sets the source gate to `0`. The replay and router still capture client-side timings, and the reporter still reads the native aggregate NIXL counters. These runs report per-request engine work and payload as unavailable. `EVIDENCESTORE_TRACE_GPU=0` skips CUDA event timing within a trace-on run.

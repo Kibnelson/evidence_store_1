@@ -12,7 +12,7 @@
 | `vllm_pd_publish_smoke.sh` | Archive and push a passed smoke pair from the shared checkout. |
 | `vllm_pd_full_campaign.sh` | Stage and index all dataset inputs and replay the four cohorts in the current allocation. |
 | `vllm_pd_dataset_report.py` | Capture dataset counter boundaries and report joined request and document measurements. |
-| `vllm_pd_publish_dataset.py` | Commit and push each verified dataset summary and retry pending pushes. |
+| `vllm_pd_publish_dataset.py` | Commit and push verified dataset summaries or the detailed campaign review archive, and retry pending pushes. |
 | `vllm_pd_stage_inputs.py` | Download and verify the official labeled development files used by the full campaign. |
 | `vllm_pd_smoke_archive.py` | Verify a pulled smoke archive against its file hashes and cohort receipts. |
 
