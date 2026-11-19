@@ -268,6 +268,25 @@ Add `--topology 1p3d` or `--topology 2p2d` to run an individual layout. `--trace
 
 Run the same command in a fresh output directory with `--trace off` to disable these detailed traces. Check the output hashes and cases in `blend-summary.json` and the aggregate NIXL counters and LMCache reuse checks in either mode. Trace-off reports leave request-level transfer and scheduler measurements unavailable.
 
+## Natural MuSiQue Blend smoke
+
+Use the same trace-enabled runtime and `CBKVConnector` plugin as the controlled smoke. This run starts a fresh LMCache server for **1B/3D** and another fresh server for **2B/2D**. The Blend workers in each layout share their server. Both layouts replay ten distinct MuSiQue questions once through live Faiss retrieval and normal gateway routing. The questions form two groups that retrieved recurring chunks in the [earlier MuSiQue archive](https://github.com/Kibnelson/evidence_store_1/tree/e1c8b5096cf4b9fc9721614b95dedb7280300bf5/reports/datasets/native-vllm-30453-20261119T031129Z/details/musique). Evidence uses the `¶` prompt format. The first ordinary requests populate the cache.
+
+Run from the active venv in an idle four-GPU allocation. This uses the full MuSiQue corpus index already prepared for the prefix campaign. Set `MUSIQUE_PREPARED` if you have another copy. Use `--index-dir` if its Faiss index is stored separately.
+
+```bash
+prepared_musique="${MUSIQUE_PREPARED:-/tmp/$(id -un)/espd-30450.wi1VL0/repo/reports/runs/native-vllm-30453-20261119T031129Z/data/musique}"
+if "$PYTHON" "$REPO/scripts/vllm_pd_blend_smoke.py" --trace on \
+    --musique-prepared "$prepared_musique" \
+    --run-root "$REPO/reports/runs/musique-natural-blend-${SLURM_JOB_ID}-$(date -u +%Y%m%dT%H%M%SZ)"; then
+  printf 'Natural Blend smoke passed.\n'
+else
+  printf 'Smoke stopped. Inspect the error and printed run directory.\n' >&2
+fi
+```
+
+Add `--prepare-only` to select and record the input questions without launching GPU workers. Add `--topology 1p3d` or `--topology 2p2d` to test one layout at a time. Review `natural-blend-summary.json` and `lmcache-request-trace.jsonl` under each layout. The trace-on smoke requires a completed shifted restore tied to evidence from an earlier question and a reconciled native NIXL handoff. `musique-pair.json` verifies matched prompts and evidence across the two layouts. Confirm these receipts before running all 2,417 questions. For a counter-only check, use `--trace off` in a fresh output directory.
+
 ## 1. Prepare the runtime and the inputs
 
 If setup failed and the `gpu-grad-01` prompt is still open with a Slurm job ID, update the shared checkout from that shell and retry section 1.2 in the same allocation. This also covers an `encodings` error from the shared managed Python install. The previous placeholder value for `CUDA_HOME` can be cleared before retrying.

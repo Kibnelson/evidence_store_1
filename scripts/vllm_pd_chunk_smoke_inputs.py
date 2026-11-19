@@ -121,9 +121,9 @@ def prepare_inputs(args):
     }), encoding="utf-8")
 
 
-def lmcache_transfer_state(run_dir):
+def lmcache_transfer_state(trace_dir):
     submitted, completed = set(), set()
-    for path in (run_dir / "trace").glob("lmcache-*.jsonl"):
+    for path in trace_dir.glob("lmcache-*.jsonl"):
         with path.open("rb") as stream:
             for line in stream:
                 if not line.endswith(b"\n"):
@@ -136,11 +136,11 @@ def lmcache_transfer_state(run_dir):
     return submitted, completed
 
 
-def drain_lmcache(args):
+def wait_for_lmcache_transfers(trace_dir):
     deadline = time.monotonic() + 20
     previous = None
     while True:
-        state = lmcache_transfer_state(args.run_dir)
+        state = lmcache_transfer_state(trace_dir)
         now = time.monotonic()
         if state != previous:
             previous, last_change = state, now
@@ -153,6 +153,10 @@ def drain_lmcache(args):
             break
         time.sleep(0.1)
     raise ValueError(f"LMCache transfer trace did not drain ({len(submitted)} submitted, {len(completed)} completed)")
+
+
+def drain_lmcache(args):
+    wait_for_lmcache_transfers(args.run_dir / "trace")
 
 
 def verify_pair(args):

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Seed one LMCache server with prefix prefill, then test CacheBlend on it."""
+"""Smoke-test CacheBlend with controlled probes or live MuSiQue retrieval."""
 
 import argparse
 import importlib.util
@@ -19,7 +19,7 @@ from vllm_pd_cluster import (
 from vllm_pd_replay import load_tokenizer
 
 from evidencestore.retrieval import (
-    LEGACY_BLEND_SEPARATOR, chunk_record, json_line, prompt_sha256, render_prompt, sha256_file,
+    LEGACY_BLEND_SEPARATOR, chunk_record, json_line, prompt_sha256, read_jsonl, render_prompt, sha256_file,
 )
 
 
@@ -29,6 +29,69 @@ HTTP_PORT = 8090
 CACHE_HTTP = f"http://{HOST}:{HTTP_PORT}"
 SCRIPT = Path(__file__).resolve()
 CASES = {"prefix": ("seed-exact", "seed-shifted"), "blend": ("exact", "shifted")}
+# Each group of five retrieved a common versioned chunk at different offsets
+# in the previous MuSiQue archive. The first group's chunk was 610 tokens.
+MUSIQUE_BLEND_KEYS = (
+    "musique:3hop1__604797_443779_52195",
+    "musique:3hop1__144439_443779_52195",
+    "musique:3hop1__743797_443779_52195",
+    "musique:3hop1__275261_443779_52195",
+    "musique:4hop1__93963_170667_443779_52195",
+    "musique:3hop1__248929_160713_77246",
+    "musique:3hop1__475351_160713_77246",
+    "musique:3hop1__632623_160713_77246",
+    "musique:3hop1__106847_160713_77246",
+    "musique:3hop1__23444_160713_77246",
+)
+
+
+def musique_sample(prepared, index_dir):
+    from vllm_pd_chunk_smoke_inputs import musique_queries
+
+    queries, manifest = musique_queries(prepared)
+    rows = {query["request_key"]: query for query in queries}
+    missing = set(MUSIQUE_BLEND_KEYS) - rows.keys()
+    if missing:
+        raise ValueError(f"Pinned MuSiQue queries are missing {', '.join(sorted(missing))}")
+    sample = [rows[key] for key in MUSIQUE_BLEND_KEYS]
+    if len({row["question"] for row in sample}) != len(sample) or any(row.get("pd_route") for row in sample):
+        raise ValueError("Natural Blend smoke expects distinct questions and normal gateway routing")
+    index = json.loads((index_dir / "manifest.json").read_text(encoding="utf-8"))
+    corpus_digest = sha256_file(prepared / "corpus.jsonl")
+    if (index["rows"] != manifest["corpus_rows"] or index["corpus_sha256"] != corpus_digest
+            or index["embedding_model"] != "intfloat/e5-base-v2"
+            or index["embedding_revision"] != "f52bf8ec8c7124536f0efb74aca902b2995e5bcd"
+            or not all((index_dir / name).is_file() for name in ("index.faiss", "chunks.jsonl"))):
+        raise ValueError("The Blend smoke needs the full matching MuSiQue HNSW index")
+    return sample, {
+        "dataset": "musique", "query_keys": list(MUSIQUE_BLEND_KEYS), "prompt_format": "legacy-blend",
+        "source_sha256": manifest["source_sha256"], "index_sha256": index["index_sha256"],
+        "corpus_sha256": corpus_digest, "selection_reference": "native-vllm-30453-20261119T031129Z",
+    }
+
+
+def write_musique_sample(directory, sample, manifest):
+    directory.mkdir(parents=True)
+    path = directory / "queries.jsonl"
+    path.write_text("".join(json_line(row) for row in sample), encoding="utf-8")
+    write_json(directory / "manifest.json", {**manifest, "queries_sha256": sha256_file(path)})
+
+
+def verify_musique_pair(root):
+    def receipts(topology):
+        run = root / topology / "blend/client/musique"
+        fields = ("doc_id", "chunk_id", "chunk_version", "rank", "start_token", "end_token")
+        return [
+            (row["request_key"], row["prompt_sha256"], [tuple(chunk[field] for field in fields) for chunk in row["evidence"]])
+            for row in read_jsonl(run / "frozen.jsonl")
+        ]
+
+    if receipts("1p3d") != receipts("2p2d"):
+        raise ValueError("MuSiQue prompts or evidence spans differ between the Blend layouts")
+    write_json(root / "musique-pair.json", {
+        "status": "passed", "layouts": ["1b3d", "2b2d"], "requests_per_layout": len(MUSIQUE_BLEND_KEYS),
+        "matched_fields": ["request_key", "prompt_sha256", "evidence_identity_rank_and_token_span"],
+    })
 
 
 def fixture_doc(name, topic):
@@ -106,7 +169,23 @@ def replay_cases(directory, mode):
         capture_case(CACHE_HTTP, run_dir, case, command)
 
 
-def run_topology(directory, topology, gpus, cache_source, *, trace_enabled):
+def replay_musique(directory, index_dir, trace_enabled):
+    run_dir = Path(os.environ["EVIDENCESTORE_RUN_DIR"])
+    command = [sys.executable, str(ROOT / "scripts/vllm_pd_replay.py"), "replay",
+               "--gateway", os.environ["EVIDENCESTORE_GATEWAY"], "--run-dir", str(run_dir),
+               "--label", "musique", "--model", MODEL, "--queries", str(directory / "queries.jsonl"),
+               "--index-dir", str(index_dir), "--tokenizer", MODEL, "--tokenizer-revision", REVISION,
+               "--prompt-format", "legacy-blend", "--concurrency", "1"]
+    if trace_enabled:
+        command.append("--trace-chunk-stages")
+    subprocess.run(command, check=True)
+    if trace_enabled:
+        from vllm_pd_chunk_smoke_inputs import wait_for_lmcache_transfers
+
+        wait_for_lmcache_transfers(run_dir.parent / "lmcache-trace")
+
+
+def run_topology(directory, topology, gpus, cache_source, *, trace_enabled, index_dir=None):
     from vllm_pd_blend_receipts import verify_topology
 
     (directory / "logs").mkdir()
@@ -131,15 +210,21 @@ def run_topology(directory, topology, gpus, cache_source, *, trace_enabled):
             "pid": server.process.pid, "argv": cache_cmd, "environment": cache_env, "trace_enabled": trace_enabled,
         })
         await_health({"lmcache": CACHE_HTTP}, [server], 60, lambda: False, path="/healthcheck")
-        for mode in CASES:
+        workloads = [(mode, mode, len(cases)) for mode, cases in CASES.items()]
+        if index_dir is not None:
+            requests = sum(1 for _ in read_jsonl(directory / "inputs/queries.jsonl"))
+            workloads = [("blend", "musique", requests)]
+        for mode, workload_kind, count in workloads:
             print(f"Starting {topology} {mode}; LMCache PID {server.process.pid}", flush=True)
             command = [sys.executable, str(ROOT / "scripts/vllm_pd_cluster.py"), "--run-dir", str(directory / mode),
                        "--topology", topology, "--prefill-mode", mode, "--lmcache", "--external-lmcache",
                        "--lmcache-port", str(CACHE_PORT), "--lmcache-http-port", str(HTTP_PORT),
                        "--lmcache-source", str(cache_source), "--prefix-cache", "off", "--trace", trace_mode,
-                       "--minimum-nixl-reads", str(len(CASES[mode])),
+                       "--minimum-nixl-reads", str(count),
                        "--", sys.executable, str(SCRIPT),
-                       "--run-root", str(directory / "inputs"), "--workload", mode]
+                       "--run-root", str(directory / "inputs"), "--workload", workload_kind, "--trace", trace_mode]
+            if index_dir is not None:
+                command.extend(("--index-dir", str(index_dir)))
             launcher = start(f"{mode}-launch", command, {"EVIDENCESTORE_TRACE_GPU": trace_gate}, directory)
             try:
                 while launcher.process.poll() is None:
@@ -159,6 +244,12 @@ def run_topology(directory, topology, gpus, cache_source, *, trace_enabled):
         write_json(directory / "lmcache-cleanup.json", cleanup)
         if cleanup["remaining_process_groups"] or cleanup["unverified_process_groups"]:
             raise RuntimeError(f"LMCache cleanup could not be verified in {directory}")
+    if index_dir is not None:
+        from vllm_pd_blend_natural_report import verify_natural_replay
+
+        verify_natural_replay(directory, trace_enabled=trace_enabled)
+        print(f"Natural MuSiQue Blend report: {directory / 'natural-blend-summary.json'}", flush=True)
+        return
     summary = verify_topology(directory, topology, CASES, trace_enabled=trace_enabled)
     try:
         if trace_enabled:
@@ -184,15 +275,29 @@ def main():
     parser.add_argument("--topology", choices=("both", *TOPOLOGIES), default="both")
     parser.add_argument("--trace", choices=("on", "off"), default="on",
                         help="toggle client, gateway, engine, NIXL, and LMCache request traces")
-    parser.add_argument("--prepare-only", action="store_true", help="Validate prompt fixtures on CPU")
-    parser.add_argument("--workload", choices=tuple(CASES), help=argparse.SUPPRESS)
+    parser.add_argument("--prepare-only", action="store_true", help="Prepare the smoke input files without launching GPUs")
+    parser.add_argument("--musique-prepared", type=Path, help="Replay ten distinct questions using the full prepared MuSiQue index")
+    parser.add_argument("--index-dir", type=Path, help="Override the index in the prepared MuSiQue directory")
+    parser.add_argument("--workload", choices=(*CASES, "musique"), help=argparse.SUPPRESS)
     args = parser.parse_args()
     root = args.run_root.resolve()
     try:
+        trace_enabled = args.trace == "on"
+        if args.workload == "musique":
+            if args.index_dir is None:
+                parser.error("A live MuSiQue workload requires --index-dir")
+            replay_musique(root, args.index_dir.resolve(), trace_enabled)
+            return
         if args.workload:
             replay_cases(root, args.workload)
             return
-        trace_enabled = args.trace == "on"
+        if args.index_dir and not args.musique_prepared:
+            parser.error("--index-dir requires --musique-prepared")
+        index_dir = None
+        if args.musique_prepared:
+            prepared = args.musique_prepared.resolve()
+            index_dir = (args.index_dir or prepared / "index").resolve()
+            sample, manifest = musique_sample(prepared, index_dir)
         gpus = cache_source = plugin = None
         if not args.prepare_only:
             if not os.environ.get("SLURM_JOB_ID"):
@@ -218,14 +323,19 @@ def main():
         print(f"Blend smoke artifacts: {root}", flush=True)
         if plugin:
             write_json(root / "plugin-module.json", {"path": plugin.origin, "sha256": sha256_file(plugin.origin)})
-        tokenizer = load_tokenizer(MODEL, REVISION)
+        tokenizer = load_tokenizer(MODEL, REVISION) if index_dir is None else None
         for topology in TOPOLOGIES if args.topology == "both" else (args.topology,):
             directory = root / topology
-            prepare_probes(tokenizer, directory / "inputs", topology)
+            if index_dir is None:
+                prepare_probes(tokenizer, directory / "inputs", topology)
+            else:
+                write_musique_sample(directory / "inputs", sample, manifest)
             if gpus is not None:
-                run_topology(directory, topology, gpus, cache_source, trace_enabled=trace_enabled)
+                run_topology(directory, topology, gpus, cache_source, trace_enabled=trace_enabled, index_dir=index_dir)
+        if gpus is not None and index_dir is not None and args.topology == "both":
+            verify_musique_pair(root)
         print("Blend prompts prepared." if args.prepare_only else "Blend GPU smoke passed.")
-    except (OSError, RuntimeError, ValueError, subprocess.SubprocessError) as error:
+    except (OSError, RuntimeError, ValueError, KeyError, TypeError, subprocess.SubprocessError) as error:
         parser.exit(1, f"Blend smoke failed: {error}\n")
 
 

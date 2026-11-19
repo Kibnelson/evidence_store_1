@@ -12,7 +12,8 @@
 | `vllm_pd_publish_smoke.sh` | Archive and push a passed smoke pair from the shared checkout. |
 | `vllm_pd_full_campaign.sh` | Stage and index all dataset inputs and replay the four cohorts in the current allocation. |
 | `vllm_pd_chunk_smoke.sh` | Run the MuSiQue chunk-trace smoke or use `--full` for one pass in `2p2d-shared`. Add `--paired` for a native comparison. |
-| `vllm_pd_blend_smoke.py` | Seed shared LMCache in prefix mode and verify exact and shifted restores in Blend mode in both four-GPU layouts. |
+| `vllm_pd_blend_smoke.py` | Test controlled prefix-to-Blend reuse or use `--musique-prepared` to test natural Blend reuse in both four-GPU layouts. |
+| `vllm_pd_blend_natural_report.py` | Verify live MuSiQue replay and attribute completed shifted LMCache restores to repeated evidence. |
 | `vllm_pd_musique_repeat_report.py` | Verify the paired live inputs and compare naturally repeated chunks across cohorts. |
 | `vllm_pd_archive_musique.py` | Package the full MuSiQue chunk and transfer measurements for review. |
 | `vllm_pd_dataset_report.py` | Capture dataset counter boundaries and report joined request and document measurements. |
