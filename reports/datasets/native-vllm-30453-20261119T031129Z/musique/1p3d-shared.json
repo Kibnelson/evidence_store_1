@@ -1,0 +1,342 @@
+{
+  "campaign": "native-vllm-30453-20261119T031129Z",
+  "cohort": "1p3d-shared",
+  "completion_tokens": 77340,
+  "concurrency": 8,
+  "connector_selections_by_role": {
+    "D": {
+      "NixlPullConnector": {
+        "matched_tokens": 1791961,
+        "selections": 2417
+      }
+    }
+  },
+  "conversations": 0,
+  "counter_reconciliation": {
+    "status": "matched",
+    "workers": {
+      "d0": {
+        "matched": true,
+        "prometheus": {
+          "count": 806,
+          "sum": 88754356224
+        },
+        "trace": {
+          "count": 806,
+          "sum": 88754356224
+        }
+      },
+      "d1": {
+        "matched": true,
+        "prometheus": {
+          "count": 806,
+          "sum": 89188466688
+        },
+        "trace": {
+          "count": 806,
+          "sum": 89188466688
+        }
+      },
+      "d2": {
+        "matched": true,
+        "prometheus": {
+          "count": 805,
+          "sum": 88976130048
+        },
+        "trace": {
+          "count": 805,
+          "sum": 88976130048
+        }
+      },
+      "p0": {
+        "matched": true,
+        "prometheus": {
+          "count": 0,
+          "sum": 0
+        },
+        "trace": {
+          "count": 0,
+          "sum": 0
+        }
+      }
+    }
+  },
+  "dataset": "musique",
+  "evidence": {
+    "distinct_documents": 5512,
+    "occurrences": 14502,
+    "requests_with_evidence": 2417,
+    "token_work_by_role": {
+      "D": {
+        "observed_local_prefix_tokens": 682,
+        "observed_remote_prefix_tokens": 1714703,
+        "scheduled_prompt_tokens": 0
+      },
+      "P": {
+        "observed_local_prefix_tokens": 2864,
+        "observed_remote_prefix_tokens": 0,
+        "scheduled_prompt_tokens": 1712521
+      }
+    }
+  },
+  "frozen_sha256": "33708861171f6a52b3ed36bf9d12933bcad940b775d96c91945e634ae34039e7",
+  "gpu_forward": {
+    "by_role": {
+      "D": {
+        "batch_gpu_time_ns": 1664528532285,
+        "forward_batches": 42072,
+        "timed_batches": 42072
+      },
+      "P": {
+        "batch_gpu_time_ns": 233274991767,
+        "forward_batches": 2220,
+        "timed_batches": 2220
+      }
+    },
+    "by_worker": {
+      "d0": {
+        "batch_gpu_time_ns": 555854679833,
+        "forward_batches": 14186,
+        "timed_batches": 14186
+      },
+      "d1": {
+        "batch_gpu_time_ns": 554053166525,
+        "forward_batches": 14145,
+        "timed_batches": 14145
+      },
+      "d2": {
+        "batch_gpu_time_ns": 554620685927,
+        "forward_batches": 13741,
+        "timed_batches": 13741
+      },
+      "p0": {
+        "batch_gpu_time_ns": 233274991767,
+        "forward_batches": 2220,
+        "timed_batches": 2220
+      }
+    },
+    "forward_dispatch_ms_by_role": {
+      "D": {
+        "count": 42072,
+        "max": 56.625828,
+        "mean": 23.7781669883533,
+        "p50": 22.299728,
+        "p95": 33.773091
+      },
+      "P": {
+        "count": 2220,
+        "max": 67.602974,
+        "mean": 32.10145626081081,
+        "p50": 29.47878,
+        "p95": 48.849526
+      }
+    }
+  },
+  "http_payload_bytes": {
+    "gateway_decode_request_bytes": 10294222,
+    "gateway_prefill_request_bytes": 8857837,
+    "gateway_prefill_response_bytes": 11267526,
+    "gateway_sse_payload_bytes": 34499892,
+    "http_request_body_bytes": 13420919
+  },
+  "incomplete_requests": [],
+  "input_sha256": "33708861171f6a52b3ed36bf9d12933bcad940b775d96c91945e634ae34039e7",
+  "issues": [],
+  "label": "musique",
+  "latency_ms": {
+    "dispatch_to_first_token_ms": {
+      "count": 2417,
+      "max": 4058.693948,
+      "mean": 862.2906282635498,
+      "p50": 650.715971,
+      "p95": 2243.165664
+    },
+    "dispatch_to_last_token_ms": {
+      "count": 2417,
+      "max": 5391.299104,
+      "mean": 2194.929930186181,
+      "p50": 1985.062803,
+      "p95": 3591.911241
+    },
+    "end_to_end_ms": {
+      "count": 2417,
+      "max": 5392.108605,
+      "mean": 2195.815248793959,
+      "p50": 1985.886364,
+      "p95": 3592.648921
+    },
+    "ttft_ms": {
+      "count": 2417,
+      "max": 4059.055653,
+      "mean": 862.5930575151013,
+      "p50": 651.087257,
+      "p95": 2243.599891
+    }
+  },
+  "lmcache": {
+    "counter_deltas": [
+      {
+        "after": 5675,
+        "before": 0,
+        "delta": 5675,
+        "labels": {
+          "l1_tag": "_default"
+        },
+        "metric": "lmcache_mp_l1_evicted_chunks_total"
+      },
+      {
+        "after": 5492,
+        "before": 12,
+        "delta": 5480,
+        "labels": {
+          "l1_tag": "_default"
+        },
+        "metric": "lmcache_mp_l1_read_chunks_total"
+      },
+      {
+        "after": 5837,
+        "before": 18,
+        "delta": 5819,
+        "labels": {
+          "l1_tag": "_default"
+        },
+        "metric": "lmcache_mp_l1_write_chunks_total"
+      },
+      {
+        "after": 220339372032,
+        "before": 679477248,
+        "delta": 219659894784,
+        "labels": {
+          "device_index": "0",
+          "direction": "d2h",
+          "phase": "kernel"
+        },
+        "metric": "lmcache_mp_transfer_phase_bytes_total"
+      },
+      {
+        "after": 220339372032,
+        "before": 679477248,
+        "delta": 219659894784,
+        "labels": {
+          "device_index": "0",
+          "direction": "d2h",
+          "phase": "staging"
+        },
+        "metric": "lmcache_mp_transfer_phase_bytes_total"
+      }
+    ],
+    "endpoint_id": "lmcache",
+    "status": "captured"
+  },
+  "multi_turn_conversations": 0,
+  "nixl_bytes": {
+    "completed_bytes": 266918952960,
+    "exclusive_evidence_bytes": 220898525184,
+    "outside_evidence_bytes": 8526495744,
+    "shared_or_boundary_bytes": 37493932032,
+    "unmapped_bytes": 0
+  },
+  "nixl_handoff_statuses": {
+    "full": 1882,
+    "partial": 535
+  },
+  "prompt_tokens": 1801641,
+  "provenance": {
+    "campaign_commit": "dfae6a5b23bf8f165dc8e4899f94f13130f0e2b5",
+    "lmcache": {
+      "commit": "042d47abdef0d460cf2cb0d5720e8a59280cda8a",
+      "mode": "shared_pd"
+    },
+    "model": "Qwen/Qwen3-4B-Instruct-2507",
+    "model_revision": "cdbee75f17c01a7cc42f958dc650907174af0554",
+    "prefix_cache_by_role": {
+      "D": "on",
+      "P": "on"
+    },
+    "topology": "1p3d",
+    "vllm_commit": "d03cffa9407114620e4dfe11058d88f882f88149"
+  },
+  "replay_mode": "frozen",
+  "requests": 2417,
+  "requests_per_second": 3.642059974333579,
+  "routes": {
+    "p0\u2192d0": 806,
+    "p0\u2192d1": 806,
+    "p0\u2192d2": 805
+  },
+  "schema_version": 1,
+  "stage_duration_ms": 663635.419799,
+  "stage_spans_ms": {
+    "D/engine_queued": {
+      "count": 2417,
+      "max": 3607.822298,
+      "mean": 647.8929172974762,
+      "p50": 463.521911,
+      "p95": 1860.866611
+    },
+    "D/engine_remote_kv_wait_begin": {
+      "count": 2417,
+      "max": 3564.529011,
+      "mean": 607.4579222970625,
+      "p50": 420.699431,
+      "p95": 1820.454754
+    },
+    "D/nixl_read_submit": {
+      "count": 2417,
+      "max": 3536.887046,
+      "mean": 568.7845743876707,
+      "p50": 374.108996,
+      "p95": 1793.520691
+    },
+    "P/engine_queued": {
+      "count": 2417,
+      "max": 351.022946,
+      "mean": 5.611538902772032,
+      "p50": 3.137475,
+      "p95": 4.345272
+    },
+    "client/client_request_start": {
+      "count": 2417,
+      "max": 5392.108605,
+      "mean": 2195.815248793959,
+      "p50": 1985.886364,
+      "p95": 3592.648921
+    },
+    "gateway/gateway_dispatch_decode": {
+      "count": 2417,
+      "max": 5060.324694,
+      "mean": 2049.3449753959453,
+      "p50": 1857.30062,
+      "p95": 3289.941094
+    },
+    "gateway/gateway_dispatch_prefill": {
+      "count": 2417,
+      "max": 793.687699,
+      "mean": 144.27940231857676,
+      "p50": 115.585338,
+      "p95": 323.20588
+    },
+    "gateway/gateway_received": {
+      "count": 2417,
+      "max": 1.061715,
+      "mean": 0.25788796648738105,
+      "p50": 0.242294,
+      "p95": 0.401045
+    }
+  },
+  "status": "passed",
+  "token_work_by_role": {
+    "D": {
+      "observed_local_prefix_tokens": 9680,
+      "observed_remote_prefix_tokens": 1791961,
+      "scheduled_decode_tokens": 74923,
+      "scheduled_prompt_tokens": 2417
+    },
+    "P": {
+      "observed_local_prefix_tokens": 17472,
+      "observed_remote_prefix_tokens": 0,
+      "scheduled_decode_tokens": 0,
+      "scheduled_prompt_tokens": 1784169
+    }
+  }
+}
