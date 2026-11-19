@@ -1,0 +1,342 @@
+{
+  "campaign": "native-vllm-30453-20261119T031129Z",
+  "cohort": "1p3d-shared",
+  "completion_tokens": 7168,
+  "concurrency": 8,
+  "connector_selections_by_role": {
+    "D": {
+      "NixlPullConnector": {
+        "matched_tokens": 261892,
+        "selections": 224
+      }
+    }
+  },
+  "conversations": 29,
+  "counter_reconciliation": {
+    "status": "matched",
+    "workers": {
+      "d0": {
+        "matched": true,
+        "prometheus": {
+          "count": 75,
+          "sum": 13181386752
+        },
+        "trace": {
+          "count": 75,
+          "sum": 13181386752
+        }
+      },
+      "d1": {
+        "matched": true,
+        "prometheus": {
+          "count": 74,
+          "sum": 13573029888
+        },
+        "trace": {
+          "count": 74,
+          "sum": 13573029888
+        }
+      },
+      "d2": {
+        "matched": true,
+        "prometheus": {
+          "count": 75,
+          "sum": 12117344256
+        },
+        "trace": {
+          "count": 75,
+          "sum": 12117344256
+        }
+      },
+      "p0": {
+        "matched": true,
+        "prometheus": {
+          "count": 0,
+          "sum": 0
+        },
+        "trace": {
+          "count": 0,
+          "sum": 0
+        }
+      }
+    }
+  },
+  "dataset": "mtrag/clapnq",
+  "evidence": {
+    "distinct_documents": 302,
+    "occurrences": 1344,
+    "requests_with_evidence": 224,
+    "token_work_by_role": {
+      "D": {
+        "observed_local_prefix_tokens": 0,
+        "observed_remote_prefix_tokens": 200294,
+        "scheduled_prompt_tokens": 0
+      },
+      "P": {
+        "observed_local_prefix_tokens": 0,
+        "observed_remote_prefix_tokens": 0,
+        "scheduled_prompt_tokens": 200294
+      }
+    }
+  },
+  "frozen_sha256": "c8773dded801bac4f5602ed97a396ab5017badb4c0ed0a5cd25455be57819bff",
+  "gpu_forward": {
+    "by_role": {
+      "D": {
+        "batch_gpu_time_ns": 168401307471,
+        "forward_batches": 4228,
+        "timed_batches": 4228
+      },
+      "P": {
+        "batch_gpu_time_ns": 28585470205,
+        "forward_batches": 151,
+        "timed_batches": 151
+      }
+    },
+    "by_worker": {
+      "d0": {
+        "batch_gpu_time_ns": 56449041013,
+        "forward_batches": 1430,
+        "timed_batches": 1430
+      },
+      "d1": {
+        "batch_gpu_time_ns": 54928845367,
+        "forward_batches": 1391,
+        "timed_batches": 1391
+      },
+      "d2": {
+        "batch_gpu_time_ns": 57023421091,
+        "forward_batches": 1407,
+        "timed_batches": 1407
+      },
+      "p0": {
+        "batch_gpu_time_ns": 28585470205,
+        "forward_batches": 151,
+        "timed_batches": 151
+      }
+    },
+    "forward_dispatch_ms_by_role": {
+      "D": {
+        "count": 4228,
+        "max": 73.904033,
+        "mean": 23.20950986589404,
+        "p50": 22.25469,
+        "p95": 32.258934
+      },
+      "P": {
+        "count": 151,
+        "max": 78.426829,
+        "mean": 32.56890325165563,
+        "p50": 29.799749,
+        "p95": 53.650512
+      }
+    }
+  },
+  "http_payload_bytes": {
+    "gateway_decode_request_bytes": 1683871,
+    "gateway_prefill_request_bytes": 1507679,
+    "gateway_prefill_response_bytes": 1774567,
+    "gateway_sse_payload_bytes": 3885516,
+    "http_request_body_bytes": 1945375
+  },
+  "incomplete_requests": [],
+  "input_sha256": "c8773dded801bac4f5602ed97a396ab5017badb4c0ed0a5cd25455be57819bff",
+  "issues": [],
+  "label": "mtrag-clapnq",
+  "latency_ms": {
+    "dispatch_to_first_token_ms": {
+      "count": 224,
+      "max": 4273.367537,
+      "mean": 2213.0926375,
+      "p50": 2452.413853,
+      "p95": 3749.15789
+    },
+    "dispatch_to_last_token_ms": {
+      "count": 224,
+      "max": 5643.211456,
+      "mean": 3560.6047280401785,
+      "p50": 3783.514735,
+      "p95": 5109.070927
+    },
+    "end_to_end_ms": {
+      "count": 224,
+      "max": 5645.660632,
+      "mean": 3561.7548153973216,
+      "p50": 3784.922635,
+      "p95": 5111.020085
+    },
+    "ttft_ms": {
+      "count": 224,
+      "max": 4274.185919,
+      "mean": 2213.503487625,
+      "p50": 2452.664297,
+      "p95": 3749.486645
+    }
+  },
+  "lmcache": {
+    "counter_deltas": [
+      {
+        "after": 38262,
+        "before": 37399,
+        "delta": 863,
+        "labels": {
+          "l1_tag": "_default"
+        },
+        "metric": "lmcache_mp_l1_evicted_chunks_total"
+      },
+      {
+        "after": 34684,
+        "before": 33963,
+        "delta": 721,
+        "labels": {
+          "l1_tag": "_default"
+        },
+        "metric": "lmcache_mp_l1_read_chunks_total"
+      },
+      {
+        "after": 38439,
+        "before": 37571,
+        "delta": 868,
+        "labels": {
+          "l1_tag": "_default"
+        },
+        "metric": "lmcache_mp_l1_write_chunks_total"
+      },
+      {
+        "after": 1451023663104,
+        "before": 1418257760256,
+        "delta": 32765902848,
+        "labels": {
+          "device_index": "0",
+          "direction": "d2h",
+          "phase": "kernel"
+        },
+        "metric": "lmcache_mp_transfer_phase_bytes_total"
+      },
+      {
+        "after": 1451023663104,
+        "before": 1418257760256,
+        "delta": 32765902848,
+        "labels": {
+          "device_index": "0",
+          "direction": "d2h",
+          "phase": "staging"
+        },
+        "metric": "lmcache_mp_transfer_phase_bytes_total"
+      }
+    ],
+    "endpoint_id": "lmcache",
+    "status": "captured"
+  },
+  "multi_turn_conversations": 29,
+  "nixl_bytes": {
+    "completed_bytes": 38871760896,
+    "exclusive_evidence_bytes": 26563313664,
+    "outside_evidence_bytes": 8837922816,
+    "shared_or_boundary_bytes": 3470524416,
+    "unmapped_bytes": 0
+  },
+  "nixl_handoff_statuses": {
+    "full": 106,
+    "partial": 118
+  },
+  "prompt_tokens": 309556,
+  "provenance": {
+    "campaign_commit": "dfae6a5b23bf8f165dc8e4899f94f13130f0e2b5",
+    "lmcache": {
+      "commit": "042d47abdef0d460cf2cb0d5720e8a59280cda8a",
+      "mode": "shared_pd"
+    },
+    "model": "Qwen/Qwen3-4B-Instruct-2507",
+    "model_revision": "cdbee75f17c01a7cc42f958dc650907174af0554",
+    "prefix_cache_by_role": {
+      "D": "on",
+      "P": "on"
+    },
+    "topology": "1p3d",
+    "vllm_commit": "d03cffa9407114620e4dfe11058d88f882f88149"
+  },
+  "replay_mode": "frozen",
+  "requests": 224,
+  "requests_per_second": 2.0453758003892433,
+  "routes": {
+    "p0\u2192d0": 75,
+    "p0\u2192d1": 74,
+    "p0\u2192d2": 75
+  },
+  "schema_version": 1,
+  "stage_duration_ms": 109515.327187,
+  "stage_spans_ms": {
+    "D/engine_queued": {
+      "count": 224,
+      "max": 3907.903466,
+      "mean": 1791.7440982589285,
+      "p50": 2002.016359,
+      "p95": 3213.291246
+    },
+    "D/engine_remote_kv_wait_begin": {
+      "count": 224,
+      "max": 3903.865208,
+      "mean": 1767.1907487633928,
+      "p50": 1978.36307,
+      "p95": 3200.853568
+    },
+    "D/nixl_read_submit": {
+      "count": 224,
+      "max": 3901.817818,
+      "mean": 1746.6959989107143,
+      "p50": 1949.605486,
+      "p95": 3173.094828
+    },
+    "P/engine_queued": {
+      "count": 224,
+      "max": 303.763203,
+      "mean": 25.839247964285715,
+      "p50": 3.952697,
+      "p95": 178.807954
+    },
+    "client/client_request_start": {
+      "count": 224,
+      "max": 5645.660632,
+      "mean": 3561.7548153973216,
+      "p50": 3784.922635,
+      "p95": 5111.020085
+    },
+    "gateway/gateway_dispatch_decode": {
+      "count": 224,
+      "max": 5337.995923,
+      "mean": 3203.82462990625,
+      "p50": 3413.624621,
+      "p95": 4677.918531
+    },
+    "gateway/gateway_dispatch_prefill": {
+      "count": 224,
+      "max": 1036.721504,
+      "mean": 354.9157347589286,
+      "p50": 263.26759,
+      "p95": 861.112076
+    },
+    "gateway/gateway_received": {
+      "count": 224,
+      "max": 1.317489,
+      "mean": 0.3513477410714286,
+      "p50": 0.315035,
+      "p95": 0.659679
+    }
+  },
+  "status": "passed",
+  "token_work_by_role": {
+    "D": {
+      "observed_local_prefix_tokens": 47664,
+      "observed_remote_prefix_tokens": 261892,
+      "scheduled_decode_tokens": 6944,
+      "scheduled_prompt_tokens": 224
+    },
+    "P": {
+      "observed_local_prefix_tokens": 77936,
+      "observed_remote_prefix_tokens": 0,
+      "scheduled_decode_tokens": 0,
+      "scheduled_prompt_tokens": 231620
+    }
+  }
+}
