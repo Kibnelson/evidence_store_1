@@ -456,20 +456,21 @@ rsync -a "$RUN_ROOT/" "$archive_dir/run/"
 
 ### Publish the detailed campaign measurements
 
-After all 24 dataset summaries are pushed, use the completed run or its shared-storage copy to publish the review files. Run this in the original allocation shell. The publisher uses the shared checkout's SSH push URL.
+After the four cohort summaries for a dataset are pushed, publish that dataset's detailed review files from the allocation shell. The publisher uses the shared checkout's SSH push URL.
 
 ```bash
 if git -C "$PD_HOME_REPO" pull --ff-only origin main &&
-    "$PYTHON" "$PD_HOME_REPO/scripts/vllm_pd_publish_dataset.py" --details "$RUN_ROOT"; then
-  printf 'Detailed campaign results pushed.\n'
+    "$PYTHON" "$PD_HOME_REPO/scripts/vllm_pd_publish_dataset.py" \
+      --details "$RUN_ROOT" --dataset mtrag/fiqa; then
+  printf 'Detailed FiQA results pushed.\n'
 else
   printf 'Publication stopped. The allocation shell is still open.\n' >&2
 fi
 ```
 
-The Git archive goes under `reports/datasets/<run-id>/details/`. It includes individual receipt metadata, joined request measurements, document and chunk measurements, and sample timelines. The archive manifest lists file hashes and request and document counts. Read `.jsonl.gz` files with `gzip -dc`. Keep the original streaming payloads, frozen prompts, corpus indexes, and raw engine events in the shared-storage copy above.
+Repeat with `musique`, `2wiki`, `mtrag/clapnq`, `mtrag/cloud`, `mtrag/fiqa`, or `mtrag/govt`. Each dataset lands under `reports/datasets/<run-id>/details/<label>/` in one commit. Its manifest lists file hashes and request and document counts across the four cohorts. The archive includes individual receipt metadata, joined request measurements, document and chunk measurements, and sampled timelines. Read `.jsonl.gz` files with `gzip -dc`. Keep the original streaming payloads, frozen prompts, corpus indexes, and raw engine events in the shared-storage copy above.
 
-To publish from the shared-storage copy later, pass `"$archive_dir/run"` to `--details`. If a push fails after the archive commit, retry with `python3 scripts/vllm_pd_publish_dataset.py --retry <run-id>` from the shared checkout.
+To publish from the shared-storage copy later, pass `"$archive_dir/run"` to `--details`. Omit `--dataset` to publish all six datasets after all four cohorts complete. If a push fails after the archive commit, retry with `python3 scripts/vllm_pd_publish_dataset.py --retry <run-id>` from the shared checkout.
 
 ## Measure the same build with tracing on and off
 

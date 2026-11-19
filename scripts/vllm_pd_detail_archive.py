@@ -251,12 +251,11 @@ def _check_size(path):
     return size
 
 
-def _stage_checkpoint(run_root, target, dataset, label, cohort, report, digest):
+def _stage_checkpoint(run_root, output, dataset, label, cohort, report, digest):
     cohort_dir = run_root / cohort
     measurement = cohort_dir / "datasets" / label
     if _read_json(measurement / "summary.json") != report:
         raise ValueError(f"Scratch and published summaries differ for {cohort} {dataset}")
-    output = target / label / cohort
     output.mkdir(parents=True)
     responses_path = output / "responses.jsonl.gz"
     responses = _responses(
@@ -284,76 +283,141 @@ def _stage_checkpoint(run_root, target, dataset, label, cohort, report, digest):
     }
 
 
-def build_archive(run_root: Path, campaign_reports: Path, target: Path) -> dict:
-    """Write a review archive to a fresh directory using passed campaign artifacts."""
-    target.mkdir()
-    checkpoints, request_count = {}, 0
-    for dataset in DATASETS:
-        label = dataset.replace("/", "-")
-        checkpoints[label] = {}
-        for cohort in COHORTS:
-            try:
-                report, digest = _published_checkpoint(campaign_reports, dataset, label, cohort)
-                checkpoint = _stage_checkpoint(run_root, target, dataset, label, cohort, report, digest)
-            except (KeyError, TypeError) as error:
-                raise ValueError(f"Malformed source artifact for {cohort} {dataset}: {error}") from error
-            checkpoints[label][cohort] = checkpoint
-            request_count += checkpoint["requests"]
-    manifest = {
-        "schema_version": 1, "campaign": campaign_reports.name, "checkpoint_count": len(DATASETS) * len(COHORTS),
-        "request_count": request_count, "checkpoints": checkpoints,
-    }
+def dataset_label(dataset: str) -> str:
+    if dataset not in DATASETS:
+        raise ValueError(f"Unknown dataset {dataset!r}. Choose from {', '.join(DATASETS)}")
+    return dataset.replace("/", "-")
+
+
+def _stage_dataset(run_root, campaign_reports, output, dataset):
+    label = dataset_label(dataset)
+    checkpoints = {}
+    for cohort in COHORTS:
+        try:
+            report, digest = _published_checkpoint(campaign_reports, dataset, label, cohort)
+            checkpoints[cohort] = _stage_checkpoint(run_root, output / cohort, dataset, label, cohort, report, digest)
+        except (KeyError, TypeError) as error:
+            raise ValueError(f"Malformed source artifact for {cohort} {dataset}: {error}") from error
+    return checkpoints
+
+
+def _write_manifest(target, manifest):
     (target / MANIFEST).write_bytes(_encode(manifest))
     _check_size(target / MANIFEST)
     return manifest
 
 
-def verify_archive(target: Path, campaign_reports: Path) -> dict:
-    """Verify an archive and its published checkpoints without scratch."""
+def build_archive(run_root: Path, campaign_reports: Path, target: Path) -> dict:
+    """Write a review archive to a fresh directory using passed campaign artifacts."""
+    target.mkdir()
+    checkpoints = {}
+    for dataset in DATASETS:
+        label = dataset_label(dataset)
+        checkpoints[label] = _stage_dataset(run_root, campaign_reports, target / label, dataset)
+    return _write_manifest(target, {
+        "schema_version": 1, "campaign": campaign_reports.name, "checkpoint_count": len(DATASETS) * len(COHORTS),
+        "request_count": sum(checkpoint["requests"] for cohorts in checkpoints.values() for checkpoint in cohorts.values()),
+        "checkpoints": checkpoints,
+    })
+
+
+def build_dataset_archive(run_root: Path, campaign_reports: Path, target: Path, dataset: str) -> dict:
+    """Archive the four completed cohorts of one dataset to a fresh directory."""
+    label = dataset_label(dataset)
+    target.mkdir()
+    checkpoints = _stage_dataset(run_root, campaign_reports, target, dataset)
+    return _write_manifest(target, {
+        "schema_version": 1, "campaign": campaign_reports.name, "dataset": dataset, "label": label,
+        "checkpoint_count": len(COHORTS), "request_count": sum(checkpoint["requests"] for checkpoint in checkpoints.values()),
+        "checkpoints": checkpoints,
+    })
+
+
+def _read_manifest(target):
     if target.is_symlink() or (target / MANIFEST).is_symlink():
         raise ValueError(f"Archive and manifest must be local paths: {target}")
     _check_size(target / MANIFEST)
-    manifest = _read_json(target / MANIFEST)
-    labels = {dataset.replace("/", "-"): dataset for dataset in DATASETS}
-    try:
-        checkpoints = manifest["checkpoints"]
+    return _read_json(target / MANIFEST)
+
+
+def _check_campaign(manifest, campaign_reports, checkpoint_count):
+    if (
+        manifest["schema_version"] != 1 or manifest["campaign"] != campaign_reports.name
+        or manifest["checkpoint_count"] != checkpoint_count
+    ):
+        raise ValueError("Archive manifest does not describe the published campaign")
+
+
+def _verify_dataset(target, campaign_reports, dataset, checkpoints):
+    label = dataset_label(dataset)
+    if set(checkpoints) != set(COHORTS):
+        raise ValueError(f"Archive has an unexpected cohort set for {dataset}")
+    expected_paths = set()
+    request_count = 0
+    for cohort, checkpoint in checkpoints.items():
+        report, digest = _published_checkpoint(campaign_reports, dataset, label, cohort)
+        docs = report["evidence"]["distinct_documents"]
+        sampled = checkpoint["timeline_requests"]
         if (
-            manifest["schema_version"] != 1 or manifest["campaign"] != campaign_reports.name
-            or manifest["checkpoint_count"] != len(DATASETS) * len(COHORTS) or set(checkpoints) != set(labels)
+            checkpoint["dataset"] != dataset or checkpoint["summary_sha256"] != digest
+            or checkpoint["requests"] != report["requests"] or checkpoint["distinct_documents"] != docs
+            or type(sampled) is not int or not 0 < sampled <= report["requests"]
         ):
+            raise ValueError(f"Archive checkpoint differs from the published report for {cohort} {dataset}")
+        files = checkpoint["files"]
+        document_name = "documents.jsonl.gz" if "documents.jsonl.gz" in files else "documents.jsonl"
+        rows_by_name = {
+            "responses.jsonl.gz": report["requests"], "requests.jsonl.gz": report["requests"],
+            document_name: docs, "timeline.json": sampled,
+        }
+        if set(files) != set(rows_by_name):
+            raise ValueError(f"Archive has an unexpected file set for {cohort} {dataset}")
+        for name, rows in rows_by_name.items():
+            path = target / cohort / name
+            expected_paths.add(path)
+            if path.is_symlink() or _file_record(path, rows) != files[name]:
+                raise ValueError(f"Archive artifact failed hash, size, or count verification: {path}")
+        request_count += report["requests"]
+    return expected_paths, request_count
+
+
+def _check_file_set(target, paths, request_count, manifest):
+    actual_paths = {path for path in target.rglob("*") if path.is_file() or path.is_symlink()}
+    if request_count != manifest["request_count"] or (paths | {target / MANIFEST}) != actual_paths:
+        raise ValueError("Archive request count or file set differs from the manifest")
+
+
+def verify_archive(target: Path, campaign_reports: Path) -> dict:
+    """Verify an archive and its published checkpoints without scratch."""
+    manifest = _read_manifest(target)
+    labels = {dataset_label(dataset): dataset for dataset in DATASETS}
+    try:
+        _check_campaign(manifest, campaign_reports, len(DATASETS) * len(COHORTS))
+        checkpoints = manifest["checkpoints"]
+        if set(checkpoints) != set(labels):
             raise ValueError("Archive manifest does not describe the published campaign")
-        expected_paths = {target / MANIFEST}
+        expected_paths = set()
         request_count = 0
         for label, dataset in labels.items():
-            if set(checkpoints[label]) != set(COHORTS):
-                raise ValueError(f"Archive has an unexpected cohort set for {dataset}")
-            for cohort, checkpoint in checkpoints[label].items():
-                report, digest = _published_checkpoint(campaign_reports, dataset, label, cohort)
-                docs = report["evidence"]["distinct_documents"]
-                sampled = checkpoint["timeline_requests"]
-                if (
-                    checkpoint["dataset"] != dataset or checkpoint["summary_sha256"] != digest
-                    or checkpoint["requests"] != report["requests"] or checkpoint["distinct_documents"] != docs
-                    or type(sampled) is not int or not 0 < sampled <= report["requests"]
-                ):
-                    raise ValueError(f"Archive checkpoint differs from the published report for {cohort} {dataset}")
-                files = checkpoint["files"]
-                document_name = "documents.jsonl.gz" if "documents.jsonl.gz" in files else "documents.jsonl"
-                rows_by_name = {
-                    "responses.jsonl.gz": report["requests"], "requests.jsonl.gz": report["requests"],
-                    document_name: docs, "timeline.json": sampled,
-                }
-                if set(files) != set(rows_by_name):
-                    raise ValueError(f"Archive has an unexpected file set for {cohort} {dataset}")
-                for name, rows in rows_by_name.items():
-                    path = target / label / cohort / name
-                    expected_paths.add(path)
-                    if path.is_symlink() or _file_record(path, rows) != files[name]:
-                        raise ValueError(f"Archive artifact failed hash, size, or count verification: {path}")
-                request_count += report["requests"]
-        actual_paths = {path for path in target.rglob("*") if path.is_file() or path.is_symlink()}
-        if request_count != manifest["request_count"] or expected_paths != actual_paths:
-            raise ValueError("Archive request count or file set differs from the manifest")
+            paths, count = _verify_dataset(target / label, campaign_reports, dataset, checkpoints[label])
+            expected_paths.update(paths)
+            request_count += count
+        _check_file_set(target, expected_paths, request_count, manifest)
+    except (KeyError, TypeError) as error:
+        raise ValueError(f"Malformed archive manifest at {target / MANIFEST}: {error}") from error
+    return manifest
+
+
+def verify_dataset_archive(target: Path, campaign_reports: Path, dataset: str) -> dict:
+    """Verify one dataset archive against its published summaries without scratch."""
+    label = dataset_label(dataset)
+    manifest = _read_manifest(target)
+    try:
+        _check_campaign(manifest, campaign_reports, len(COHORTS))
+        if (manifest["dataset"], manifest["label"]) != (dataset, label):
+            raise ValueError(f"Archive manifest does not describe {dataset}")
+        paths, request_count = _verify_dataset(target, campaign_reports, dataset, manifest["checkpoints"])
+        _check_file_set(target, paths, request_count, manifest)
     except (KeyError, TypeError) as error:
         raise ValueError(f"Malformed archive manifest at {target / MANIFEST}: {error}") from error
     return manifest

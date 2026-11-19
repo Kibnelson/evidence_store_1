@@ -99,26 +99,56 @@ def archive_report(source: Path) -> str:
     return campaign
 
 
-def archive_details(source: Path) -> str:
-    from vllm_pd_detail_archive import build_archive, verify_archive
+def stage_details(target, build):
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix=".details-", dir=target.parent) as tmp:
+        staged = Path(tmp) / target.name
+        build(staged)
+        staged.rename(target)
+
+
+def archive_details(source: Path, dataset: str | None = None) -> str:
+    from vllm_pd_detail_archive import (
+        DATASETS,
+        MANIFEST,
+        build_archive,
+        build_dataset_archive,
+        dataset_label,
+        verify_archive,
+        verify_dataset_archive,
+    )
 
     source = source.resolve(strict=True)
     campaign = identifier(source.parent.name if source.name == "run" else source.name, "campaign")
     reports = ROOT / "reports" / "datasets" / campaign
-    target = reports / "details"
-    if target.resolve() != target:
-        raise ValueError(f"Dataset archive path contains a symlink: {target}")
-    if target.exists():
-        verify_archive(target, reports)
-    else:
-        if not reports.is_dir():
-            raise ValueError(f"Pull the published campaign summaries before archiving details: {reports}")
-        with tempfile.TemporaryDirectory(prefix=".details-", dir=reports) as tmp:
-            staged = Path(tmp) / "details"
-            build_archive(source, reports, staged)
-            staged.rename(target)
-    commit_path(target.relative_to(ROOT).as_posix(), f"Archive PD campaign review details {campaign}")
-    print(f"Campaign review details archived at {target}", flush=True)
+    details = reports / "details"
+    if details.resolve() != details:
+        raise ValueError(f"Dataset archive path contains a symlink: {details}")
+    if not reports.is_dir():
+        raise ValueError(f"Pull the published campaign summaries before archiving details: {reports}")
+
+    datasets = (dataset,) if dataset is not None else DATASETS
+    labels = [dataset_label(name) for name in datasets]
+    manifest = details / MANIFEST
+    if manifest.exists() or manifest.is_symlink() or (dataset is None and not details.exists()):
+        if details.exists():
+            verify_archive(details, reports)
+        else:
+            stage_details(details, lambda staged: build_archive(source, reports, staged))
+        commit_path(details.relative_to(ROOT).as_posix(), f"Archive PD campaign review details {campaign}")
+        print(f"Campaign review details archived at {details}", flush=True)
+        return campaign
+
+    for name, label in zip(datasets, labels, strict=True):
+        target = details / label
+        if target.resolve() != target:
+            raise ValueError(f"Dataset archive path contains a symlink: {target}")
+        if target.exists():
+            verify_dataset_archive(target, reports, name)
+        else:
+            stage_details(target, lambda staged: build_dataset_archive(source, reports, staged, name))
+        commit_path(target.relative_to(ROOT).as_posix(), f"Archive PD dataset review details {campaign} {label}")
+        print(f"Dataset review details archived at {target}", flush=True)
     return campaign
 
 
@@ -145,7 +175,10 @@ def main() -> int:
     actions.add_argument("--report", type=Path, help="completed dataset summary.json to archive and push")
     actions.add_argument("--details", type=Path, metavar="RUN_ROOT", help="archive the completed run's review details")
     actions.add_argument("--retry", metavar="CAMPAIGN", help="push queued commits for this campaign")
+    parser.add_argument("--dataset", metavar="NAME", help="limit --details to one dataset across all four cohorts")
     args = parser.parse_args()
+    if args.dataset is not None and args.details is None:
+        parser.error("--dataset requires --details")
 
     try:
         git_dir = Path(git("rev-parse", "--absolute-git-dir").stdout.strip())
@@ -161,7 +194,7 @@ def main() -> int:
             if args.report:
                 campaign = archive_report(args.report)
             elif args.details:
-                campaign = archive_details(args.details)
+                campaign = archive_details(args.details, args.dataset)
             else:
                 campaign = identifier(args.retry, "campaign")
             push_campaign(campaign)
