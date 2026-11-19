@@ -1,0 +1,422 @@
+{
+  "campaign": "native-vllm-30453-20261119T031129Z",
+  "cohort": "2p2d-shared",
+  "completion_tokens": 77340,
+  "concurrency": 8,
+  "connector_selections_by_role": {
+    "D": {
+      "NixlPullConnector": {
+        "matched_tokens": 1789593,
+        "selections": 2417
+      }
+    },
+    "P": {
+      "LMCacheMPConnector": {
+        "matched_tokens": 1536,
+        "selections": 3
+      }
+    }
+  },
+  "conversations": 0,
+  "counter_reconciliation": {
+    "status": "matched",
+    "workers": {
+      "d0": {
+        "matched": true,
+        "prometheus": {
+          "count": 1209,
+          "sum": 136048803840
+        },
+        "trace": {
+          "count": 1209,
+          "sum": 136048803840
+        }
+      },
+      "d1": {
+        "matched": true,
+        "prometheus": {
+          "count": 1208,
+          "sum": 130520973312
+        },
+        "trace": {
+          "count": 1208,
+          "sum": 130520973312
+        }
+      },
+      "p0": {
+        "matched": true,
+        "prometheus": {
+          "count": 0,
+          "sum": 0
+        },
+        "trace": {
+          "count": 0,
+          "sum": 0
+        }
+      },
+      "p1": {
+        "matched": true,
+        "prometheus": {
+          "count": 0,
+          "sum": 0
+        },
+        "trace": {
+          "count": 0,
+          "sum": 0
+        }
+      }
+    }
+  },
+  "dataset": "musique",
+  "evidence": {
+    "distinct_documents": 5512,
+    "occurrences": 14502,
+    "requests_with_evidence": 2417,
+    "token_work_by_role": {
+      "D": {
+        "observed_local_prefix_tokens": 1241,
+        "observed_remote_prefix_tokens": 1714144,
+        "scheduled_prompt_tokens": 0
+      },
+      "P": {
+        "observed_local_prefix_tokens": 559,
+        "observed_remote_prefix_tokens": 1436,
+        "scheduled_prompt_tokens": 1713390
+      }
+    }
+  },
+  "frozen_sha256": "33708861171f6a52b3ed36bf9d12933bcad940b775d96c91945e634ae34039e7",
+  "gpu_forward": {
+    "by_role": {
+      "D": {
+        "batch_gpu_time_ns": 1068345492611,
+        "forward_batches": 26502,
+        "timed_batches": 26502
+      },
+      "P": {
+        "batch_gpu_time_ns": 238300074442,
+        "forward_batches": 2398,
+        "timed_batches": 2398
+      }
+    },
+    "by_worker": {
+      "d0": {
+        "batch_gpu_time_ns": 533735971319,
+        "forward_batches": 13443,
+        "timed_batches": 13443
+      },
+      "d1": {
+        "batch_gpu_time_ns": 534609521292,
+        "forward_batches": 13059,
+        "timed_batches": 13059
+      },
+      "p0": {
+        "batch_gpu_time_ns": 119008276778,
+        "forward_batches": 1196,
+        "timed_batches": 1196
+      },
+      "p1": {
+        "batch_gpu_time_ns": 119291797664,
+        "forward_batches": 1202,
+        "timed_batches": 1202
+      }
+    },
+    "forward_dispatch_ms_by_role": {
+      "D": {
+        "count": 26502,
+        "max": 48.686049,
+        "mean": 23.328122541808163,
+        "p50": 22.026126,
+        "p95": 33.897356
+      },
+      "P": {
+        "count": 2398,
+        "max": 74.021182,
+        "mean": 33.18696374895747,
+        "p50": 31.810627,
+        "p95": 49.458039
+      }
+    }
+  },
+  "http_payload_bytes": {
+    "gateway_decode_request_bytes": 10294342,
+    "gateway_prefill_request_bytes": 8857837,
+    "gateway_prefill_response_bytes": 11267646,
+    "gateway_sse_payload_bytes": 34499892,
+    "http_request_body_bytes": 13420919
+  },
+  "incomplete_requests": [],
+  "input_sha256": "33708861171f6a52b3ed36bf9d12933bcad940b775d96c91945e634ae34039e7",
+  "issues": [],
+  "label": "musique",
+  "latency_ms": {
+    "dispatch_to_first_token_ms": {
+      "count": 2417,
+      "max": 1680.108037,
+      "mean": 573.884200733554,
+      "p50": 526.685447,
+      "p95": 933.014838
+    },
+    "dispatch_to_last_token_ms": {
+      "count": 2417,
+      "max": 3144.611661,
+      "mean": 1963.1623984807613,
+      "p50": 1914.685413,
+      "p95": 2329.315263
+    },
+    "end_to_end_ms": {
+      "count": 2417,
+      "max": 3145.780758,
+      "mean": 1964.2270295854364,
+      "p50": 1915.356203,
+      "p95": 2330.727753
+    },
+    "ttft_ms": {
+      "count": 2417,
+      "max": 1680.533673,
+      "mean": 574.2511366210177,
+      "p50": 527.188255,
+      "p95": 933.86878
+    }
+  },
+  "lmcache": {
+    "counter_deltas": [
+      {
+        "after": 5673,
+        "before": 0,
+        "delta": 5673,
+        "labels": {
+          "l1_tag": "_default"
+        },
+        "metric": "lmcache_mp_l1_evicted_chunks_total"
+      },
+      {
+        "after": 5734,
+        "before": 18,
+        "delta": 5716,
+        "labels": {
+          "l1_tag": "_default"
+        },
+        "metric": "lmcache_mp_l1_read_chunks_total"
+      },
+      {
+        "after": 5843,
+        "before": 24,
+        "delta": 5819,
+        "labels": {
+          "l1_tag": "_default"
+        },
+        "metric": "lmcache_mp_l1_write_chunks_total"
+      },
+      {
+        "after": 111170027520,
+        "before": 452984832,
+        "delta": 110717042688,
+        "labels": {
+          "device_index": "0",
+          "direction": "d2h",
+          "phase": "kernel"
+        },
+        "metric": "lmcache_mp_transfer_phase_bytes_total"
+      },
+      {
+        "after": 111170027520,
+        "before": 452984832,
+        "delta": 110717042688,
+        "labels": {
+          "device_index": "0",
+          "direction": "d2h",
+          "phase": "staging"
+        },
+        "metric": "lmcache_mp_transfer_phase_bytes_total"
+      },
+      {
+        "after": 75497472,
+        "before": 0,
+        "delta": 75497472,
+        "labels": {
+          "device_index": "0",
+          "direction": "h2d",
+          "phase": "kernel"
+        },
+        "metric": "lmcache_mp_transfer_phase_bytes_total"
+      },
+      {
+        "after": 75497472,
+        "before": 0,
+        "delta": 75497472,
+        "labels": {
+          "device_index": "0",
+          "direction": "h2d",
+          "phase": "staging"
+        },
+        "metric": "lmcache_mp_transfer_phase_bytes_total"
+      },
+      {
+        "after": 109395836928,
+        "before": 452984832,
+        "delta": 108942852096,
+        "labels": {
+          "device_index": "1",
+          "direction": "d2h",
+          "phase": "kernel"
+        },
+        "metric": "lmcache_mp_transfer_phase_bytes_total"
+      },
+      {
+        "after": 109395836928,
+        "before": 452984832,
+        "delta": 108942852096,
+        "labels": {
+          "device_index": "1",
+          "direction": "d2h",
+          "phase": "staging"
+        },
+        "metric": "lmcache_mp_transfer_phase_bytes_total"
+      },
+      {
+        "after": 150994944,
+        "before": 0,
+        "delta": 150994944,
+        "labels": {
+          "device_index": "1",
+          "direction": "h2d",
+          "phase": "kernel"
+        },
+        "metric": "lmcache_mp_transfer_phase_bytes_total"
+      },
+      {
+        "after": 150994944,
+        "before": 0,
+        "delta": 150994944,
+        "labels": {
+          "device_index": "1",
+          "direction": "h2d",
+          "phase": "staging"
+        },
+        "metric": "lmcache_mp_transfer_phase_bytes_total"
+      }
+    ],
+    "endpoint_id": "lmcache",
+    "status": "captured"
+  },
+  "multi_turn_conversations": 0,
+  "nixl_bytes": {
+    "completed_bytes": 266569777152,
+    "exclusive_evidence_bytes": 220830105600,
+    "outside_evidence_bytes": 8259895296,
+    "shared_or_boundary_bytes": 37479776256,
+    "unmapped_bytes": 0
+  },
+  "nixl_handoff_statuses": {
+    "full": 1781,
+    "partial": 636
+  },
+  "prompt_tokens": 1801641,
+  "provenance": {
+    "campaign_commit": "dfae6a5b23bf8f165dc8e4899f94f13130f0e2b5",
+    "lmcache": {
+      "commit": "042d47abdef0d460cf2cb0d5720e8a59280cda8a",
+      "mode": "shared_pd"
+    },
+    "model": "Qwen/Qwen3-4B-Instruct-2507",
+    "model_revision": "cdbee75f17c01a7cc42f958dc650907174af0554",
+    "prefix_cache_by_role": {
+      "D": "on",
+      "P": "on"
+    },
+    "topology": "2p2d",
+    "vllm_commit": "d03cffa9407114620e4dfe11058d88f882f88149"
+  },
+  "replay_mode": "frozen",
+  "requests": 2417,
+  "requests_per_second": 4.068180625225339,
+  "routes": {
+    "p0\u2192d0": 1054,
+    "p0\u2192d1": 155,
+    "p1\u2192d0": 155,
+    "p1\u2192d1": 1053
+  },
+  "schema_version": 1,
+  "stage_duration_ms": 594123.079249,
+  "stage_spans_ms": {
+    "D/engine_queued": {
+      "count": 2417,
+      "max": 1367.265188,
+      "mean": 378.62716178816714,
+      "p50": 341.688833,
+      "p95": 681.284786
+    },
+    "D/engine_remote_kv_wait_begin": {
+      "count": 2417,
+      "max": 1322.077801,
+      "mean": 334.34267691352915,
+      "p50": 297.764633,
+      "p95": 638.654523
+    },
+    "D/nixl_read_submit": {
+      "count": 2417,
+      "max": 1280.226629,
+      "mean": 291.6413707451386,
+      "p50": 251.511199,
+      "p95": 595.351413
+    },
+    "P/engine_queued": {
+      "count": 2417,
+      "max": 155.195417,
+      "mean": 3.842261287960281,
+      "p50": 3.284337,
+      "p95": 4.14585
+    },
+    "P/engine_remote_kv_wait_begin": {
+      "count": 3,
+      "max": 6.496163,
+      "mean": 6.320237333333334,
+      "p50": 6.386542,
+      "p95": 6.496163
+    },
+    "client/client_request_start": {
+      "count": 2417,
+      "max": 3145.780758,
+      "mean": 1964.2270295854364,
+      "p50": 1915.356203,
+      "p95": 2330.727753
+    },
+    "gateway/gateway_dispatch_decode": {
+      "count": 2417,
+      "max": 2921.849845,
+      "mean": 1842.0004488096815,
+      "p50": 1797.782336,
+      "p95": 2164.399136
+    },
+    "gateway/gateway_dispatch_prefill": {
+      "count": 2417,
+      "max": 446.801621,
+      "mean": 119.84164504302855,
+      "p50": 110.482075,
+      "p95": 184.623659
+    },
+    "gateway/gateway_received": {
+      "count": 2417,
+      "max": 3.165646,
+      "mean": 0.271436761688043,
+      "p50": 0.245924,
+      "p95": 0.426886
+    }
+  },
+  "status": "passed",
+  "token_work_by_role": {
+    "D": {
+      "observed_local_prefix_tokens": 12048,
+      "observed_remote_prefix_tokens": 1789593,
+      "scheduled_decode_tokens": 74923,
+      "scheduled_prompt_tokens": 2417
+    },
+    "P": {
+      "observed_local_prefix_tokens": 11680,
+      "observed_remote_prefix_tokens": 1536,
+      "scheduled_decode_tokens": 0,
+      "scheduled_prompt_tokens": 1788425
+    }
+  }
+}
