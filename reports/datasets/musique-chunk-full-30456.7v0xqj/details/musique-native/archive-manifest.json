@@ -1,0 +1,58 @@
+{
+  "chunk_occurrences_per_cohort": 14502,
+  "cohorts": [
+    "2p2d-native"
+  ],
+  "dataset": "musique",
+  "files": {
+    "2p2d-native/chunk-review/chunks.jsonl.gz": {
+      "bytes": 4628922,
+      "rows": 14502,
+      "sha256": "5c2764a24fdae5096d2badded972d8ada23c3846f668d6ddc1952060fa09a7ed",
+      "source_bytes": 53984612,
+      "source_sha256": "c744fd6fc8c6b071aee1266539e94e34525fa68f1c65c7d6e6153c4840b95fe0"
+    },
+    "2p2d-native/chunk-review/kv-transfers.jsonl.gz": {
+      "bytes": 516482,
+      "rows": 2417,
+      "sha256": "7b5a4ebbbdbd5b602b963f36c6c4d497bb852770b6af16d6a761e6b3c2fdefeb",
+      "source_bytes": 18108776,
+      "source_sha256": "d0eb2f2e921886d29f92025abcd0bc61bdf1afec4db0b18e573100b99727ba13"
+    },
+    "2p2d-native/chunk-review/requests.jsonl.gz": {
+      "bytes": 6889176,
+      "rows": 2417,
+      "sha256": "2c1223dfe74c2933aeaa9b9783e0444df241fa88609e4f172125b78a2cfcb8b4",
+      "source_bytes": 52414170,
+      "source_sha256": "03f3c30571ed7510e071407e52ba5baf39cdc7af51a15038544424f13b625be9"
+    },
+    "2p2d-native/chunk-review/summary.json": {
+      "bytes": 1397,
+      "sha256": "2a7bd4449225a44411445106080ca40272022885c67c710c5b3679e4d63f4737"
+    },
+    "2p2d-native/datasets/musique/summary.json": {
+      "bytes": 5112,
+      "sha256": "be8a72373c60c136cd358f714aa2c89cde43d369e2525dceb14652cf336ac1ed"
+    }
+  },
+  "provenance": {
+    "corpus_sha256": "7b27c9b548715923381dad531f6a2fba8c21ea3689b218175de772e244ee7930",
+    "frozen_sha256": "33708861171f6a52b3ed36bf9d12933bcad940b775d96c91945e634ae34039e7",
+    "index_sha256": "a7bfa0e9ee1a93febca35c5c39beeff2f63c3bd0f24c4378dfce62efba9c021e",
+    "input_sha256": "4c06f85e5c85786e1305f09a39cab6ba28df321f25ace3330efc3f2eef5a1f38",
+    "lmcache": null,
+    "model": "Qwen/Qwen3-4B-Instruct-2507",
+    "model_revision": "cdbee75f17c01a7cc42f958dc650907174af0554",
+    "prefix_cache_by_role": {
+      "D": "off",
+      "P": "off"
+    },
+    "source_sha256": "15fa63794d18a94ce12411aca6e2327e65b6e83b0b1490efab3f1962e48abf3b",
+    "topology": "2p2d",
+    "vllm_commit": "d03cffa9407114620e4dfe11058d88f882f88149"
+  },
+  "repeat_occurrences": 8248,
+  "requests_per_cohort": 2417,
+  "run": "musique-chunk-full-30456.7v0xqj",
+  "schema_version": 1
+}
