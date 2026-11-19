@@ -71,6 +71,7 @@ def _write_jsonl(path, rows):
 
 def _prepare_labeled_dev(dataset, source, output):
     corpus, queries = {}, []
+    unmapped_supporting_facts = []
     examples = read_jsonl(source) if dataset == "musique" else json.loads(source.read_text(encoding="utf-8"))
     for example in examples:
         support = []
@@ -84,9 +85,9 @@ def _prepare_labeled_dev(dataset, source, output):
             request_key = example["id"]
             aliases = example.get("answer_aliases", [])
         else:
-            facts_by_title = {}
-            for title, sentence_index in example["supporting_facts"]:
-                facts_by_title.setdefault(title, []).append(sentence_index)
+            request_key = example["_id"]
+            supporting_titles = {title for title, _ in example["supporting_facts"]}
+            sentence_counts = {}
             for title, sentences in example["context"]:
                 text = "".join(sentences)
                 chunk = chunk_record(dataset, title, sha256_text(json_line(sentences)), text)
@@ -95,11 +96,20 @@ def _prepare_labeled_dev(dataset, source, output):
                     offsets.append(offsets[-1] + len(sentence))
                 chunk["source_sentence_offsets"] = offsets
                 corpus.setdefault(chunk["chunk_id"], chunk)
-                if title in facts_by_title:
-                    if not all(0 <= idx < len(sentences) for idx in facts_by_title[title]):
-                        raise ValueError(f"Broken 2Wiki supporting sentence mapping for {title!r}")
+                if title in supporting_titles:
+                    # Supporting paragraph identity survives an invalid sentence index.
                     support.append(chunk["chunk_id"])
-            request_key = example["_id"]
+                    sentence_counts.setdefault(title, set()).add(len(sentences))
+            for title, sentence_index in example["supporting_facts"]:
+                counts = sorted(sentence_counts.get(title, ()))
+                if not any(0 <= sentence_index < count for count in counts):
+                    unmapped_supporting_facts.append({
+                        "request_key": f"{dataset}:{request_key}",
+                        "title": title,
+                        "sentence_index": sentence_index,
+                        "context_sentence_counts": counts,
+                        "reason": "sentence_index_out_of_range" if counts else "title_missing",
+                    })
             aliases = []
         queries.append({
             "dataset": dataset,
@@ -112,13 +122,22 @@ def _prepare_labeled_dev(dataset, source, output):
         raise ValueError(f"The labeled {dataset} input is empty")
     if len({query["request_key"] for query in queries}) != len(queries):
         raise ValueError(f"Duplicate {dataset} question IDs")
-    return {
+    manifest = {
         "corpus_rows": _write_jsonl(output / "corpus.jsonl", corpus.values()),
         "query_rows": _write_jsonl(output / "queries.jsonl", queries),
         "multi_turn_conversations": 0,
         "source_sha256": sha256_file(source),
         "corpus_scope": "union of all contexts in supplied labeled split, including distractors",
     }
+    if dataset == "2wiki":
+        manifest.update({
+            "unmapped_supporting_facts": unmapped_supporting_facts,
+            "unmapped_supporting_fact_count": len(unmapped_supporting_facts),
+            "queries_with_unmapped_supporting_facts": len({
+                fact["request_key"] for fact in unmapped_supporting_facts
+            }),
+        })
+    return manifest
 
 
 def _mtrag_corpus(archive_path, domain):

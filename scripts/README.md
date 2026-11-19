@@ -10,6 +10,8 @@
 | `vllm_pd_replay.py` | Prepare and index the full data, run controlled cases, and replay live or frozen Faiss results. |
 | `vllm_pd_report.py` | Capture native NIXL counters and generate the joined request timelines and report. |
 | `vllm_pd_publish_smoke.sh` | Archive and push a passed smoke pair from the shared checkout. |
+| `vllm_pd_full_campaign.sh` | Stage and index all dataset inputs and replay the four cohorts in the current allocation. |
+| `vllm_pd_stage_inputs.py` | Download and verify the official labeled development files used by the full campaign. |
 | `vllm_pd_smoke_archive.py` | Verify a pulled smoke archive against its file hashes and cohort receipts. |
 
 The [native PD runbook](../docs/vllm-native-pd-runbook.md) gives the commands for the entire Slurm allocation.

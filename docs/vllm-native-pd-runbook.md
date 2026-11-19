@@ -332,7 +332,7 @@ fi
 
 ### Dataset inputs
 
-Set the following input paths and run the preparation commands in the same shell. `MUSIQUE_DEV` points to the labeled MuSiQue-Ans `musique_ans_v1.0_dev.jsonl`. `TWOWIKI_DEV` points to the labeled 2WikiMultiHopQA `dev.json` from the April 7 archive with corrected sentence segmentation. The dataset campaign consumes the full selected development query files and all four MT-RAG domains. [MuSiQue data](https://github.com/StonyBrookNLP/musique) · [2WikiMultiHopQA April 7 archive](https://www.dropbox.com/s/ms2m13252h6xubs/data_ids_april7.zip) · [MT-RAG data](https://github.com/IBM/mt-rag-benchmark)
+The full campaign stages the labeled MuSiQue-Ans v1.0 development file and the corrected April 7 2WikiMultiHopQA development file from their official archives. It also reuses the four prepared MT-RAG Human domains from the smoke. To use already staged files, set `MUSIQUE_DEV` and `TWOWIKI_DEV` to their absolute paths before launching. [MuSiQue data](https://github.com/StonyBrookNLP/musique) · [2WikiMultiHopQA April 7 archive](https://www.dropbox.com/s/ms2m13252h6xubs/data_ids_april7.zip) · [MT-RAG data](https://github.com/IBM/mt-rag-benchmark)
 
 | Evaluation input | Multi-turn conversations | Requests per full cohort |
 | --- | ---: | ---: |
@@ -344,130 +344,26 @@ Set the following input paths and run the preparation commands in the same shell
 | MT-RAG Human, Government | 28 | 214 |
 | **Total** | **110 multi-turn conversations** | **15,835** |
 
-The two QA counts come from their published dev splits. The MT-RAG counts come from unique conversation and task IDs in the pinned Human generation file. Four full cohorts give **63,340 dataset requests**, plus the controlled probes and historical check. This is the expected workload. Preparation checks the supplied files before indexing, and replay receipts verify how many completed. [MuSiQue-Ans Table 2](https://aclanthology.org/2022.tacl-1.31.pdf#page=8) · [2WikiMultiHopQA Table 1](https://aclanthology.org/2020.coling-main.580.pdf#page=6) · [Pinned MT-RAG Human tasks](https://github.com/IBM/mt-rag-benchmark/blob/e0970de1b1207c2a9506adf238e6e1a22037e38a/mtrag-human/generation_tasks/reference.jsonl)
+The two QA counts come from their published dev splits. The MT-RAG counts come from unique conversation and task IDs in the pinned Human generation file. Four full cohorts give **63,340 dataset requests**, plus the controlled probes. Preparation checks the supplied files before indexing, and replay receipts verify how many completed. [MuSiQue-Ans Table 2](https://aclanthology.org/2022.tacl-1.31.pdf#page=8) · [2WikiMultiHopQA Table 1](https://aclanthology.org/2020.coling-main.580.pdf#page=6) · [Pinned MT-RAG Human tasks](https://github.com/IBM/mt-rag-benchmark/blob/e0970de1b1207c2a9506adf238e6e1a22037e38a/mtrag-human/generation_tasks/reference.jsonl)
 
-```bash
-test -s "$SMOKE_ROOT/$SMOKE_TOPOLOGY-native/smoke-check.json"
-test -s "$SMOKE_ROOT/$SMOKE_TOPOLOGY-shared/smoke-check.json"
-: "${MUSIQUE_DEV:?Set the path to musique_ans_v1.0_dev.jsonl}"
-: "${TWOWIKI_DEV:?Set the path to the labeled 2WikiMultiHopQA dev.json}"
-sha256sum "$MUSIQUE_DEV" "$TWOWIKI_DEV" > "$RUN_ROOT/input-sha256.txt"
+The corrected 2Wiki dev file contains 70 out-of-range supporting sentence references. Preparation retains all questions, paragraphs, and title-level support, and records the unresolved sentence references in `data/2wiki/manifest.json`.
 
-"$PYTHON" "$REPLAY" prepare-data --dataset musique --source "$MUSIQUE_DEV" \
-  --output "$RUN_ROOT/data/musique"
-"$PYTHON" "$REPLAY" prepare-data --dataset 2wiki --source "$TWOWIKI_DEV" \
-  --output "$RUN_ROOT/data/2wiki"
-"$PYTHON" - "$RUN_ROOT" <<'PY'
-import json
-from pathlib import Path
-import sys
-
-root = Path(sys.argv[1])
-expected = {"musique": (2417, 0), "2wiki": (12576, 0), "mtrag": (842, 110),
-            "mtrag/clapnq": (224, 29), "mtrag/cloud": (205, 26),
-            "mtrag/fiqa": (199, 27), "mtrag/govt": (214, 28)}
-workloads = {}
-for name in ("musique", "2wiki", "mtrag"):
-    manifest = json.loads((root / "data" / name / "manifest.json").read_text())
-    workloads[name] = manifest
-    workloads.update({f"{name}/{domain}": row for domain, row in manifest.get("domains", {}).items()})
-observed = {name: (row["query_rows"], row["multi_turn_conversations"]) for name, row in workloads.items()}
-receipt = {name: {"requests": count, "multi_turn_conversations": conversations}
-           for name, (count, conversations) in observed.items()}
-(root / "dataset-counts.json").write_text(json.dumps(receipt, indent=2) + "\n")
-if observed != expected:
-    raise SystemExit(f"Dataset counts differ from the planned splits. Inspect {root / 'dataset-counts.json'}")
-PY
-
-DATASETS=(musique 2wiki mtrag/clapnq mtrag/cloud mtrag/fiqa mtrag/govt)
-for dataset in "${DATASETS[@]}"; do
-  dataset_dir="$RUN_ROOT/data/$dataset"
-  "$PYTHON" "$REPLAY" build-index --corpus "$dataset_dir/corpus.jsonl" \
-    --index-dir "$dataset_dir/index" --embedding-model "$E5_MODEL" \
-    --embedding-revision "$E5_REVISION" --embedding-device cuda:0
-done
-```
-
-The indexes use the allocated GPU for corpus embedding before the serving workers start. The live retrieval run embeds queries on the CPU, records search stages, and freezes the ranked IDs and resulting tokenized prompts. Paired runs read those same prompt IDs. `dispatch_to_first_token_ms` measures serving after dispatch. For a throughput or latency claim, run each arm with the same frozen input and concurrency so they share a comparable CPU and arrival load. The live capture also reports latency from before embedding. Set `E5_REVISION` to the local model's exact revision when running with a populated model cache and no Hub access.
+The indexes use the allocated GPU for corpus embedding before the serving workers start. The full campaign reads the embedding model revision saved by the smoke. The live retrieval run embeds queries on the CPU, records search stages, and freezes the ranked IDs and resulting tokenized prompts. Paired runs read those same prompt IDs. `dispatch_to_first_token_ms` measures serving after dispatch. For a throughput or latency claim, run each arm with the same frozen input and concurrency so they share a comparable CPU and arrival load. The live capture also reports latency from before embedding.
 
 ## 2. Run both layouts and all datasets
 
 The launcher starts four independent workers, validates the physical GPUs and editable fork, captures native counters before and after the workload, and tears down the process groups. `--dry-run` prints the effective settings. The native full-handoff reference runs with `--prefix-cache off`. The shared arm runs with `--lmcache --lmcache-on-decode --prefix-cache on`. Each cohort starts with fresh worker and server caches. To measure the prefill-only LMCache control in isolation, use `--lmcache --prefix-cache off`.
 
-Run the workload from the same shell that prepared the inputs.
+Run this from the active allocation shell that completed both smoke arms. Keep the shell open and detach with `Ctrl+b` then `d` if you are using tmux. The script stages the inputs and builds all six Faiss indexes before serving. It then runs the controlled probes and all datasets in each cohort. A failure leaves the allocation shell open.
 
 ```bash
-PD_CONCURRENCY="${PD_CONCURRENCY:-8}"
-export PYTHON REPO REPLAY RUN_ROOT MODEL MODEL_REVISION PD_CONCURRENCY
-
-cat > "$RUN_ROOT/workload.sh" <<'WORKLOAD'
-#!/usr/bin/env bash
-set -euo pipefail
-cohort_topology="$1"
-cohort_mode="$2"
-run_dir="$EVIDENCESTORE_RUN_DIR"
-gateway="$EVIDENCESTORE_GATEWAY"
-run_replay() {
-  "$PYTHON" "$REPLAY" replay --gateway "$gateway" --run-dir "$run_dir" \
-    --model "$MODEL" "$@"
-}
-
-run_replay --label controlled --frozen "$RUN_ROOT/data/controlled-$cohort_topology.jsonl"
-"$PYTHON" "$REPO/scripts/vllm_pd_report.py" --run-dir "$run_dir" --capture after
-"$PYTHON" "$REPO/scripts/vllm_pd_report.py" --run-dir "$run_dir" --check --all-pairs
-for dataset in musique 2wiki mtrag/clapnq mtrag/cloud mtrag/fiqa mtrag/govt; do
-  label="${dataset//\//-}"
-  dataset_dir="$RUN_ROOT/data/$dataset"
-  if [[ "$cohort_topology/$cohort_mode" == 1p3d/native ]]; then
-    run_replay --label "$label" --concurrency "$PD_CONCURRENCY" --queries "$dataset_dir/queries.jsonl" \
-      --index-dir "$dataset_dir/index" --tokenizer "$MODEL" --tokenizer-revision "$MODEL_REVISION"
-  else
-    run_replay --label "$label" --concurrency "$PD_CONCURRENCY" \
-      --frozen "$RUN_ROOT/1p3d-native/client/$label/frozen.jsonl"
-  fi
-done
-WORKLOAD
-
-for topology in 1p3d 2p2d; do
-  "$PYTHON" "$REPLAY" fixture --topology "$topology" --tokenizer "$MODEL" \
-    --tokenizer-revision "$MODEL_REVISION" --evidence-repeats 12 \
-    --output "$RUN_ROOT/data/controlled-$topology.jsonl"
-  for mode in native shared; do
-    run_dir="$RUN_ROOT/$topology-$mode"
-    launch=("$PYTHON" scripts/vllm_pd_cluster.py --run-dir "$run_dir" --topology "$topology"
-      --trace on --model "$MODEL" --revision "$MODEL_REVISION")
-    if [[ "$mode" == shared ]]; then
-      launch+=(--lmcache --lmcache-on-decode --prefix-cache on
-        --lmcache-size-gb "${PD_LMCACHE_SIZE_GB:-8}" --lmcache-chunk-size 256)
-    else
-      launch+=(--prefix-cache off)
-    fi
-    "${launch[@]}" -- bash "$RUN_ROOT/workload.sh" "$topology" "$mode"
-    "$PYTHON" - "$RUN_ROOT/dataset-counts.json" "$run_dir/client" <<'PY'
-import json
-from pathlib import Path
-import sys
-
-counts = json.loads(Path(sys.argv[1]).read_text())
-client = Path(sys.argv[2])
-for name, row in counts.items():
-    if name == "mtrag":
-        continue  # The four domain receipts cover this total.
-    receipt = json.loads((client / name.replace("/", "-") / "manifest.json").read_text())
-    expected = row["requests"]
-    if receipt["requested"] != expected or receipt["succeeded"] != expected:
-        raise SystemExit(f"{name}: expected {expected} completed requests; inspect {client}")
-PY
-    if [[ "$topology/$mode" != 1p3d/native ]]; then
-      for dataset in "${DATASETS[@]}"; do
-        label="${dataset//\//-}"
-        cmp -- "$RUN_ROOT/1p3d-native/client/$label/frozen.jsonl" "$run_dir/client/$label/frozen.jsonl"
-      done
-    fi
-    "$PYTHON" scripts/vllm_pd_report.py --run-dir "$run_dir" --check --all-pairs
-  done
-done
+if git -C "$PD_HOME_REPO" pull --ff-only origin main &&
+    bash "$PD_HOME_REPO/scripts/vllm_pd_full_campaign.sh"; then
+  printf 'Full campaign passed. Results: %s\n' "$RUN_ROOT"
+fi
 ```
+
+Each cohort writes its request, transfer, and timeline reports below `$RUN_ROOT`. During serving, inspect `logs/workload.log` under the cohort directory printed by the launcher for per-dataset progress. Save the full results to shared storage using [section 3](#3-check-the-receipts-in-the-allocation).
 
 The controlled fixture sends a cold request, an exact repeat to the same D, and a reordered passage request through every P→D pair. In the shared arm the controlled check verifies a full cold read, a warm D-local hit, fewer NIXL bytes on the repeat, and identical cold and warm output token IDs. The repeated evidence makes the prompt long enough to contain complete 256-token LMCache chunks. The trace and byte reconciliation checks precede full dataset replay. The final report uses the counters for the entire cohort. The complete dataset runs use the same replay manifests and a default concurrency of eight. Each cohort's frozen prompts are compared byte for byte with the first cohort's prompts.
 
