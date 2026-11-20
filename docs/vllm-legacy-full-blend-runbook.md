@@ -10,6 +10,7 @@ SSH to `research.cs.mcgill.ca` as `nbore`. If an earlier `srun` allocation is at
 layout=1b3d
 trace=on
 workload=musique-smoke
+prompt_policy=default
 
 if [[ -n "${SLURM_JOB_ID:-}" ]]; then
   printf 'Return to the login shell before starting a new allocation.\n' >&2
@@ -21,7 +22,7 @@ if mkdir -p "$node_root" && [[ -O "$node_root" && ! -L "$node_root" ]] &&
     source_repo=$(mktemp -d "$node_root/legacy-blend-source-${SLURM_JOB_ID}.XXXXXX") &&
     git clone --depth=1 --branch main --no-tags \
       https://github.com/Kibnelson/evidence_store_1.git "$source_repo" &&
-    bash "$source_repo/scripts/vllm_pd_legacy_blend_run.sh" "$1" "$2" "$3"; then
+    bash "$source_repo/scripts/vllm_pd_legacy_blend_run.sh" "$1" "$2" "$3" "$4"; then
   printf 'Full Blend smoke verified and archived. Releasing the allocation.\n'
 else
   failure=$?
@@ -34,17 +35,19 @@ GPU
   tmux -L evidence-store-legacy-blend -f /dev/null new-session -s musique-legacy-blend \
     /bin/bash --noprofile --norc -c '
       srun -p all -A oana2026 -q research12h -N 1 -w gpu-grad-01 \
-        --gpus=4 -c 16 --mem=192G -t 12:00:00 --pty /bin/bash -lc "$1" legacy-blend "$2" "$3" "$4"
+        --gpus=4 -c 16 --mem=192G -t 12:00:00 --pty /bin/bash -lc "$1" legacy-blend "$2" "$3" "$4" "$5"
       status=$?
       printf "Slurm step finished (exit %s).\n" "$status"
       exec /bin/bash --noprofile --norc -i
-    ' legacy-blend "$gpu_command" "$layout" "$trace" "$workload"
+    ' legacy-blend "$gpu_command" "$layout" "$trace" "$workload" "$prompt_policy"
 fi
 ```
 
 Change `layout` to `2b2d` or `both` to change the GPU split. Keep `trace=on` for bring-up. A `trace=off` run retains the response receipts and aggregate NIXL counters. It skips request-level source tracing and the checks that depend on it.
 
 Set `workload=musique-single-turn-40` or `workload=mtrag-multi-turn-repeat` to run the selected high-repeat workloads. The MT-RAG mode stages the pinned Human release and builds the full CLAPNQ index. `MTRAG_PREPARED` can point to an existing prepared CLAPNQ corpus and index. [Request selections and repeat counts](datasets/repeat-workloads.md)
+
+Use `prompt_policy=seen-first` for MuSiQue or `prompt_policy=openclaw` for MT-RAG. Keep `prompt_policy=default` for the baseline layout. [Prompt policy details and comparison commands](#compare-prompt-policies)
 
 Detach with `Ctrl+b` then `d`. To reattach, reconnect to the same login node and run:
 
@@ -65,7 +68,73 @@ The compute-node command can also run directly inside an existing idle four-GPU 
 bash scripts/vllm_pd_legacy_blend_run.sh 1b3d on
 ```
 
-### Retry using a verified runtime
+## Compare prompt policies
+
+The fourth optional launcher argument controls client-side prompt assembly. `trace` separately controls instrumentation. The same Full Blend workers perform prefill and decode, with a full native NIXL handoff and counters reconciled per decoder. Controlled probes use the original prompt layout in every mode.
+
+| `prompt_policy` | Workload | Prompt assembly |
+| --- | --- | --- |
+| `default` | Any | Instructions, then `¶`-delimited evidence in Faiss order, then saved conversation history and the current question. |
+| `seen-first` | MuSiQue | Uses the default layout and selects evidence by the original retrieval ranking and prompt budget. Among the selected chunks, orders chunks seen on earlier successful requests by their first appearance during serial replay, then places new chunks in Faiss order. Receipts record original retrieval ranks. |
+| `openclaw` | `mtrag-multi-turn-repeat` | Instructions `¶` saved reference history and current question `¶` retrieved documents in Faiss order `¶` answer cue. |
+
+For `seen-first`, earlier inclusion is an ordering signal across the replay. In 2B/2D, an earlier request can have used the other producer's cache. Evaluate actual reuse from completed host-to-device restores and traced Blend recompute.
+
+For `openclaw`, the published demo uses two turns from MT-RAG Cloud and places the current query between the system prompt and its retrieved supporting document. Our selected CLAPNQ workload retains the saved reference history before the question. The pinned legacy connector ends layerwise matching at the first missing segment, so a changed history/question segment can prevent restores of documents that follow it. [LMCache OpenClaw demo](https://blog.lmcache.ai/en/2026/04/01/accelerating-openclaw-agents-with-cacheblend/) · [Legacy connector and source pins](../third_party/README.md#historical-full-blend-source)
+
+### Run both pairs in one allocation
+
+On the login node, open a dedicated tmux session for the GPU allocation.
+
+```bash
+module load slurm && srun --version &&
+  tmux -L evidence-store-prompt-gates -f /dev/null new-session -s blend-policies \
+    /bin/bash --noprofile --norc -c '
+      srun -p all -A oana2026 -q research12h -N 1 -w gpu-grad-01 \
+        --gpus=4 -c 16 --mem=192G -t 12:00:00 --pty bash -l
+      exec /bin/bash --noprofile --norc -i
+    '
+```
+
+Inside the GPU shell, paste this block. An exported `EVIDENCESTORE_LEGACY_RUNTIME` points to a verified scratch runtime on this node. With the variable unset, the block builds once. Each arm starts fresh workers with the same runtime and prepared index for that workload. Raw archives go to node-local scratch by default.
+
+```bash
+(
+  set -euo pipefail
+  umask 077
+  : "${SLURM_JOB_ID:?Run inside the four-GPU allocation}"
+  node_root="/tmp/$(id -un)"
+  mkdir -p "$node_root"
+  [[ -O "$node_root" && ! -L "$node_root" ]]
+  df -h "$node_root"
+  source_repo=$(mktemp -d "$node_root/blend-policy-source-$SLURM_JOB_ID.XXXXXX")
+  git clone --depth=1 --branch main --no-tags \
+    https://github.com/Kibnelson/evidence_store_1.git "$source_repo"
+  if [[ -z "${EVIDENCESTORE_LEGACY_RUNTIME:-}" ]]; then
+    activation_receipt=$(mktemp "$node_root/blend-policy-activation-$SLURM_JOB_ID.XXXXXX")
+    trap 'rm -f -- "$activation_receipt"' EXIT
+    bash "$source_repo/scripts/vllm_pd_legacy_blend_runtime.sh" "$activation_receipt"
+    source "$(<"$activation_receipt")"
+    export EVIDENCESTORE_LEGACY_RUNTIME="$PD_EXEC_ROOT"
+  fi
+  export EVIDENCESTORE_LEGACY_REPORT_DIR="${EVIDENCESTORE_LEGACY_REPORT_DIR:-$node_root/blend-policy-archives-$SLURM_JOB_ID}"
+  runner="$source_repo/scripts/vllm_pd_legacy_blend_run.sh"
+  bash "$runner" 1b3d on musique-single-turn-40 default
+  bash "$runner" 1b3d on musique-single-turn-40 seen-first
+  bash "$runner" 1b3d on mtrag-multi-turn-repeat default
+  bash "$runner" 1b3d on mtrag-multi-turn-repeat openclaw
+)
+```
+
+Reattach on the same login node with `tmux -L evidence-store-prompt-gates attach-session -t blend-policies`. Compare one workload at a time from a current source checkout. Set `default_cohort` and `gated_cohort` to the two `1p3d/blend` directories under the printed run artifact paths, or use the corresponding published review directories.
+
+```bash
+python3 scripts/vllm_pd_legacy_blend_report.py --compare "$default_cohort" "$gated_cohort"
+```
+
+The comparison matches requests and versioned chunks and reports ordinary P tokens, Blend attention/MLP token-layer positions, completed LMCache restore and store bytes, and NIXL payload. Evidence-exclusive NIXL bytes omit blocks shared with another span. The whole-request total includes those blocks. A successful `openclaw` run can have zero document restores while its controlled probes verify that the trace records reuse. [Publish the review packets](#publish-the-review-packet-to-git) while the scratch archives are available.
+
+## Retry using a verified runtime
 
 If a worker startup failed after runtime verification, use a fresh checkout of `main` and the original idle GPU allocation. Set `EVIDENCESTORE_LEGACY_RUNTIME` to the absolute runtime scratch directory printed during setup. The runner checks source compatibility, applies the worker import fix if needed, verifies the Python import, and reuses the built runtime and any prepared index for the selected workload. Each retry has its own result directory and launcher log. A new allocation can reuse those files on the same node while the scratch directory remains available.
 

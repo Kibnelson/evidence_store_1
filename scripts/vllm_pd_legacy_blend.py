@@ -20,6 +20,7 @@ from evidencestore.retrieval import json_line, prompt_sha256, render_prompt
 
 
 SCRIPT = Path(__file__).resolve()
+PROMPT_POLICIES = ("default", "seen-first", "openclaw")
 
 
 def prepare_controlled(tokenizer, topology, output):
@@ -58,10 +59,12 @@ def replay(args):
     command = [sys.executable, str(ROOT / "scripts/vllm_pd_replay.py"), "replay",
                "--gateway", os.environ["EVIDENCESTORE_GATEWAY"], "--run-dir", str(run_dir),
                "--model", MODEL, "--concurrency", "1"]
-    label = json.loads((directory / "manifest.json").read_text(encoding="utf-8"))["dataset"]
-    natural = ["--label", label, "--queries", str(directory / "queries.jsonl"),
+    manifest = json.loads((directory / "manifest.json").read_text(encoding="utf-8"))
+    natural = ["--label", manifest["dataset"], "--queries", str(directory / "queries.jsonl"),
                "--index-dir", str(args.index_dir), "--tokenizer", MODEL, "--tokenizer-revision", REVISION,
-               "--prompt-format", "legacy-blend"]
+               "--prompt-format", manifest["prompt_format"]]
+    if "evidence_order" in manifest:
+        natural.extend(("--evidence-order", manifest["evidence_order"]))
     if args.trace == "on":
         natural.append("--trace-chunk-stages")
     subprocess.run([*command, *natural], check=True)
@@ -70,12 +73,21 @@ def replay(args):
 
 
 def run(args):
+    if ((args.prompt_policy == "openclaw" and args.workload != "mtrag-multi-turn-repeat")
+            or (args.prompt_policy == "seen-first" and args.workload == "mtrag-multi-turn-repeat")):
+        raise ValueError("OpenClaw layout requires MT-RAG and seen-first ordering requires MuSiQue")
     prepared = args.prepared.resolve()
     index = prepared / "index"
     if args.workload == SMOKE:
         sample, manifest = musique_sample(prepared, index)
     else:
         sample, manifest = load_selected(ROOT / "workloads" / f"{args.workload}.json", args.workload, prepared, index)
+    if args.prompt_policy != "default":
+        manifest["prompt_policy"] = args.prompt_policy
+    if args.prompt_policy == "seen-first":
+        manifest["evidence_order"] = "seen-first"
+    elif args.prompt_policy == "openclaw":
+        manifest["prompt_format"] = "legacy-blend-openclaw"
     tokenizer = load_tokenizer(MODEL, REVISION)
     layouts = TOPOLOGIES if args.topology == "both" else (args.topology,)
     root = args.run_root.resolve()
@@ -111,6 +123,7 @@ def main():
     smoke.add_argument("--run-root", type=Path, required=True)
     smoke.add_argument("--prepared", "--musique-prepared", dest="prepared", type=Path, required=True)
     smoke.add_argument("--workload", choices=WORKLOADS, default=SMOKE)
+    smoke.add_argument("--prompt-policy", choices=PROMPT_POLICIES, default="default")
     smoke.add_argument("--prepare-only", action="store_true")
     workload = modes.add_parser("replay", help="replay both request groups after the workers are ready")
     workload.add_argument("--inputs", type=Path, required=True)

@@ -3,6 +3,7 @@
 
 import argparse
 from collections import Counter, defaultdict
+import gzip
 import json
 from pathlib import Path
 import sys
@@ -14,6 +15,9 @@ from evidencestore.pd_report import (
     _OUTER_TIMELINE_EVENTS, _attribute_bytes, _reconcile, load_events, request_joins,
 )
 from evidencestore.retrieval import json_line, prompt_sha256, read_jsonl, sha256_file
+
+
+_PROMPT_POLICIES = {"seen-first": "legacy-blend", "openclaw": "legacy-blend-openclaw"}
 
 
 def _json(path):
@@ -28,7 +32,8 @@ def _by_key(path):
     return keyed
 
 
-def _read_replay(run_dir, label, input_file, count, *, live, trace):
+def _read_replay(run_dir, label, input_file, count, *, live, trace,
+                 prompt_format="legacy-blend", evidence_order=None):
     output = run_dir / "client" / label
     inputs = _by_key(input_file)
     prompts = _by_key(output / "frozen.jsonl")
@@ -37,7 +42,8 @@ def _read_replay(run_dir, label, input_file, count, *, live, trace):
     if (
         len(inputs) != count or list(inputs) != list(prompts) or prompts.keys() != responses.keys()
         or manifest["mode"] != ("live_hnsw" if live else "frozen")
-        or manifest["concurrency"] != 1 or manifest["prompt_format"] != "legacy-blend"
+        or manifest["concurrency"] != 1 or manifest["prompt_format"] != prompt_format
+        or manifest.get("evidence_order") != evidence_order
         or manifest.get("trace_chunk_stages", False) is not (live and trace)
         or manifest["input_sha256"] != sha256_file(input_file)
         or manifest["frozen_sha256"] != sha256_file(output / "frozen.jsonl")
@@ -45,6 +51,7 @@ def _read_replay(run_dir, label, input_file, count, *, live, trace):
         != (count, count, 0, count)
     ):
         raise ValueError(f"Incomplete or mismatched {label} replay")
+    default_prompt_format = "legacy-blend" if evidence_order is None else None
     for key, prompt in prompts.items():
         response = responses[key]
         tokens = prompt["prompt_token_ids"]
@@ -55,6 +62,8 @@ def _read_replay(run_dir, label, input_file, count, *, live, trace):
             or not response["output_token_ids_sha256"] or response["label"] != label
             or prompt_sha256(tokens) != prompt["prompt_sha256"]
             or prompt["prompt_sha256"] != response["prompt_sha256"]
+            or prompt.get("prompt_format", default_prompt_format) != prompt_format
+            or prompt.get("evidence_order") != evidence_order
             or not spans or not prompt["blend_separator_token_spans"] or routed is live
             or any(not 0 <= span["start_token"] < span["end_token"] <= len(tokens) for span in spans)
         ):
@@ -316,16 +325,61 @@ def _selection_agreement(replays, reference):
             "mismatching_request_keys": sorted(expected.keys() - (prompts & evidence))}
 
 
+def _retrieval_agreement(replays, reference):
+    fields = ("doc_id", "chunk_id", "chunk_version", "rank")
+
+    def ranked_chunks(chunks):
+        return Counter(tuple(chunk[field] for field in fields) for chunk in chunks)
+
+    expected = {row["request_key"]: ranked_chunks(row["evidence"]) for row in reference}
+    retrieved, kept = set(), set()
+    for _, prompt, _ in replays:
+        key = prompt["request_key"]
+        target = expected[key]
+        if ranked_chunks(prompt["retrieval_hits"]) == target:
+            retrieved.add(key)
+        if ranked_chunks(prompt["evidence"]) == target:
+            kept.add(key)
+    return {"matching_retrieval_identity_and_ranks": len(retrieved),
+            "matching_kept_identity_and_ranks": len(kept),
+            "mismatching_request_keys": sorted(expected.keys() - (retrieved & kept))}
+
+
+def _prompt_settings(sample):
+    if "prompt_policy" not in sample:
+        if sample.get("prompt_format", "legacy-blend") != "legacy-blend" or "evidence_order" in sample:
+            raise ValueError("Natural replay settings require a prompt policy")
+        return {}
+
+    policy = sample["prompt_policy"]
+    prompt_format = _PROMPT_POLICIES.get(policy)
+    if prompt_format is None or sample.get("prompt_format") != prompt_format:
+        raise ValueError("Natural replay prompt format differs from its policy")
+    settings = {"prompt_policy": policy, "prompt_format": prompt_format}
+    if policy == "seen-first":
+        if sample.get("evidence_order") != "seen-first":
+            raise ValueError("The seen-first policy requires seen-first evidence order")
+        settings["evidence_order"] = "seen-first"
+    elif "evidence_order" in sample:
+        raise ValueError("The openclaw policy requires retrieval-ranked evidence")
+    return settings
+
+
 def report(run_dir, *, trace):
     endings = _json(run_dir / "endpoints.json")
     prefill, decode = ({worker["id"] for worker in endings[side]} for side in ("prefill", "decode"))
     selection_path = run_dir / "inputs/manifest.json"
     sample = _json(selection_path) if selection_path.is_file() else {}
+    settings = _prompt_settings(sample)
     selected = bool(sample.get("workload"))
     label = sample["dataset"] if selected else "musique"
     queries = run_dir / "inputs/queries.jsonl"
     expected = len(sample["query_keys"]) if selected else 10
-    natural_replays = _read_replay(run_dir, label, queries, expected, live=True, trace=trace)
+    natural_replays = _read_replay(
+        run_dir, label, queries, expected, live=True, trace=trace,
+        prompt_format=settings.get("prompt_format", "legacy-blend"),
+        evidence_order=settings.get("evidence_order"),
+    )
     if selected and (sample["queries_sha256"] != sha256_file(queries)
                      or sample["query_keys"] != [prompt["request_key"] for _, prompt, _ in natural_replays]):
         raise ValueError("Natural replay differs from the selected workload")
@@ -353,10 +407,12 @@ def report(run_dir, *, trace):
         "completed_nixl_reads": total_reads, "completed_nixl_bytes": total_bytes,
         "nixl_reconciliation": reconciliation,
     }
+    summary.update(settings)
     if selected:
+        selection_agreement = _retrieval_agreement if settings else _selection_agreement
         summary.update(workload=sample["workload"], natural_label=label, domain=sample["domain"],
                        conversation_turn_counts=sample["conversation_turn_counts"],
-                       selection_agreement=_selection_agreement(natural_replays, sample["selection_metrics"]["per_request"]))
+                       selection_agreement=selection_agreement(natural_replays, sample["selection_metrics"]["per_request"]))
     if trace:
         groups, unjoined = request_joins(events)
         if unjoined:
@@ -387,6 +443,10 @@ def report(run_dir, *, trace):
                 "trace_only_gpu_synchronization": True,
             },
         )
+        if settings:
+            summary["natural_verified_restore_occurrences"] = sum(
+                any(move["source_match"] for move in row["lmcache_movements"]) for row in natural
+            )
         if label == "mtrag":
             summary["conversation_reuse"] = _conversation_reuse(requests, chunks, natural_replays)
         for name, rows in (("legacy-requests.jsonl", requests), ("legacy-chunks.jsonl", chunks)):
@@ -395,11 +455,128 @@ def report(run_dir, *, trace):
     return summary
 
 
+def _comparison_rows(cohort, name):
+    path = cohort / f"{name}.jsonl"
+    if path.is_file():
+        return list(read_jsonl(path))
+    with gzip.open(path.with_suffix(".jsonl.gz"), "rt", encoding="utf-8") as stream:
+        return [json.loads(line) for line in stream if line.strip()]
+
+
+def _evidence_totals(chunks):
+    verified = shifted = 0
+    bytes_by_direction = Counter()
+    for chunk in chunks:
+        restores = []
+        for move in chunk["lmcache_movements"]:
+            span = [move["start_token"], move["end_token"]]
+            if move["evidence_overlap"] != span or not (
+                chunk["start_token"] <= span[0] < span[1] <= chunk["end_token"]
+            ):
+                raise ValueError(f"LMCache movement crosses evidence boundaries in {chunk['request_key']}")
+            bytes_by_direction[move["direction"]] += move["bytes"]
+            if move["direction"] == "h2d" and move["source_match"]:
+                restores.append(move["source_match"])
+        verified += bool(restores)
+        shifted += any(source["shifted"] for source in restores)
+    return {
+        "occurrences": len(chunks),
+        "verified_h2d_occurrences": verified,
+        "shifted_h2d_occurrences": shifted,
+        "ordinary_prefill_scheduled_tokens": sum(
+            chunk["scheduled_tokens_by_role"].get("P", 0) for chunk in chunks
+        ),
+        "blend_attention_mlp_token_layer_positions": sum(
+            sum(layers) for chunk in chunks for layers in chunk["blend_computed_tokens_by_call_and_layer"]
+        ),
+        "lmcache_completed_h2d_bytes": bytes_by_direction["h2d"],
+        "lmcache_completed_d2h_bytes": bytes_by_direction["d2h"],
+        "nixl_evidence_exclusive_bytes": sum(chunk["native_nixl_exclusive_bytes"] for chunk in chunks),
+    }
+
+
+def _comparison_cohort(cohort):
+    summary = _json(cohort / "legacy-blend-summary.json")
+    if summary.get("status") != "passed" or summary.get("trace_enabled") is not True or not summary.get("workload"):
+        raise ValueError(f"Expected a passing, trace-on selected workload in {cohort}")
+    if summary["selection_agreement"]["mismatching_request_keys"]:
+        raise ValueError(f"Evidence selection differs from the workload in {cohort}")
+
+    provenance = cohort / "provenance.json"
+    launch = _json(provenance if provenance.is_file() else cohort / "run_manifest.json")
+    sample = launch["sample"] if provenance.is_file() else _json(cohort / "inputs/manifest.json")
+    label = summary["natural_label"]
+    requests = [row for row in _comparison_rows(cohort, "legacy-requests") if row["label"] == label]
+    chunks = [row for row in _comparison_rows(cohort, "legacy-chunks") if row["label"] == label]
+    request_keys = [row["request_key"] for row in requests]
+    if (len(set(request_keys)) != len(request_keys) or len(requests) != summary["natural_requests"]
+            or len(chunks) != summary["natural_evidence_occurrences"]
+            or {row["request_key"] for row in chunks} != set(request_keys)):
+        raise ValueError(f"Natural request and evidence receipts differ in {cohort}")
+
+    fields = ("request_key", "doc_id", "chunk_id", "chunk_version", "rank")
+    ranked_evidence = Counter(tuple(chunk[field] for field in fields) for chunk in chunks)
+    workload = {field: summary[field] for field in (
+        "workload", "domain", "prefill_workers", "decode_workers",
+    )}
+    workload.update(dataset=label, topology=launch["topology"], model=launch["model"], revision=launch["revision"],
+                    corpus_sha256=sample["corpus_sha256"], index_sha256=sample["index_sha256"],
+                    selection_sha256=sample["selection_sha256"])
+    moves = Counter()
+    for row in requests:
+        for move in row["movements"]:
+            moves[move["direction"]] += move["bytes"]
+    return workload, (request_keys, ranked_evidence), {
+        "prompt_policy": summary.get("prompt_policy", "default"),
+        "natural_requests": {
+            "count": len(requests),
+            "lmcache_completed_h2d_bytes": moves["h2d"],
+            "lmcache_completed_d2h_bytes": moves["d2h"],
+            "nixl_completed_bytes": sum(row["completed_nixl_bytes"] for row in requests),
+        },
+        "natural_evidence": _evidence_totals(chunks),
+        "repeated_evidence": _evidence_totals([chunk for chunk in chunks if chunk["previously_seen"]]),
+    }
+
+
+def compare(default_cohort, gated_cohort):
+    workload, default_selection, default = _comparison_cohort(default_cohort)
+    gated_workload, gated_selection, gated = _comparison_cohort(gated_cohort)
+    if default["prompt_policy"] != "default" or gated["prompt_policy"] not in _PROMPT_POLICIES:
+        raise ValueError("Compare a default cohort followed by a gated cohort")
+    if workload != gated_workload:
+        raise ValueError("Cohorts differ in workload, index, model, or worker layout")
+    if default_selection != gated_selection:
+        raise ValueError("Cohorts differ in natural request order or ranked evidence")
+    return {
+        **workload,
+        "default": default,
+        "gated": gated,
+        "byte_scope": (
+            "Request totals include the whole natural prompt. Evidence NIXL totals include only "
+            "blocks attributed exclusively to the listed evidence and omit boundary or shared blocks."
+        ),
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--run-dir", type=Path, required=True)
-    parser.add_argument("--trace", choices=("on", "off"), required=True)
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument("--run-dir", type=Path)
+    mode.add_argument("--compare", type=Path, nargs=2, metavar=("DEFAULT_COHORT", "GATED_COHORT"),
+                      help="compare two trace-on cohort directories with raw or published measurements")
+    parser.add_argument("--trace", choices=("on", "off"))
     args = parser.parse_args()
+    if args.compare:
+        if args.trace is not None:
+            parser.error("--compare reads the trace settings in the cohort reports")
+        try:
+            print(json.dumps(compare(*args.compare), indent=2))
+        except (OSError, KeyError, ValueError) as error:
+            parser.exit(1, f"Full Blend comparison stopped: {error}\n")
+        return
+    if args.trace is None:
+        parser.error("--run-dir requires --trace")
     print(json.dumps(report(args.run_dir, trace=args.trace == "on"), indent=2))
 
 

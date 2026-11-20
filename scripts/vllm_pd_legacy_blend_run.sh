@@ -7,6 +7,7 @@ umask 077
 layout="${1:-1b3d}"
 trace="${2:-on}"
 workload="${3:-musique-smoke}"
+prompt_policy="${4:-default}"
 case "$layout" in
   1b3d) topology=1p3d ;;
   2b2d) topology=2p2d ;;
@@ -18,10 +19,14 @@ case "$workload" in
   musique-single-turn-40|mtrag-multi-turn-repeat) run_prefix="$workload" ;;
   *) printf 'Unknown Full Blend workload %s\n' "$workload" >&2; exit 2 ;;
 esac
-if (( $# > 3 )) || [[ "$trace" != on && "$trace" != off ]]; then
-  printf 'Usage: %s [1b3d|2b2d|both] [on|off] [workload]\n' "$0" >&2
+if (( $# > 4 )) || [[ "$trace" != on && "$trace" != off ]]; then
+  printf 'Usage: %s [1b3d|2b2d|both] [on|off] [workload] [default|seen-first|openclaw]\n' "$0" >&2
   exit 2
 fi
+case "$prompt_policy:$workload" in
+  default:*|seen-first:musique-*|openclaw:mtrag-multi-turn-repeat) ;;
+  *) printf 'Use seen-first with MuSiQue or openclaw with MT-RAG.\n' >&2; exit 2 ;;
+esac
 
 source_repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 node_root="/tmp/$(id -un)"
@@ -100,7 +105,8 @@ if [[ -n "$retained" ]]; then
 fi
 printf 'Run artifacts: %s\n' "$run_root"
 "$PYTHON" "$launcher_repo/scripts/vllm_pd_legacy_blend.py" run --topology "$topology" \
-  --trace "$trace" --workload "$workload" --prepared "$prepared" --run-root "$run_root" 2>&1 | tee "$run_log"
+  --trace "$trace" --workload "$workload" --prompt-policy "$prompt_policy" \
+  --prepared "$prepared" --run-root "$run_root" 2>&1 | tee "$run_log"
 
 report_dir="${EVIDENCESTORE_LEGACY_REPORT_DIR:-$HOME/evidence_store_legacy_reports}"
 mkdir -p "$report_dir"

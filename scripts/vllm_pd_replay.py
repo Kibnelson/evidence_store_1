@@ -203,7 +203,11 @@ def _request_fields(row, label):
     }
 
 
-def serve_row(args, row, tracer, retriever, tokenizer):
+def _chunk_identity(chunk):
+    return (chunk["doc_id"], chunk["chunk_id"], chunk["chunk_version"])
+
+
+def serve_row(args, row, tracer, retriever, tokenizer, evidence_order=None):
     fields = _request_fields(row, args.label)
     frozen = None
     tracer.emit("client_request_start", **fields)
@@ -233,6 +237,7 @@ def serve_row(args, row, tracer, retriever, tokenizer):
             tracer.emit("prompt_render_start", **fields)
             rendered = render_prompt(tokenizer, row["question"], row.get("reference_history", []),
                                      hits, args.max_prompt_tokens, prompt_format=args.prompt_format,
+                                     evidence_order=evidence_order,
                                      **render_stage_fields)
             tokens, evidence = rendered.token_ids, rendered.evidence
             prompt_hash = prompt_sha256(tokens)
@@ -240,6 +245,8 @@ def serve_row(args, row, tracer, retriever, tokenizer):
             if rendered.blend_separator_token_spans is not None:
                 format_fields = {"prompt_format": args.prompt_format,
                                  "blend_separator_token_spans": rendered.blend_separator_token_spans}
+            if evidence_order is not None:
+                format_fields["evidence_order"] = args.evidence_order
             tracer.emit("prompt_render_end", **fields, prompt_token_count=len(tokens),
                         prompt_sha256=prompt_hash, dropped_chunk_ids=rendered.dropped_chunk_ids,
                         **format_fields, **render_stage_fields)
@@ -298,6 +305,10 @@ def replay(args):
             raise ValueError("--queries requires --index-dir, --tokenizer, and --tokenizer-revision")
         input_path = args.queries
         rows = list(read_jsonl(input_path))
+        if args.evidence_order == "seen-first" and any(
+            row.get("conversation_id") or row.get("reference_history") for row in rows
+        ):
+            raise ValueError("Seen-first evidence ordering requires single-turn queries")
         retriever = HnswRetriever(args.index_dir, args.embedding_device)
         tokenizer = load_tokenizer(args.tokenizer, args.tokenizer_revision)
     if not rows or len({row["request_key"] for row in rows}) != len(rows):
@@ -313,6 +324,12 @@ def replay(args):
     frozen_by_index = {}
     failed = 0
     lock = Lock()
+    seen_chunks = {}
+
+    def first_seen(chunk):
+        return seen_chunks.get(_chunk_identity(chunk), len(seen_chunks))
+
+    evidence_order = first_seen if args.evidence_order == "seen-first" else None
 
     def run_group(group, epoch):
         offset = group[0][1].get("start_offset_us", 0)
@@ -320,7 +337,10 @@ def replay(args):
         if delay > 0:
             time.sleep(delay)
         for index, row in group:
-            frozen, response = serve_row(args, row, tracer, retriever, tokenizer)
+            frozen, response = serve_row(args, row, tracer, retriever, tokenizer, evidence_order)
+            if evidence_order is not None and response["success"]:
+                for chunk in frozen["evidence"]:
+                    seen_chunks.setdefault(_chunk_identity(chunk), len(seen_chunks))
             yield index, frozen, response
 
     with (output / "responses.jsonl").open("x", encoding="utf-8") as receipt:
@@ -363,10 +383,12 @@ def replay(args):
     }
     if args.trace_chunk_stages:
         manifest["trace_chunk_stages"] = retriever is not None
-    if args.prompt_format == "legacy-blend" or (
-        args.frozen and all(row.get("prompt_format") == "legacy-blend" for row in rows)
-    ):
-        manifest["prompt_format"] = "legacy-blend"
+    formats = {row.get("prompt_format", "standard") for row in rows} if args.frozen else {args.prompt_format}
+    for prompt_format in PROMPT_FORMATS[1:]:
+        if formats == {prompt_format}:
+            manifest["prompt_format"] = prompt_format
+    if evidence_order is not None:
+        manifest["evidence_order"] = args.evidence_order
     (output / "manifest.json").write_text(json_line(manifest), encoding="utf-8")
     print(f"{manifest['succeeded']}/{manifest['requested']} complete. Receipts: {output}")
     return int(failed > 0)
@@ -425,9 +447,15 @@ def parse_args(argv=None):
                       help="trace live corpus-row reads, prompt chunks, and whole-prompt assembly")
     send.add_argument("--prompt-format", choices=PROMPT_FORMATS, default="standard",
                       help="render live queries with the selected prompt format")
+    send.add_argument("--evidence-order", choices=("retrieval", "seen-first"), default="retrieval",
+                      help="order retained evidence by retrieval rank or by first appearance in serial replay")
     args = parser.parse_args(argv)
     if args.command == "replay" and args.frozen and args.prompt_format != "standard":
         parser.error("--prompt-format applies to live --queries only")
+    if args.command == "replay" and args.evidence_order == "seen-first" and (
+        args.frozen or args.concurrency != 1
+    ):
+        parser.error("--evidence-order seen-first requires live --queries with --concurrency 1")
     return args
 
 

@@ -14,7 +14,7 @@ from time import monotonic_ns
 
 
 DOMAINS = ("clapnq", "cloud", "fiqa", "govt")
-PROMPT_FORMATS = ("standard", "legacy-blend")
+PROMPT_FORMATS = ("standard", "legacy-blend", "legacy-blend-openclaw")
 LEGACY_BLEND_SEPARATOR = "¶"
 
 
@@ -444,23 +444,30 @@ def _chunk_stage_identity(chunk):
             "chunk_version": chunk["chunk_version"], "rank": chunk.get("rank")}
 
 
-def _render_parts(question, history, hits, *, legacy_blend, chunk_stages=None):
+def _render_parts(question, history, hits, *, prompt_format, evidence_order, chunk_stages=None):
     start_ns = monotonic_ns() if chunk_stages is not None else None
-    parts = ["Answer the question using the evidence below.\n"]
-    if legacy_blend:
+    ordered_hits = sorted(hits, key=evidence_order) if evidence_order is not None else hits
+    blend = prompt_format != "standard"
+    openclaw = prompt_format == "legacy-blend-openclaw"
+    instruction = "Answer the question using the evidence below."
+    if openclaw:
+        parts = [instruction, LEGACY_BLEND_SEPARATOR, "\n\nConversation:\n"]
+    else:
+        parts = [f"{instruction}\n"]
+    if prompt_format == "legacy-blend":
         parts.append("Evidence:")
     else:
         parts.extend(f"{turn['speaker']}: {turn['text']}\n" for turn in history)
-        parts.append(f"Question: {question}\nEvidence:\n")
+        parts.append(f"Question: {question}\nEvidence:" if openclaw else f"Question: {question}\nEvidence:\n")
     cursor = sum(map(len, parts))
     if chunk_stages is not None:
         _append_stage(chunk_stages, "prompt_template_prefix", start_ns, monotonic_ns(),
                       char_start=0, char_end=cursor)
     spans = []
-    for hit in hits:
+    for hit in ordered_hits:
         start_ns = monotonic_ns() if chunk_stages is not None else None
         text = hit["text"]
-        if legacy_blend:
+        if blend:
             parts.append(LEGACY_BLEND_SEPARATOR)
             cursor += len(LEGACY_BLEND_SEPARATOR)
             # Source whitespace can merge into the next separator token.
@@ -468,7 +475,7 @@ def _render_parts(question, history, hits, *, legacy_blend, chunk_stages=None):
         spans.append((cursor, cursor + len(text)))
         parts.append(text)
         cursor += len(text)
-        if not legacy_blend:
+        if not blend:
             parts.append("\n\n")
             cursor += 2
         if chunk_stages is not None:
@@ -477,7 +484,9 @@ def _render_parts(question, history, hits, *, legacy_blend, chunk_stages=None):
                           char_end=spans[-1][1], retained=False)
     start_ns = monotonic_ns() if chunk_stages is not None else None
     suffix = "Answer:"
-    if legacy_blend:
+    if openclaw:
+        suffix = f"{LEGACY_BLEND_SEPARATOR}{suffix}"
+    elif blend:
         history_text = "".join(f"{turn['speaker']}: {turn['text']}\n" for turn in history)
         suffix = f"{LEGACY_BLEND_SEPARATOR}\n\nConversation:\n{history_text}Question: {question}\nAnswer:"
     parts.append(suffix)
@@ -488,7 +497,7 @@ def _render_parts(question, history, hits, *, legacy_blend, chunk_stages=None):
     text = "".join(parts)
     if chunk_stages is not None:
         _append_stage(chunk_stages, "prompt_join", start_ns, monotonic_ns(), prompt_char_count=len(text))
-    return text, spans
+    return text, spans, ordered_hits
 
 
 def _legacy_blend_separator_spans(text, encoded, delimiter_ids, expected_count):
@@ -514,21 +523,26 @@ def _legacy_blend_separator_spans(text, encoded, delimiter_ids, expected_count):
 
 def render_prompt(
     tokenizer, question, history, hits, max_prompt_tokens, *, prompt_format="standard", chunk_stages=None,
+    evidence_order=None,
 ):
-    """Map each evidence occurrence against the final whole-prompt tokenization."""
+    """Map evidence against the final tokenization while trimming in retrieval order."""
     if not tokenizer.is_fast:
         raise ValueError("A fast tokenizer is required for exact prompt-token offsets")
     if prompt_format not in PROMPT_FORMATS:
         raise ValueError(f"Unsupported prompt format {prompt_format!r}")
-    legacy_blend = prompt_format == "legacy-blend"
+    blend = prompt_format != "standard"
+    leading_segments = 2 if prompt_format == "legacy-blend-openclaw" else 1
     kept = list(hits)
     dropped = []
     attempt = 0
     while True:
         attempt_stages = [] if chunk_stages is not None else None
-        text, spans = _render_parts(question, history, kept, legacy_blend=legacy_blend, chunk_stages=attempt_stages)
+        text, spans, ordered_hits = _render_parts(
+            question, history, kept, prompt_format=prompt_format, evidence_order=evidence_order,
+            chunk_stages=attempt_stages,
+        )
         tokenize_start = monotonic_ns() if attempt_stages is not None else None
-        encoded = tokenizer(text, return_offsets_mapping=True, add_special_tokens=not legacy_blend, truncation=False)
+        encoded = tokenizer(text, return_offsets_mapping=True, add_special_tokens=not blend, truncation=False)
         tokenize_end = monotonic_ns() if attempt_stages is not None else None
         token_count = len(encoded["input_ids"])
         fits = token_count <= max_prompt_tokens
@@ -546,21 +560,22 @@ def render_prompt(
             raise ValueError(f"Question and reference history exceed {max_prompt_tokens} tokens")
         dropped.append(kept.pop()["chunk_id"])
     separator_spans = None
-    if legacy_blend:
+    if blend:
         delimiter_ids = list(tokenizer.encode(LEGACY_BLEND_SEPARATOR, add_special_tokens=False))
-        separator_spans = _legacy_blend_separator_spans(text, encoded, delimiter_ids, len(kept) + 1)
+        separator_spans = _legacy_blend_separator_spans(text, encoded, delimiter_ids, len(kept) + leading_segments)
     evidence = []
     append_stages = ([stage for stage in attempt_stages if stage["stage"] == "prompt_chunk_append"]
                      if attempt_stages is not None else None)
-    for index, (hit, (char_start, char_end)) in enumerate(zip(kept, spans)):
+    for index, (hit, (char_start, char_end)) in enumerate(zip(ordered_hits, spans, strict=True)):
         map_start = monotonic_ns() if append_stages is not None else None
         indices = [index for index, (start, end) in enumerate(encoded["offset_mapping"])
                    if start < char_end and end > char_start and end > start]
-        if separator_spans is not None and (
-            not indices
-            or (indices[0], indices[-1] + 1) != (separator_spans[index][1], separator_spans[index + 1][0])
-        ):
-            raise ValueError(f"Legacy Blend evidence does not cover its token segment for {hit['chunk_id']}")
+        if separator_spans is not None:
+            preceding_separator = index + leading_segments - 1
+            segment_start = separator_spans[preceding_separator][1]
+            segment_end = separator_spans[preceding_separator + 1][0]
+            if not indices or (indices[0], indices[-1] + 1) != (segment_start, segment_end):
+                raise ValueError(f"Legacy Blend evidence does not cover its token segment for {hit['chunk_id']}")
         if append_stages is not None:
             map_end = monotonic_ns()
             append_stages[index]["retained"] = bool(indices)
