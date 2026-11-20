@@ -134,6 +134,8 @@ python3 scripts/vllm_pd_legacy_blend_report.py --compare "$default_cohort" "$gat
 
 The comparison matches requests and versioned chunks and reports ordinary P tokens, Blend attention/MLP token-layer positions, completed LMCache restore and store bytes, and NIXL payload. Evidence-exclusive NIXL bytes omit blocks shared with another span. The whole-request total includes those blocks. A successful `openclaw` run can have zero document restores while its controlled probes verify that the trace records reuse. [Publish the review packets](#publish-the-review-packet-to-git) while the scratch archives are available.
 
+Check the p50 and p95 prompt-render time, client time to first token (TTFT), dispatch-to-first-token time, and prefill HTTP time. The report also computes gated-minus-default differences for matching request keys. Client TTFT includes retrieval and prompt assembly. Dispatch-to-first-token time starts after those stages. These timings include the synchronization used by trace-on runs.
+
 ## Retry using a verified runtime
 
 If a worker startup failed after runtime verification, use a fresh checkout of `main` and the original idle GPU allocation. Set `EVIDENCESTORE_LEGACY_RUNTIME` to the absolute runtime scratch directory printed during setup. The runner checks source compatibility, applies the worker import fix if needed, verifies the Python import, and reuses the built runtime and any prepared index for the selected workload. Each retry has its own result directory and launcher log. A new allocation can reuse those files on the same node while the scratch directory remains available.

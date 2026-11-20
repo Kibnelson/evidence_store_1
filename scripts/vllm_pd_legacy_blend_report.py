@@ -11,6 +11,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from evidencestore.pd_chunk_report import _CHUNK_STAGES, _key, _prep
+from evidencestore.pd_dataset_report import _distribution
 from evidencestore.pd_report import (
     _OUTER_TIMELINE_EVENTS, _attribute_bytes, _reconcile, load_events, request_joins,
 )
@@ -18,6 +19,12 @@ from evidencestore.retrieval import json_line, prompt_sha256, read_jsonl, sha256
 
 
 _PROMPT_POLICIES = {"seen-first": "legacy-blend", "openclaw": "legacy-blend-openclaw"}
+_LATENCY_SPANS = {
+    "prompt_render": ("prompt_render_start", "prompt_render_end"),
+    "client_ttft": ("client_request_start", "client_first_token"),
+    "dispatch_to_first_token": ("client_dispatch", "client_first_token"),
+    "prefill_http": ("gateway_dispatch_prefill", "gateway_prefill_response"),
+}
 
 
 def _json(path):
@@ -495,6 +502,20 @@ def _evidence_totals(chunks):
     }
 
 
+def _request_latencies(requests):
+    latencies = defaultdict(list)
+    for request in requests:
+        events = defaultdict(list)
+        for row in request["timeline"]:
+            events[row["event"]].append(row)
+        for name, (start, end) in _LATENCY_SPANS.items():
+            elapsed = _one(events, end)["ts_ns"] - _one(events, start)["ts_ns"]
+            if elapsed < 0:
+                raise ValueError(f"Reversed {name} timestamps for {request['request_key']}")
+            latencies[name].append(elapsed / 1e6)
+    return latencies
+
+
 def _comparison_cohort(cohort):
     summary = _json(cohort / "legacy-blend-summary.json")
     if summary.get("status") != "passed" or summary.get("trace_enabled") is not True or not summary.get("workload"):
@@ -526,8 +547,10 @@ def _comparison_cohort(cohort):
     for row in requests:
         for move in row["movements"]:
             moves[move["direction"]] += move["bytes"]
-    return workload, (request_keys, ranked_evidence), {
+    latencies = _request_latencies(requests)
+    return workload, (request_keys, ranked_evidence), latencies, {
         "prompt_policy": summary.get("prompt_policy", "default"),
+        "latency_ms": {name: _distribution(values) for name, values in latencies.items()},
         "natural_requests": {
             "count": len(requests),
             "lmcache_completed_h2d_bytes": moves["h2d"],
@@ -540,8 +563,8 @@ def _comparison_cohort(cohort):
 
 
 def compare(default_cohort, gated_cohort):
-    workload, default_selection, default = _comparison_cohort(default_cohort)
-    gated_workload, gated_selection, gated = _comparison_cohort(gated_cohort)
+    workload, default_selection, default_latencies, default = _comparison_cohort(default_cohort)
+    gated_workload, gated_selection, gated_latencies, gated = _comparison_cohort(gated_cohort)
     if default["prompt_policy"] != "default" or gated["prompt_policy"] not in _PROMPT_POLICIES:
         raise ValueError("Compare a default cohort followed by a gated cohort")
     if workload != gated_workload:
@@ -552,6 +575,11 @@ def compare(default_cohort, gated_cohort):
         **workload,
         "default": default,
         "gated": gated,
+        "paired_gated_minus_default_latency_ms": {
+            name: _distribution(gated_ms - default_ms for default_ms, gated_ms in
+                                zip(values, gated_latencies[name], strict=True))
+            for name, values in default_latencies.items()
+        },
         "byte_scope": (
             "Request totals include the whole natural prompt. Evidence NIXL totals include only "
             "blocks attributed exclusively to the listed evidence and omit boundary or shared blocks."
