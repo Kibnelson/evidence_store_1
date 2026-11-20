@@ -1,0 +1,35 @@
+{
+  "topology": "1p3d",
+  "slurm_job_id": "30500",
+  "model": "Qwen/Qwen3-4B-Instruct-2507",
+  "revision": "cdbee75f17c01a7cc42f958dc650907174af0554",
+  "prefix_cache_by_role": {
+    "P": "off",
+    "D": "off"
+  },
+  "full_nixl_handoff": true,
+  "engine_trace_enabled": true,
+  "gpu_event_timing": true,
+  "cache_per_producer_gib": 25.0,
+  "sample": {
+    "dataset": "musique",
+    "query_keys": [
+      "musique:3hop1__604797_443779_52195",
+      "musique:3hop1__144439_443779_52195",
+      "musique:3hop1__743797_443779_52195",
+      "musique:3hop1__275261_443779_52195",
+      "musique:4hop1__93963_170667_443779_52195",
+      "musique:3hop1__248929_160713_77246",
+      "musique:3hop1__475351_160713_77246",
+      "musique:3hop1__632623_160713_77246",
+      "musique:3hop1__106847_160713_77246",
+      "musique:3hop1__23444_160713_77246"
+    ],
+    "prompt_format": "legacy-blend",
+    "source_sha256": "15fa63794d18a94ce12411aca6e2327e65b6e83b0b1490efab3f1962e48abf3b",
+    "index_sha256": "edf1f0c9aa484518403f1b3e19522403762e568c92d77d514ecd107f62659ddf",
+    "corpus_sha256": "7b27c9b548715923381dad531f6a2fba8c21ea3689b218175de772e244ee7930",
+    "selection_reference": "native-vllm-30453-20261119T031129Z",
+    "queries_sha256": "00a5a878902022ca6b18b846f57205a35330ed3fd5e8269241f1521ae94b67ea"
+  }
+}

@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "run_id": "musique-legacy-full-blend-30500-20261120T003945Z",
+  "layouts": [
+    "1p3d"
+  ],
+  "source_archive_sha256": "e20742a3211a34fd32cbc81eacdb78c6ad027c0703b2f010799b592c95dcb087",
+  "runtime": {
+    "vllm": "0.23.0",
+    "lmcache": "0.5.0",
+    "torch": "2.11.0+cu129",
+    "nixl": "1.4.1",
+    "faiss": "1.16.0",
+    "torch_cuda": "12.9",
+    "vllm_wheel_base": "0fc695fc6d1d82e9a5ac6835ac8e4e1c83703665",
+    "vllm_wheel_sha256": "d90a2beec3638dda3e01aab2b2d34c7f44bfa5044cc6bef58c99ac987edfe207",
+    "ucx_memory_types": [
+      "DRAM_SEG",
+      "VRAM_SEG"
+    ],
+    "standalone_patch_sha256": "509c1afcc1478a0f4fd9b0a63829ef674705188b66ca66437f3678700de8df77",
+    "trace_overlay_sha256": "a936d7259449499e8c72f5118f42fcd54a59e4ed67e7bfbb586366b869a94b69",
+    "build_commit": "3752f90f276095520c2332a9b6d75c396d0afc55",
+    "replay_commit": "fdaacf6af775ce312a3b781812fe45ed74d9fcab",
+    "lane_support_patch_sha256": "9c4eec40292ff356e989dcb9c3cb530fafb8631ee0277f05ec16b27e78f5e94d"
+  },
+  "files": {
+    "1p3d/blend/cleanup.json": {
+      "bytes": 206,
+      "sha256": "27e6e5e1370b97d46eee04bc75efb9d6f2aa6d8979b6d2c200ca9b2712195230"
+    },
+    "1p3d/blend/legacy-blend-summary.json": {
+      "bytes": 2160,
+      "sha256": "8af6642ec9ec8ba5978f9087ca884af399019a51d1887e3da3a113cd24a09f72"
+    },
+    "1p3d/blend/legacy-chunks.jsonl.gz": {
+      "bytes": 13604,
+      "sha256": "ac244db77c8fce2d1a1bc0cea1e56b6a7ca59eeead5ca02606a68583a9b79102"
+    },
+    "1p3d/blend/legacy-requests.jsonl.gz": {
+      "bytes": 26470,
+      "sha256": "c0d86509f99f41e39a7de556123e6031f0a6ccacad14ff6b76de6ccbae89dbf6"
+    },
+    "1p3d/blend/metrics-after.json": {
+      "bytes": 288,
+      "sha256": "a0d7439db32588d48560f833d36962fa60e9e21e2b8503be3d43411cb02b1e56"
+    },
+    "1p3d/blend/metrics-before.json": {
+      "bytes": 263,
+      "sha256": "74c3ff75c12878675cac45ab6ba589a4a56550644749d89ed17bc8b7a829f304"
+    },
+    "1p3d/blend/provenance.json": {
+      "bytes": 1312,
+      "sha256": "a1ba5e202c62141325ca4b9498b58b69e3442228649ed9518fe081d28fb6bf73"
+    },
+    "1p3d/blend/responses.jsonl.gz": {
+      "bytes": 1531,
+      "sha256": "dc4626413918a674e01254f3a27fb65171e802e7a342e4c87e524f7a8da88398"
+    }
+  }
+}
