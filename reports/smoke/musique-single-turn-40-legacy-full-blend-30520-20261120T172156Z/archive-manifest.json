@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "run_id": "musique-single-turn-40-legacy-full-blend-30520-20261120T172156Z",
+  "layouts": [
+    "1p3d"
+  ],
+  "source_archive_sha256": "8cc6bacb47501d251bfaf3310f3b7ed3d4b13ae4a5ee732f84f937f05aebc5d1",
+  "runtime": {
+    "vllm": "0.23.0",
+    "lmcache": "0.5.0",
+    "torch": "2.11.0+cu129",
+    "nixl": "1.4.1",
+    "faiss": "1.16.0",
+    "torch_cuda": "12.9",
+    "vllm_wheel_base": "0fc695fc6d1d82e9a5ac6835ac8e4e1c83703665",
+    "vllm_wheel_sha256": "d90a2beec3638dda3e01aab2b2d34c7f44bfa5044cc6bef58c99ac987edfe207",
+    "ucx_memory_types": [
+      "DRAM_SEG",
+      "VRAM_SEG"
+    ],
+    "standalone_patch_sha256": "509c1afcc1478a0f4fd9b0a63829ef674705188b66ca66437f3678700de8df77",
+    "trace_overlay_sha256": "c8dd6268db561f3f9eb7878dfd7b9b5083bbd8d32d7cff3bdc93087b4ad91592",
+    "lane_support_patch_sha256": "9c4eec40292ff356e989dcb9c3cb530fafb8631ee0277f05ec16b27e78f5e94d",
+    "worker_runner_module": "vllm.v1.worker.gpu_model_runner",
+    "build_commit": "6e0c88eb65b550b288e6d894abe8ad4d67444c90",
+    "replay_commit": "6e0c88eb65b550b288e6d894abe8ad4d67444c90"
+  },
+  "files": {
+    "1p3d/blend/cleanup.json": {
+      "bytes": 206,
+      "sha256": "27e6e5e1370b97d46eee04bc75efb9d6f2aa6d8979b6d2c200ca9b2712195230"
+    },
+    "1p3d/blend/legacy-blend-summary.json": {
+      "bytes": 2605,
+      "sha256": "c615b1afed1ca0978c577d13e2d7c39e5ce0a00a2059fb4b526c09275ddab032"
+    },
+    "1p3d/blend/legacy-chunks.jsonl.gz": {
+      "bytes": 47727,
+      "sha256": "bb30f48e873008f2824d212f3d544394742687d4e3095f4bcd473a15b185fbfe"
+    },
+    "1p3d/blend/legacy-delta-estimate.json": {
+      "bytes": 2109,
+      "sha256": "3b88ce2427d12edbffc40a6b4858eb7e3cb519685af67d39911e715749eff0ac"
+    },
+    "1p3d/blend/legacy-delta-estimate.jsonl.gz": {
+      "bytes": 15721,
+      "sha256": "d35ffd556329407fe5ae5a2fdb0a02407aa6aa81ea06619dfe85c1fd02489bab"
+    },
+    "1p3d/blend/legacy-requests.jsonl.gz": {
+      "bytes": 97023,
+      "sha256": "dcf906e016cf3c29be1f86675ef4d215016070d9f5c49023c219199efc418ff3"
+    },
+    "1p3d/blend/metrics-after.json": {
+      "bytes": 293,
+      "sha256": "8e8a12adb11c4af63c5caea73afdf2986c2e347062f8f4bf906166646b360e3d"
+    },
+    "1p3d/blend/metrics-before.json": {
+      "bytes": 263,
+      "sha256": "74c3ff75c12878675cac45ab6ba589a4a56550644749d89ed17bc8b7a829f304"
+    },
+    "1p3d/blend/provenance.json": {
+      "bytes": 143738,
+      "sha256": "f10f3715d5b085740582ec74b5fb5884f226bdb5cbfbfcadae2ac66b8a2b4f42"
+    },
+    "1p3d/blend/responses.jsonl.gz": {
+      "bytes": 4663,
+      "sha256": "9a4fcc0b14649517ddf61bf80b6bda9df55541a9a7d250e9bdbe096f975a9c62"
+    }
+  }
+}

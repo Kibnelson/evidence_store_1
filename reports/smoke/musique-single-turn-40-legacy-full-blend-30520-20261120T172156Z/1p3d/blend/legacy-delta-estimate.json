@@ -1,0 +1,53 @@
+{
+  "assumptions": {
+    "actual_transfer": "full native NIXL READ",
+    "all_verified_restores": "D hypothetically has a compatible row for every verified P restore of evidence.",
+    "model": "Saved bytes = candidate bytes times (1 - assumed diff fraction), rounded down per request. Full READ padding stays in the estimate, with zero incremental packing or metadata bytes.",
+    "previous_turn": null,
+    "time": "Speedup is the full to estimated payload ratio at constant bandwidth with no overhead. Actual changed rows, delta transfer time, and TTFT speedup are unmeasured."
+  },
+  "full_nixl_bytes": 6981156864,
+  "logical_target_bytes": 6930284544,
+  "natural_label": "musique",
+  "natural_requests": 40,
+  "prompt_policy": "seen-first",
+  "schema_version": 1,
+  "scopes": {
+    "all_verified_restores": {
+      "assumed_base_coverage_of_logical_kv": 0.8375497351007468,
+      "candidate_bytes": 5804457984,
+      "scenarios": [
+        {
+          "assumed_diff_percent": 10,
+          "estimated_bytes_saved": 5224012170,
+          "estimated_nixl_bytes_sent": 1757144694,
+          "estimated_nixl_fraction_saved": 0.7483017889110707,
+          "ideal_bandwidth_only_speedup": 3.973011948212388
+        },
+        {
+          "assumed_diff_percent": 50,
+          "estimated_bytes_saved": 2902228992,
+          "estimated_nixl_bytes_sent": 4078927872,
+          "estimated_nixl_fraction_saved": 0.41572321730314293,
+          "ideal_bandwidth_only_speedup": 1.7115176053792205
+        },
+        {
+          "assumed_diff_percent": 90,
+          "estimated_bytes_saved": 580445783,
+          "estimated_nixl_bytes_sent": 6400711081,
+          "estimated_nixl_fraction_saved": 0.08314464125469048,
+          "ideal_bandwidth_only_speedup": 1.090684577956191
+        },
+        {
+          "assumed_diff_percent": 100,
+          "estimated_bytes_saved": 0,
+          "estimated_nixl_bytes_sent": 6981156864,
+          "estimated_nixl_fraction_saved": 0.0,
+          "ideal_bandwidth_only_speedup": 1.0
+        }
+      ]
+    }
+  },
+  "status": "hypothetical",
+  "workload": "musique-single-turn-40"
+}

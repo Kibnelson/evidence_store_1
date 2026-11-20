@@ -1,0 +1,87 @@
+{
+  "assumptions": {
+    "actual_transfer": "full native NIXL READ",
+    "all_verified_restores": "D hypothetically has a compatible row for every verified P restore of evidence.",
+    "model": "Saved bytes = candidate bytes times (1 - assumed diff fraction), rounded down per request. Full READ padding stays in the estimate, with zero incremental packing or metadata bytes.",
+    "previous_turn": "D hypothetically retains the immediately preceding turn of the same conversation; candidates must also appear in that turn with coverage of the same chunk offsets.",
+    "time": "Speedup is the full to estimated payload ratio at constant bandwidth with no overhead. Actual changed rows, delta transfer time, and TTFT speedup are unmeasured."
+  },
+  "full_nixl_bytes": 10430447616,
+  "logical_target_bytes": 10386210816,
+  "natural_label": "mtrag",
+  "natural_requests": 40,
+  "prompt_policy": "previous-turn-first",
+  "schema_version": 1,
+  "scopes": {
+    "all_verified_restores": {
+      "assumed_base_coverage_of_logical_kv": 0.35494633426088934,
+      "candidate_bytes": 3686547456,
+      "scenarios": [
+        {
+          "assumed_diff_percent": 10,
+          "estimated_bytes_saved": 3317892700,
+          "estimated_nixl_bytes_sent": 7112554916,
+          "estimated_nixl_fraction_saved": 0.3180968662275289,
+          "ideal_bandwidth_only_speedup": 1.4664839483398935
+        },
+        {
+          "assumed_diff_percent": 50,
+          "estimated_bytes_saved": 1843273728,
+          "estimated_nixl_bytes_sent": 8587173888,
+          "estimated_nixl_fraction_saved": 0.1767204817914499,
+          "ideal_bandwidth_only_speedup": 1.2146542916262417
+        },
+        {
+          "assumed_diff_percent": 90,
+          "estimated_bytes_saved": 368654736,
+          "estimated_nixl_bytes_sent": 10061792880,
+          "estimated_nixl_fraction_saved": 0.03534409543790762,
+          "ideal_bandwidth_only_speedup": 1.0366390702329782
+        },
+        {
+          "assumed_diff_percent": 100,
+          "estimated_bytes_saved": 0,
+          "estimated_nixl_bytes_sent": 10430447616,
+          "estimated_nixl_fraction_saved": 0.0,
+          "ideal_bandwidth_only_speedup": 1.0
+        }
+      ]
+    },
+    "previous_turn": {
+      "assumed_base_coverage_of_logical_kv": 0.19614969617809075,
+      "candidate_bytes": 2037252096,
+      "scenarios": [
+        {
+          "assumed_diff_percent": 10,
+          "estimated_bytes_saved": 1833526878,
+          "estimated_nixl_bytes_sent": 8596920738,
+          "estimated_nixl_fraction_saved": 0.17578602045682332,
+          "ideal_bandwidth_only_speedup": 1.2132771644497626
+        },
+        {
+          "assumed_diff_percent": 50,
+          "estimated_bytes_saved": 1018626048,
+          "estimated_nixl_bytes_sent": 9411821568,
+          "estimated_nixl_fraction_saved": 0.09765890070119883,
+          "ideal_bandwidth_only_speedup": 1.1082283637275177
+        },
+        {
+          "assumed_diff_percent": 90,
+          "estimated_bytes_saved": 203725203,
+          "estimated_nixl_bytes_sent": 10226722413,
+          "estimated_nixl_fraction_saved": 0.019531779507476893,
+          "ideal_bandwidth_only_speedup": 1.0199208695389081
+        },
+        {
+          "assumed_diff_percent": 100,
+          "estimated_bytes_saved": 0,
+          "estimated_nixl_bytes_sent": 10430447616,
+          "estimated_nixl_fraction_saved": 0.0,
+          "ideal_bandwidth_only_speedup": 1.0
+        }
+      ]
+    }
+  },
+  "status": "hypothetical",
+  "workload": "mtrag-multi-turn-repeat"
+}

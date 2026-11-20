@@ -1,0 +1,13 @@
+{
+  "forced_kill": [],
+  "remaining_process_groups": [],
+  "unverified_process_groups": {},
+  "exit_status": {
+    "p0": 0,
+    "d0": 0,
+    "d1": 0,
+    "d2": 0,
+    "router": -15,
+    "workload": 0
+  }
+}
