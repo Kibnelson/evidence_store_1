@@ -62,6 +62,10 @@ The compute-node command can also run directly inside an existing idle four-GPU 
 bash scripts/vllm_pd_legacy_blend_run.sh 1b3d on
 ```
 
+### Retry using a verified runtime
+
+If a worker startup failed after runtime verification, use a fresh checkout of `main` and the original idle GPU allocation. Set `EVIDENCESTORE_LEGACY_RUNTIME` to the absolute runtime scratch directory printed during setup. The runner checks source compatibility, applies the worker import fix if needed, verifies the Python import, and reuses the built runtime and prepared MuSiQue index. Each retry has its own result directory and launcher log. A new allocation can reuse those files on the same node while the scratch directory remains available.
+
 ## Review the archive
 
 A successful run saves the archive in `$HOME/evidence_store_legacy_reports` and prints its path and SHA-256. Set `EVIDENCESTORE_LEGACY_REPORT_DIR` to a writable persistent directory if the home quota is full. A build, replay, verification, or archive failure leaves the Slurm shell open with the scratch and log locations in the pane output.

@@ -110,7 +110,9 @@ PY
   git -C "$VLLM_SNAPSHOT" archive HEAD | tar -xf - -C "$VLLM_SOURCE"
   git -C "$LMCACHE_SNAPSHOT" archive HEAD | tar -xf - -C "$LMCACHE_SOURCE"
   standalone_patch="$REPO/third_party/legacy-full-blend-standalone.patch"
+  lane_support_patch="$REPO/third_party/legacy-full-blend-lane-support.patch"
   git -C "$PD_EXEC_ROOT/build" apply "$standalone_patch"
+  git -C "$PD_EXEC_ROOT/build" apply "$lane_support_patch"
   "$PYTHON" scripts/vllm_pd_legacy_trace_overlay.py --vllm-source "$VLLM_SOURCE" \
     --lmcache-source "$LMCACHE_SOURCE" | tee "$CHECK_ROOT/trace-overlay.json"
   vllm_base="$(git -C "$REPO/third_party/checkouts/vllm-legacy-base" rev-parse HEAD)"
@@ -155,7 +157,8 @@ CONSTRAINTS
   uv --no-config pip check --python "$PYTHON"
   uv --no-config pip freeze --python "$PYTHON" > "$CHECK_ROOT/dependencies.txt"
 
-  "$PYTHON" - "$VLLM_SOURCE" "$LMCACHE_SOURCE" "$vllm_base" "$CHECK_ROOT/trace-overlay.json" "$wheel_receipt" "$standalone_patch" \
+  EVIDENCESTORE_PD_TRACE=0 "$PYTHON" - "$VLLM_SOURCE" "$LMCACHE_SOURCE" "$vllm_base" \
+    "$CHECK_ROOT/trace-overlay.json" "$wheel_receipt" "$standalone_patch" "$lane_support_patch" \
     "$CHECK_ROOT/runtime.json" <<'PY'
 import hashlib
 from importlib.metadata import version
@@ -173,16 +176,19 @@ from lmcache import c_ops
 from nixl._api import nixl_agent, nixl_agent_config
 from vllm.config.kv_transfer import KVTransferConfig
 from vllm.distributed.kv_transfer.kv_connector.factory import KVConnectorFactory
+from vllm.v1.worker.gpu_model_runner import GPUModelRunner
 
+(vllm_source, lmcache_source, wheel_base, trace_overlay, wheel_receipt,
+ standalone_patch, lane_support_patch, runtime_receipt) = sys.argv[1:]
 expected = {"vllm": "0.23.0", "lmcache": "0.5.0", "torch": "2.11.0+cu129", "nixl": "1.4.1"}
 observed = {name: version(name) for name in expected}
-wheel = json.loads(Path(sys.argv[5]).read_text())
-if (wheel["variant"] != "cu129" or wheel["precompiled_commit"] != sys.argv[3]
-        or wheel["source_root"] != sys.argv[1] or wheel["slurm_job_id"] != os.environ["SLURM_JOB_ID"]):
+wheel = json.loads(Path(wheel_receipt).read_text())
+if (wheel["variant"] != "cu129" or wheel["precompiled_commit"] != wheel_base
+        or wheel["source_root"] != vllm_source or wheel["slurm_job_id"] != os.environ["SLURM_JOB_ID"]):
     raise SystemExit("The vLLM wheel receipt does not match this runtime and allocation")
 if observed != expected or torch.version.cuda != "12.9" or torch.cuda.device_count() != 4:
     raise SystemExit(f"Expected the historical CUDA 12.9 runtime on four visible GPUs, got {observed}")
-for module, path in ((vllm, sys.argv[1]), (lmcache, sys.argv[2])):
+for module, path in ((vllm, vllm_source), (lmcache, lmcache_source)):
     if not Path(module.__file__).resolve().is_relative_to(Path(path).resolve()):
         raise SystemExit(f"{module.__name__} did not load from the restored source at {path}")
 for name in ("NixlConnector", "LMCacheConnectorV1"):
@@ -196,14 +202,16 @@ agent.create_backend("UCX", {})
 memory_types = sorted(str(item) for item in agent.get_backend_mem_types("UCX"))
 if not any("VRAM" in item.upper() for item in memory_types):
     raise SystemExit(f"NIXL UCX does not advertise GPU memory: {memory_types}")
-receipt = {**observed, "faiss": faiss.__version__, "vllm_wheel_base": sys.argv[3],
+receipt = {**observed, "faiss": faiss.__version__, "vllm_wheel_base": wheel_base,
            "torch_cuda": torch.version.cuda, "ucx_memory_types": memory_types,
            "vllm_native": _C.__file__, "lmcache_native": c_ops.__file__,
+           "worker_runner_module": GPUModelRunner.__module__,
            "vllm_wheel_sha256": wheel["wheel_sha256"],
-           "standalone_patch_sha256": hashlib.sha256(Path(sys.argv[6]).read_bytes()).hexdigest(),
-           "trace_overlay_sha256": hashlib.sha256(Path(sys.argv[4]).read_bytes()).hexdigest()}
+           "standalone_patch_sha256": hashlib.sha256(Path(standalone_patch).read_bytes()).hexdigest(),
+           "lane_support_patch_sha256": hashlib.sha256(Path(lane_support_patch).read_bytes()).hexdigest(),
+           "trace_overlay_sha256": hashlib.sha256(Path(trace_overlay).read_bytes()).hexdigest()}
 encoded = json.dumps(receipt, indent=2)
-Path(sys.argv[7]).write_text(encoded + "\n", encoding="utf-8")
+Path(runtime_receipt).write_text(encoded + "\n", encoding="utf-8")
 print(encoded)
 PY
 
