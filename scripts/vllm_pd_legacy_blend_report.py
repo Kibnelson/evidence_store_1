@@ -142,7 +142,7 @@ def _prior_restore(chunk, movement, tokens, prior):
 def _chunk_record(chunk, occurrence, request, bytes_by_chunk, stages, events, by_worker, by_identity):
     identity = _key(chunk)
     start, end = chunk["start_token"], chunk["end_token"]
-    if request["label"] == "musique":
+    if request["label"] != "legacy-probes":
         retained = [row for row in stages[identity] if row["stage"] == "corpus_row_read"
                     or (row["retained"] and row["accepted_attempt"])]
         mapped = next((row for row in retained if row["stage"] == "prompt_chunk_offset_map"), {})
@@ -259,16 +259,82 @@ def _measure(replays, groups, prefill_workers, decode_workers):
     return all_requests, all_chunks
 
 
+def _conversation_reuse(requests, chunks, live_replays):
+    turns = {response["request_id"]: {"conversation_id": prompt["conversation_id"], "turn": prompt["turn"]}
+             for _, prompt, response in live_replays}
+    scopes = ("within_conversation", "across_conversations")
+    counts = {scope: dict.fromkeys(("repeat_occurrences", "verified_restore_occurrences",
+                                   "shifted_restore_occurrences"), 0) for scope in scopes}
+    seen = defaultdict(set)
+    for request in requests:
+        if request["request_id"] in turns:
+            request.update(turns[request["request_id"]])
+    for chunk in chunks:
+        request_id = chunk["request_id"]
+        if request_id not in turns:
+            continue
+        chunk.update(turns[request_id])
+        conversation = chunk["conversation_id"]
+        prior = seen[_key(chunk)]
+        chunk["previously_seen_in_conversation"] = conversation in prior
+        chunk["previously_seen_across_conversations"] = bool(prior - {conversation})
+        counts[scopes[0]]["repeat_occurrences"] += chunk["previously_seen_in_conversation"]
+        counts[scopes[1]]["repeat_occurrences"] += chunk["previously_seen_across_conversations"]
+        prior.add(conversation)
+        restored, shifted = set(), set()
+        for move in chunk["lmcache_movements"]:
+            source = move["source_match"]
+            if source:
+                previous = turns[source["prior_request_id"]]["conversation_id"]
+                scope = scopes[0 if previous == conversation else 1]
+                source.update(prior_conversation_id=previous, conversation_scope=scope)
+                restored.add(scope)
+                if source["shifted"]:
+                    shifted.add(scope)
+        for scope in restored:
+            counts[scope]["verified_restore_occurrences"] += 1
+        for scope in shifted:
+            counts[scope]["shifted_restore_occurrences"] += 1
+    return counts
+
+
+def _selection_agreement(replays, reference):
+    fields = ("doc_id", "chunk_id", "chunk_version", "rank", "start_token", "end_token")
+    expected = {row["request_key"]: row for row in reference}
+    prompts = set()
+    evidence = set()
+    for _, prompt, _ in replays:
+        key = prompt["request_key"]
+        target = expected[key]
+        if prompt["prompt_sha256"] == target["prompt_sha256"]:
+            prompts.add(key)
+        observed = [tuple(chunk[field] for field in fields) for chunk in prompt["evidence"]]
+        ranked = [tuple(chunk[field] for field in fields) for chunk in target["evidence"]]
+        if observed == ranked:
+            evidence.add(key)
+    return {"matching_prompt_hashes": len(prompts), "matching_ranked_evidence_and_spans": len(evidence),
+            "mismatching_request_keys": sorted(expected.keys() - (prompts & evidence))}
+
+
 def report(run_dir, *, trace):
     endings = _json(run_dir / "endpoints.json")
     prefill, decode = ({worker["id"] for worker in endings[side]} for side in ("prefill", "decode"))
-    replays = _read_replay(run_dir, "musique", run_dir / "inputs/queries.jsonl", 10, live=True, trace=trace)
+    selection_path = run_dir / "inputs/manifest.json"
+    sample = _json(selection_path) if selection_path.is_file() else {}
+    selected = bool(sample.get("workload"))
+    label = sample["dataset"] if selected else "musique"
+    queries = run_dir / "inputs/queries.jsonl"
+    expected = len(sample["query_keys"]) if selected else 10
+    natural_replays = _read_replay(run_dir, label, queries, expected, live=True, trace=trace)
+    if selected and (sample["queries_sha256"] != sha256_file(queries)
+                     or sample["query_keys"] != [prompt["request_key"] for _, prompt, _ in natural_replays]):
+        raise ValueError("Natural replay differs from the selected workload")
     probes = _read_replay(run_dir, "legacy-probes", run_dir / "inputs/controlled.jsonl",
                           len(prefill) * 2, live=False, trace=trace)
     cases = Counter((prompt["pd_route"]["prefill"], prompt["case"]) for _, prompt, _ in probes)
     if cases != Counter((worker, condition) for worker in prefill for condition in ("cold", "reordered")):
         raise ValueError("Expected one cold and one reordered probe on each Blend worker")
-    replays.extend(probes)
+    replays = natural_replays + probes
     events = list(load_events(run_dir))
     if not trace and events:
         raise ValueError("Trace-off run wrote detailed trace records")
@@ -283,16 +349,20 @@ def report(run_dir, *, trace):
     summary = {
         "status": "passed", "trace_enabled": trace, "cache_backend": "in_process_local_cpu_per_prefiller",
         "prefill_workers": sorted(prefill), "decode_workers": sorted(decode),
-        "natural_requests": 10, "controlled_requests": len(replays) - 10,
+        "natural_requests": expected, "controlled_requests": len(probes),
         "completed_nixl_reads": total_reads, "completed_nixl_bytes": total_bytes,
         "nixl_reconciliation": reconciliation,
     }
+    if selected:
+        summary.update(workload=sample["workload"], natural_label=label, domain=sample["domain"],
+                       conversation_turn_counts=sample["conversation_turn_counts"],
+                       selection_agreement=_selection_agreement(natural_replays, sample["selection_metrics"]["per_request"]))
     if trace:
         groups, unjoined = request_joins(events)
         if unjoined:
             raise ValueError(f"Unjoined native PD events: {dict(unjoined)}")
         requests, chunks = _measure(replays, groups, prefill, decode)
-        natural = [row for row in chunks if row["label"] == "musique"]
+        natural = [row for row in chunks if row["label"] == label]
         moved = defaultdict(Counter)
         for request in requests:
             moved[request["label"]]["nixl_p2d"] += request["completed_nixl_bytes"]
@@ -317,6 +387,8 @@ def report(run_dir, *, trace):
                 "trace_only_gpu_synchronization": True,
             },
         )
+        if label == "mtrag":
+            summary["conversation_reuse"] = _conversation_reuse(requests, chunks, natural_replays)
         for name, rows in (("legacy-requests.jsonl", requests), ("legacy-chunks.jsonl", chunks)):
             (run_dir / name).write_text("".join(json_line(row) for row in rows), encoding="utf-8")
     (run_dir / "legacy-blend-summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")

@@ -2,6 +2,7 @@
 """Run the public in-process Full Blend smoke with native NIXL decode."""
 
 import argparse
+import json
 import os
 from pathlib import Path
 import shutil
@@ -9,9 +10,10 @@ import subprocess
 import sys
 
 from vllm_pd_blend_smoke import (
-    fixture_doc, musique_sample, verify_musique_pair, write_musique_sample,
+    fixture_doc, musique_sample, verify_replay_pair, write_replay_sample,
 )
 from vllm_pd_cluster import MODEL, REVISION, ROOT, TOPOLOGIES
+from vllm_pd_legacy_workloads import SMOKE, WORKLOADS, load_selected
 from vllm_pd_replay import load_tokenizer
 
 from evidencestore.retrieval import json_line, prompt_sha256, render_prompt
@@ -56,7 +58,8 @@ def replay(args):
     command = [sys.executable, str(ROOT / "scripts/vllm_pd_replay.py"), "replay",
                "--gateway", os.environ["EVIDENCESTORE_GATEWAY"], "--run-dir", str(run_dir),
                "--model", MODEL, "--concurrency", "1"]
-    natural = ["--label", "musique", "--queries", str(directory / "queries.jsonl"),
+    label = json.loads((directory / "manifest.json").read_text(encoding="utf-8"))["dataset"]
+    natural = ["--label", label, "--queries", str(directory / "queries.jsonl"),
                "--index-dir", str(args.index_dir), "--tokenizer", MODEL, "--tokenizer-revision", REVISION,
                "--prompt-format", "legacy-blend"]
     if args.trace == "on":
@@ -67,9 +70,12 @@ def replay(args):
 
 
 def run(args):
-    prepared = args.musique_prepared.resolve()
+    prepared = args.prepared.resolve()
     index = prepared / "index"
-    sample, manifest = musique_sample(prepared, index)
+    if args.workload == SMOKE:
+        sample, manifest = musique_sample(prepared, index)
+    else:
+        sample, manifest = load_selected(ROOT / "workloads" / f"{args.workload}.json", args.workload, prepared, index)
     tokenizer = load_tokenizer(MODEL, REVISION)
     layouts = TOPOLOGIES if args.topology == "both" else (args.topology,)
     root = args.run_root.resolve()
@@ -78,7 +84,7 @@ def run(args):
     for topology in layouts:
         layout = root / topology
         inputs = layout / "inputs"
-        write_musique_sample(inputs, sample, manifest)
+        write_replay_sample(inputs, sample, manifest)
         probes = prepare_controlled(tokenizer, topology, inputs / "controlled.jsonl")
         if args.prepare_only:
             continue
@@ -94,7 +100,7 @@ def run(args):
         subprocess.run([sys.executable, str(ROOT / "scripts/vllm_pd_legacy_blend_report.py"),
                         "--run-dir", str(cohort), "--trace", args.trace], check=True)
     if not args.prepare_only and args.topology == "both":
-        verify_musique_pair(root)
+        verify_replay_pair(root, manifest["dataset"], len(sample))
 
 
 def main():
@@ -103,7 +109,8 @@ def main():
     smoke = modes.add_parser("run", help="prepare and launch the layout smoke")
     smoke.add_argument("--topology", choices=(*TOPOLOGIES, "both"), default="1p3d")
     smoke.add_argument("--run-root", type=Path, required=True)
-    smoke.add_argument("--musique-prepared", type=Path, required=True)
+    smoke.add_argument("--prepared", "--musique-prepared", dest="prepared", type=Path, required=True)
+    smoke.add_argument("--workload", choices=WORKLOADS, default=SMOKE)
     smoke.add_argument("--prepare-only", action="store_true")
     workload = modes.add_parser("replay", help="replay both request groups after the workers are ready")
     workload.add_argument("--inputs", type=Path, required=True)

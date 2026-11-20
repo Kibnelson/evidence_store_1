@@ -6,14 +6,20 @@ umask 077
 : "${SLURM_JOB_ID:?Run the Full Blend smoke in the four-GPU allocation}"
 layout="${1:-1b3d}"
 trace="${2:-on}"
+workload="${3:-musique-smoke}"
 case "$layout" in
   1b3d) topology=1p3d ;;
   2b2d) topology=2p2d ;;
   both) topology=both ;;
   *) printf 'Layout must be 1b3d, 2b2d, or both.\n' >&2; exit 2 ;;
 esac
-if (( $# > 2 )) || [[ "$trace" != on && "$trace" != off ]]; then
-  printf 'Usage: %s [1b3d|2b2d|both] [on|off]\n' "$0" >&2
+case "$workload" in
+  musique-smoke) run_prefix=musique ;;
+  musique-single-turn-40|mtrag-multi-turn-repeat) run_prefix="$workload" ;;
+  *) printf 'Unknown Full Blend workload %s\n' "$workload" >&2; exit 2 ;;
+esac
+if (( $# > 3 )) || [[ "$trace" != on && "$trace" != off ]]; then
+  printf 'Usage: %s [1b3d|2b2d|both] [on|off] [workload]\n' "$0" >&2
   exit 2
 fi
 
@@ -58,17 +64,33 @@ else
   launcher_repo="$REPO"
 fi
 
-prepared="${MUSIQUE_PREPARED:-$PD_EXEC_ROOT/data/musique}"
-replay="$REPO/scripts/vllm_pd_replay.py"
-if [[ -z "${MUSIQUE_PREPARED:-}" && ! -s "$prepared/index/manifest.json" ]]; then
-  musique_dev="$("$PYTHON" "$REPO/scripts/vllm_pd_stage_inputs.py" musique "$PD_EXEC_ROOT/data/inputs")"
-  "$PYTHON" "$replay" prepare-data --dataset musique --source "$musique_dev" --output "$prepared"
+replay="$launcher_repo/scripts/vllm_pd_replay.py"
+if [[ "$workload" == mtrag-multi-turn-repeat ]]; then
+  domain="$("$PYTHON" -c 'import json, sys; print(json.load(open(sys.argv[1]))["domain"])' \
+    "$launcher_repo/workloads/$workload.json")"
+  [[ "$domain" =~ ^(clapnq|cloud|fiqa|govt)$ ]]
+  prepared_override="${MTRAG_PREPARED:-}"
+  prepared="${prepared_override:-$PD_EXEC_ROOT/data/mtrag/$domain}"
+  if [[ -z "$prepared_override" && ! -s "$prepared/corpus.jsonl" ]]; then
+    "$PYTHON" "$launcher_repo/scripts/checkout_sources.py" mt-rag
+    "$PYTHON" "$replay" prepare-data --dataset mtrag --source "$launcher_repo/third_party/checkouts/mt-rag" \
+      --output "$PD_EXEC_ROOT/data/mtrag"
+  fi
+else
+  prepared_override="${MUSIQUE_PREPARED:-}"
+  prepared="${prepared_override:-$PD_EXEC_ROOT/data/musique}"
+  if [[ -z "$prepared_override" && ! -s "$prepared/corpus.jsonl" ]]; then
+    musique_dev="$("$PYTHON" "$launcher_repo/scripts/vllm_pd_stage_inputs.py" musique "$PD_EXEC_ROOT/data/inputs")"
+    "$PYTHON" "$replay" prepare-data --dataset musique --source "$musique_dev" --output "$prepared"
+  fi
+fi
+if [[ -z "$prepared_override" && ! -s "$prepared/index/manifest.json" ]]; then
   "$PYTHON" "$replay" build-index --corpus "$prepared/corpus.jsonl" --index-dir "$prepared/index" \
     --embedding-model intfloat/e5-base-v2 --embedding-revision f52bf8ec8c7124536f0efb74aca902b2995e5bcd \
     --embedding-device cuda:0
 fi
 
-run_name="musique-legacy-full-blend-${SLURM_JOB_ID}-$(date -u +%Y%m%dT%H%M%SZ)"
+run_name="$run_prefix-legacy-full-blend-${SLURM_JOB_ID}-$(date -u +%Y%m%dT%H%M%SZ)"
 run_root="$REPO/reports/runs/$run_name"
 run_log="$PD_EXEC_ROOT/smoke.log"
 if [[ -n "$retained" ]]; then
@@ -78,7 +100,7 @@ if [[ -n "$retained" ]]; then
 fi
 printf 'Run artifacts: %s\n' "$run_root"
 "$PYTHON" "$launcher_repo/scripts/vllm_pd_legacy_blend.py" run --topology "$topology" \
-  --trace "$trace" --musique-prepared "$prepared" --run-root "$run_root" 2>&1 | tee "$run_log"
+  --trace "$trace" --workload "$workload" --prepared "$prepared" --run-root "$run_root" 2>&1 | tee "$run_log"
 
 report_dir="${EVIDENCESTORE_LEGACY_REPORT_DIR:-$HOME/evidence_store_legacy_reports}"
 mkdir -p "$report_dir"

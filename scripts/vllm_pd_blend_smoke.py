@@ -70,26 +70,27 @@ def musique_sample(prepared, index_dir):
     }
 
 
-def write_musique_sample(directory, sample, manifest):
+def write_replay_sample(directory, sample, manifest):
     directory.mkdir(parents=True)
     path = directory / "queries.jsonl"
     path.write_text("".join(json_line(row) for row in sample), encoding="utf-8")
     write_json(directory / "manifest.json", {**manifest, "queries_sha256": sha256_file(path)})
 
 
-def verify_musique_pair(root):
+def verify_replay_pair(root, label="musique", expected_requests=len(MUSIQUE_BLEND_KEYS)):
     def receipts(topology):
-        run = root / topology / "blend/client/musique"
+        run = root / topology / "blend/client" / label
         fields = ("doc_id", "chunk_id", "chunk_version", "rank", "start_token", "end_token")
         return [
             (row["request_key"], row["prompt_sha256"], [tuple(chunk[field] for field in fields) for chunk in row["evidence"]])
             for row in read_jsonl(run / "frozen.jsonl")
         ]
 
-    if receipts("1p3d") != receipts("2p2d"):
-        raise ValueError("MuSiQue prompts or evidence spans differ between the Blend layouts")
-    write_json(root / "musique-pair.json", {
-        "status": "passed", "layouts": ["1b3d", "2b2d"], "requests_per_layout": len(MUSIQUE_BLEND_KEYS),
+    first = receipts("1p3d")
+    if len(first) != expected_requests or first != receipts("2p2d"):
+        raise ValueError(f"{label} request count, prompts, or evidence spans differ between the Blend layouts")
+    write_json(root / f"{label}-pair.json", {
+        "status": "passed", "layouts": ["1b3d", "2b2d"], "requests_per_layout": expected_requests,
         "matched_fields": ["request_key", "prompt_sha256", "evidence_identity_rank_and_token_span"],
     })
 
@@ -329,11 +330,11 @@ def main():
             if index_dir is None:
                 prepare_probes(tokenizer, directory / "inputs", topology)
             else:
-                write_musique_sample(directory / "inputs", sample, manifest)
+                write_replay_sample(directory / "inputs", sample, manifest)
             if gpus is not None:
                 run_topology(directory, topology, gpus, cache_source, trace_enabled=trace_enabled, index_dir=index_dir)
         if gpus is not None and index_dir is not None and args.topology == "both":
-            verify_musique_pair(root)
+            verify_replay_pair(root)
         print("Blend prompts prepared." if args.prepare_only else "Blend GPU smoke passed.")
     except (OSError, RuntimeError, ValueError, KeyError, TypeError, subprocess.SubprocessError) as error:
         parser.exit(1, f"Blend smoke failed: {error}\n")

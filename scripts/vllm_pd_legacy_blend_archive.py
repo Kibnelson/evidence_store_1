@@ -15,11 +15,11 @@ from tempfile import TemporaryDirectory
 from vllm_pd_smoke_archive import MANIFEST, ROOT, fingerprint, read_json, sha256_file
 from vllm_pd_detail_archive import _RESPONSE_FIELDS, _encode, _output, _read_rows, _select
 from vllm_pd_legacy_blend_report import report
+from vllm_pd_legacy_workloads import DATASETS
 
 
 LAYOUTS = ("1p3d", "2p2d")
-LABELS = ("musique", "legacy-probes")
-RUN_NAME = re.compile(r"musique-legacy-full-blend-(\d+)-\d{8}T\d{6}Z")
+RUN_NAME = re.compile(r"(musique|musique-single-turn-40|mtrag-multi-turn-repeat)-legacy-full-blend-(\d+)-\d{8}T\d{6}Z")
 TRACE_PATH = re.compile(r"trace/[A-Za-z0-9_.-]+\.jsonl")
 CORE_FILES = ("legacy-blend-summary.json", "run_manifest.json", "endpoints.json", "cleanup.json",
               "metrics-before.json", "metrics-after.json", "inputs/manifest.json",
@@ -82,8 +82,15 @@ def public_request(row):
     return {**row, "nixl_transfer": _select(transfer, NIXL_FIELDS)}
 
 
-def stage_cohort(package, names, prefix, work, destination, layout, job_id):
-    files = [*CORE_FILES, *(f"client/{label}/{name}" for label in LABELS for name in CLIENT_FILES)]
+def stage_cohort(package, names, prefix, work, destination, layout, job_id, workload):
+    for name in CORE_FILES:
+        copy_member(package, prefix, name, work)
+    sample = read_json(work / "inputs/manifest.json")
+    dataset = DATASETS.get(workload, "musique")
+    if sample.get("dataset", "musique") != dataset or sample.get("workload", "musique") != workload:
+        raise ValueError(f"Unexpected dataset selection in {layout}")
+    labels = (dataset, "legacy-probes")
+    files = [f"client/{label}/{name}" for label in labels for name in CLIENT_FILES]
     files.extend(sorted(name[len(prefix):] for name in names
                         if name.startswith(prefix) and TRACE_PATH.fullmatch(name[len(prefix):])))
     for name in files:
@@ -106,10 +113,10 @@ def stage_cohort(package, names, prefix, work, destination, layout, job_id):
     provenance = _select(launch, ("topology", "slurm_job_id", "model", "revision", "prefix_cache_by_role",
                                   "full_nixl_handoff", "engine_trace_enabled", "gpu_event_timing"))
     provenance["cache_per_producer_gib"] = launch["legacy_full_blend"]["cache_per_producer_gib"]
-    provenance["sample"] = read_json(work / "inputs/manifest.json")
+    provenance["sample"] = sample
     write_json(destination / "provenance.json", provenance)
     write_rows(destination / "responses.jsonl.gz", (
-        _select(row, (*_RESPONSE_FIELDS, "case")) for label in LABELS
+        _select(row, (*_RESPONSE_FIELDS, "case")) for label in labels
         for row in _read_rows(work / "client" / label / "responses.jsonl")
     ))
     if trace:
@@ -129,7 +136,8 @@ def gzip_rows(path):
 
 def check_layout(path):
     summary = read_json(path / "legacy-blend-summary.json")
-    expected = {"musique": summary["natural_requests"], "legacy-probes": summary["controlled_requests"]}
+    label = summary.get("natural_label", "musique")
+    expected = {label: summary["natural_requests"], "legacy-probes": summary["controlled_requests"]}
     responses = gzip_rows(path / "responses.jsonl.gz")
     identities = {row["request_id"] for row in responses}
     if (summary["status"] != "passed" or Counter(row["label"] for row in responses) != expected
@@ -139,7 +147,7 @@ def check_layout(path):
     if summary["trace_enabled"]:
         requests = gzip_rows(path / "legacy-requests.jsonl.gz")
         chunks = gzip_rows(path / "legacy-chunks.jsonl.gz")
-        natural = [row for row in chunks if row["label"] == "musique"]
+        natural = [row for row in chunks if row["label"] == label]
         shifted = sum(any(move["source_match"] and move["source_match"]["shifted"]
                           for move in row["lmcache_movements"]) for row in natural)
         if (len(requests) != len(responses) or {row["request_id"] for row in requests} != identities
@@ -182,10 +190,11 @@ def archive(source, digest):
             if prefix + "legacy-blend-summary.json" not in names:
                 continue
             work = Path(scratch) / "private" / layout / "blend"
-            stage_cohort(package, names, prefix, work, staged / layout / "blend", layout, match[1])
+            stage_cohort(package, names, prefix, work, staged / layout / "blend", layout, match[2], match[1])
             layouts.append(layout)
         if layouts == list(LAYOUTS):
-            copy_member(package, f"{run_name}/", "musique-pair.json", staged)
+            label = DATASETS.get(match[1], "musique")
+            copy_member(package, f"{run_name}/", f"{label}-pair.json", staged)
         write_json(staged / MANIFEST, {
             "schema_version": 1, "run_id": run_name, "layouts": layouts,
             "source_archive_sha256": digest, "runtime": source_receipt(package, names, run_name),

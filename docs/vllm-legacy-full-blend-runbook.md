@@ -1,4 +1,4 @@
-# MuSiQue Full Blend smoke with the public in-process runtime
+# Full Blend replay with the public in-process runtime
 
 This runbook builds the vLLM `0.23.0` and LMCache `0.5.0` sources from the earlier Full Blend run in a fresh allocation. Each B worker owns an in-process LMCache CPU cache. D uses native NIXL to pull the full prompt KV with decode prefix reuse disabled. Start with **1B/3D**. Use **2B/2D** for two independent B caches, or run both layouts sequentially on the same four GPUs. The shared-server run uses its own launcher and `CBKVConnector`. [Source pins](../third_party/README.md#historical-full-blend-source) · [Shared-server runbook](vllm-native-pd-runbook.md#natural-musique-blend-smoke)
 
@@ -9,6 +9,7 @@ SSH to `research.cs.mcgill.ca` as `nbore`. If an earlier `srun` allocation is at
 ```bash
 layout=1b3d
 trace=on
+workload=musique-smoke
 
 if [[ -n "${SLURM_JOB_ID:-}" ]]; then
   printf 'Return to the login shell before starting a new allocation.\n' >&2
@@ -20,7 +21,7 @@ if mkdir -p "$node_root" && [[ -O "$node_root" && ! -L "$node_root" ]] &&
     source_repo=$(mktemp -d "$node_root/legacy-blend-source-${SLURM_JOB_ID}.XXXXXX") &&
     git clone --depth=1 --branch main --no-tags \
       https://github.com/Kibnelson/evidence_store_1.git "$source_repo" &&
-    bash "$source_repo/scripts/vllm_pd_legacy_blend_run.sh" "$1" "$2"; then
+    bash "$source_repo/scripts/vllm_pd_legacy_blend_run.sh" "$1" "$2" "$3"; then
   printf 'Full Blend smoke verified and archived. Releasing the allocation.\n'
 else
   failure=$?
@@ -33,15 +34,17 @@ GPU
   tmux -L evidence-store-legacy-blend -f /dev/null new-session -s musique-legacy-blend \
     /bin/bash --noprofile --norc -c '
       srun -p all -A oana2026 -q research12h -N 1 -w gpu-grad-01 \
-        --gpus=4 -c 16 --mem=192G -t 12:00:00 --pty /bin/bash -lc "$1" legacy-blend "$2" "$3"
+        --gpus=4 -c 16 --mem=192G -t 12:00:00 --pty /bin/bash -lc "$1" legacy-blend "$2" "$3" "$4"
       status=$?
       printf "Slurm step finished (exit %s).\n" "$status"
       exec /bin/bash --noprofile --norc -i
-    ' legacy-blend "$gpu_command" "$layout" "$trace"
+    ' legacy-blend "$gpu_command" "$layout" "$trace" "$workload"
 fi
 ```
 
 Change `layout` to `2b2d` or `both` to change the GPU split. Keep `trace=on` for bring-up. A `trace=off` run retains the response receipts and aggregate NIXL counters. It skips request-level source tracing and the checks that depend on it.
+
+Set `workload=musique-single-turn-40` or `workload=mtrag-multi-turn-repeat` to run the selected high-repeat workloads. The MT-RAG mode stages the pinned Human release and builds the full CLAPNQ index. `MTRAG_PREPARED` can point to an existing prepared CLAPNQ corpus and index. [Request selections and repeat counts](datasets/repeat-workloads.md)
 
 Detach with `Ctrl+b` then `d`. To reattach, reconnect to the same login node and run:
 
@@ -52,8 +55,8 @@ tmux -L evidence-store-legacy-blend attach-session -t musique-legacy-blend
 ## What the command runs
 
 1. The builder stages the committed experiment source under `/tmp/$USER`, restores the detached historical sources, and creates a fresh Python 3.12.14 venv. It installs the pinned vLLM CUDA 12.9 wheel libraries, builds editable LMCache with the site CUDA 12 compiler, and checks four visible GPUs and UCX GPU-memory support. The public build uses the `LMCacheConnectorV1` connector.
-2. The workload stages the official MuSiQue development corpus, embeds it with `intfloat/e5-base-v2`, and builds the complete Faiss HNSW index. If `MUSIQUE_PREPARED` is exported before launch, the workload validates and uses that prepared corpus and index.
-3. Each layout sends the same ten distinct MuSiQue questions once through live retrieval. The prompt wraps evidence in `¶`-delimited segments. Two synthetic requests per B then verify a cache fill followed by a reordered restore on the same B. The synthetic requests use their own documents and run after all natural questions.
+2. The workload stages the official dataset, embeds the selected domain's complete corpus with `intfloat/e5-base-v2`, and builds the Faiss HNSW index. The runner can validate and reuse a prepared corpus and index from `MUSIQUE_PREPARED` or `MTRAG_PREPARED`.
+3. Each layout sends the selected natural requests once through live retrieval. The default smoke has ten MuSiQue questions. The repeat-heavy workloads each have forty requests. The prompt wraps evidence in `¶`-delimited segments. Two synthetic requests per B then verify a cache fill followed by a reordered restore on the same B. The synthetic requests use their own documents and run after the natural replay.
 4. The launcher captures native NIXL counters before and after replay and shuts down its worker groups. The report verifies completed responses and reconciles the NIXL read counts. Trace-on validation joins completed NIXL and LMCache movement and measured Blend recompute to versioned chunk spans. Natural requests can miss on a recurring chunk. The per-B controlled probe must produce a verified shifted restore.
 
 The compute-node command can also run directly inside an existing idle four-GPU allocation from a clone of this repo:
@@ -64,7 +67,7 @@ bash scripts/vllm_pd_legacy_blend_run.sh 1b3d on
 
 ### Retry using a verified runtime
 
-If a worker startup failed after runtime verification, use a fresh checkout of `main` and the original idle GPU allocation. Set `EVIDENCESTORE_LEGACY_RUNTIME` to the absolute runtime scratch directory printed during setup. The runner checks source compatibility, applies the worker import fix if needed, verifies the Python import, and reuses the built runtime and prepared MuSiQue index. Each retry has its own result directory and launcher log. A new allocation can reuse those files on the same node while the scratch directory remains available.
+If a worker startup failed after runtime verification, use a fresh checkout of `main` and the original idle GPU allocation. Set `EVIDENCESTORE_LEGACY_RUNTIME` to the absolute runtime scratch directory printed during setup. The runner checks source compatibility, applies the worker import fix if needed, verifies the Python import, and reuses the built runtime and any prepared index for the selected workload. Each retry has its own result directory and launcher log. A new allocation can reuse those files on the same node while the scratch directory remains available.
 
 ## Review the archive
 
@@ -76,7 +79,7 @@ Each archived `<topology>/blend/` directory contains:
 - `legacy-requests.jsonl` and `legacy-chunks.jsonl` from trace-on runs, with the gateway timeline, corpus and prompt stages, completed KV movement, and model work mapped to the supported token ranges.
 - `client/`, `trace/`, counter snapshots, worker logs, and `cleanup.json` as supporting evidence.
 
-When `layout=both`, `musique-pair.json` verifies matching natural prompts and evidence across layouts. Review the smoke before launching the full MuSiQue workload.
+When `layout=both`, `musique-pair.json` or `mtrag-pair.json` verifies matching natural prompts and evidence across layouts. Review the smoke before launching the full dataset workload.
 
 ## Publish the review packet to Git
 
