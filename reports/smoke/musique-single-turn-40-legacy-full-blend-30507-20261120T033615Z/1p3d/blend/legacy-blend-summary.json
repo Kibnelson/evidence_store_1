@@ -1,0 +1,100 @@
+{
+  "status": "passed",
+  "trace_enabled": true,
+  "cache_backend": "in_process_local_cpu_per_prefiller",
+  "prefill_workers": [
+    "p0"
+  ],
+  "decode_workers": [
+    "d0",
+    "d1",
+    "d2"
+  ],
+  "natural_requests": 40,
+  "controlled_requests": 2,
+  "completed_nixl_reads": 42,
+  "completed_nixl_bytes": 7684227072,
+  "nixl_reconciliation": {
+    "status": "matched",
+    "workers": {
+      "p0": {
+        "prometheus": {
+          "sum": 0,
+          "count": 0
+        },
+        "trace": {
+          "sum": 0,
+          "count": 0
+        },
+        "matched": true
+      },
+      "d0": {
+        "prometheus": {
+          "sum": 3100114944,
+          "count": 16
+        },
+        "trace": {
+          "sum": 3100114944,
+          "count": 16
+        },
+        "matched": true
+      },
+      "d1": {
+        "prometheus": {
+          "sum": 2286157824,
+          "count": 13
+        },
+        "trace": {
+          "sum": 2286157824,
+          "count": 13
+        },
+        "matched": true
+      },
+      "d2": {
+        "prometheus": {
+          "sum": 2297954304,
+          "count": 13
+        },
+        "trace": {
+          "sum": 2297954304,
+          "count": 13
+        },
+        "matched": true
+      }
+    }
+  },
+  "workload": "musique-single-turn-40",
+  "natural_label": "musique",
+  "domain": null,
+  "conversation_turn_counts": {},
+  "selection_agreement": {
+    "matching_prompt_hashes": 40,
+    "matching_ranked_evidence_and_spans": 40,
+    "mismatching_request_keys": []
+  },
+  "natural_evidence_occurrences": 240,
+  "natural_repeat_occurrences": 209,
+  "natural_same_worker_repeat_occurrences": 209,
+  "natural_shifted_restore_occurrences": 194,
+  "controlled_reuse_verified_on": [
+    "p0"
+  ],
+  "transfer_payload_bytes_by_label": {
+    "musique": {
+      "nixl_p2d": 6981156864,
+      "lmcache_d2h": 881786880,
+      "lmcache_h2d": 5602148352
+    },
+    "legacy-probes": {
+      "nixl_p2d": 703070208,
+      "lmcache_d2h": 349028352,
+      "lmcache_h2d": 349913088
+    }
+  },
+  "measurement_scope": {
+    "model_gpu_duration": "CUDA event duration for each ordinary model forward batch",
+    "blend_computation": "Token positions that reached each Blend layer's attention and MLP, mapped to evidence spans. The check-layer projections and scoring can visit more positions.",
+    "lmcache_movement_duration": "Host interval through the native completion fence",
+    "trace_only_gpu_synchronization": true
+  }
+}
