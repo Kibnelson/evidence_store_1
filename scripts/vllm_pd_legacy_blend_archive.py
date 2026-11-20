@@ -15,6 +15,7 @@ from tempfile import TemporaryDirectory
 from vllm_pd_smoke_archive import MANIFEST, ROOT, fingerprint, read_json, sha256_file
 from vllm_pd_detail_archive import _RESPONSE_FIELDS, _encode, _output, _read_rows, _select
 from vllm_pd_legacy_blend_report import report
+from vllm_pd_legacy_delta_estimate import FILES as ESTIMATE_FILES, SCHEMA_VERSION, write_estimate
 from vllm_pd_legacy_workloads import DATASETS
 
 
@@ -82,6 +83,24 @@ def public_request(row):
     return {**row, "nixl_transfer": _select(transfer, NIXL_FIELDS)}
 
 
+def stage_delta_estimate(package, names, prefix, work, destination, sample, trace):
+    schema = sample.get("delta_estimate_schema")
+    present = {name for name in ESTIMATE_FILES if prefix + name in names}
+    if schema is None and not present:
+        return
+    if schema != SCHEMA_VERSION or not trace or present != set(ESTIMATE_FILES):
+        raise ValueError(f"Unexpected or incomplete delta estimate in {destination}")
+    write_estimate(work)
+    for name in ESTIMATE_FILES:
+        with read_member(package, prefix + name) as source:
+            if source.read() != (work / name).read_bytes():
+                raise ValueError(f"Recomputed {name} differs in {destination}")
+        if name.endswith(".jsonl"):
+            write_rows(destination / f"{name}.gz", _read_rows(work / name))
+        else:
+            shutil.copyfile(work / name, destination / name)
+
+
 def stage_cohort(package, names, prefix, work, destination, layout, job_id, workload):
     for name in CORE_FILES:
         copy_member(package, prefix, name, work)
@@ -127,6 +146,7 @@ def stage_cohort(package, names, prefix, work, destination, layout, job_id, work
             if measured != previous:
                 raise ValueError(f"Recomputed {name} differs in {layout}")
             write_rows(destination / f"{name}.gz", map(transform, measured))
+    stage_delta_estimate(package, names, prefix, work, destination, sample, trace)
 
 
 def gzip_rows(path):

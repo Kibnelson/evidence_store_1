@@ -36,6 +36,157 @@ The paired report gives p50 and p95 for prompt rendering, client TTFT, dispatch-
 
 NIXL assigns the bytes of a whole block to a chunk only when the block lies entirely inside that occurrence. Blocks that overlap evidence and another span are recorded as shared or boundary bytes. Blocks that miss all evidence spans are outside-evidence bytes. The report also retains an unmapped bucket for incomplete geometry. The full request payload includes these buckets and the chunk-exclusive bytes. LMCache and NIXL figures are completed KV payloads on separate hops. Filesystem and HTTP fields in the raw trace are serialized data sizes, and physical PCIe and network-interface counters are outside this report's measurement scope. [Block attribution](../src/evidencestore/pd_report.py#L260) · [Raw HTTP milestones](../src/evidencestore/gateway.py#L112)
 
+## Estimate a changed-row NIXL handoff
+
+The earlier GPU-only run retained the previous complete prompt KV on the same D for each conversation. B compared fingerprints of the final KV rows with that base. D reused matching rows and read complete replacement rows for changed or new data over NIXL. It then verified the reconstructed target before decoding. Job 29530 sent **116,535,052,288 of 179,608,780,800 logical target bytes** across its measured turns, a **35.12% payload reduction** under that retention policy. [Earlier run card](https://github.com/Kibnelson/context_pilot_paper/blob/e8cb79f3d668a795c44e2d878b2baf2c47444ad2/docs/evidencestore/implementation/scheduler_v2_phase2_native_and_three_modes_run_card.md#what-differs-between-the-runnable-paths) · [Job 29530 report](https://github.com/Kibnelson/context_pilot_paper/blob/f8d8da26b19f70f0e37beb4b85bc3f91463ad4ca/traces/scheduler_v2_phase1_fullpath_diagnostic/dd02d619c0ef_blend_delta_live_job29530/blend_xor_review/publication/report.md)
+
+### Calculate actual bytes from the final Blend output
+
+Blend changes the candidate rows in two ways before the final KV is ready.
+
+1. **Restore and adjust positions.** LMCache loads cached K and V on P. With cached positions enabled, it applies rotary position adjustment to the restored **K** at the destination offsets. The adjustment leaves **V** as it was in the restored buffer. [Position adjustment in the pinned LMCache connector](https://github.com/LMCache/LMCache/blob/389b9cfcb5cec502dbba6b5d13725bf2e024610d/lmcache/v1/gpu_connector/gpu_connectors.py#L881)
+2. **Select and repair.** At the check layer, Blend scores each active token using `‖K_fresh − K_restored_at_current_position‖²`. This run selects the top 15% of that set, rounded down with a minimum of one. For selected positions it writes fresh **K and V** into the restored buffers, then continues with those positions in later layers. vLLM also writes KV for positions assigned to ordinary prefill. [Blend scoring and replacement](https://github.com/LMCache/LMCache/blob/389b9cfcb5cec502dbba6b5d13725bf2e024610d/lmcache/v1/compute/blend/blender.py#L89) · [Run settings](../scripts/vllm_pd_cluster.py#L685)
+
+Blend's score compares two K values on **P** to choose work. The transfer comparison happens later and compares **final P rows with the selected D's retained rows**. A shifted K can change without selective repair. An unselected V can differ from D's row if LMCache loaded it from a different base. A repaired row can still match D's base byte for byte. The current trace counts positions that reach attention and MLP. Measuring actual row changes also requires fingerprints from the last writes, including any ordinary prefill writes. [Current Blend trace hook](../scripts/vllm_pd_legacy_trace_overlay.py#L159) · [Earlier row comparison code](https://github.com/Kibnelson/context_pilot_paper/blob/e8cb79f3d668a795c44e2d878b2baf2c47444ad2/scheduler/v2/phase1_blend_delta_chunks.py#L35)
+
+Match each target row `r` to the decoder base by segment identity and occurrence, token offset within the segment, layer, and K/V side. That gives the following three cases.
+
+| Final row on P | Action on D |
+| --- | --- |
+| Compatible retained row with the same final fingerprint (`U`) | Reuse D's row at the target position. |
+| Compatible retained row with a different final fingerprint (`C`) | Read the complete replacement row over NIXL. |
+| No compatible retained row (`N`) | Read the complete current row over NIXL. |
+
+For each set, sum the byte size `b(r)` of its rows.
+
+```text
+unchanged bytes U_b     = sum of b(r) over r in U
+changed bytes C_b       = sum of b(r) over r in C
+missing-base bytes N_b  = sum of b(r) over r in N
+logical full KV bytes   = U_b + C_b + N_b
+logical delta KV bytes  = C_b + N_b
+logical KV reduction    = U_b / (U_b + C_b + N_b)
+```
+
+For example, consider one layer with two tokens from a restored chunk and one token from a new chunk. Suppose both restored tokens have a compatible base on D and the final comparison gives these results.
+
+| Token at this layer | Final K compared with D | Final V compared with D | Rows sent |
+| --- | --- | --- | ---: |
+| Restored token at a shifted position, outside the repair selection | Different after position adjustment | Exact match | 1 |
+| Restored token selected for repair | Different | Different | 2 |
+| Token from the new chunk | No base | No base | 2 |
+
+The example has six equal-size rows. D reuses one, receives three replacements, and receives two rows without a base. Sending five of six avoids **16.7%** of logical payload before transfer layout and overhead. Apply the same comparison independently at every layer.
+
+Report the actual packed NIXL payload and manifest bytes separately. The native full READ is block-rounded, so compare NIXL completion counters for the transport reduction and use the logical equation to explain reuse. Verify the reconstructed target against P's full digest before D decodes. A request with no usable retained base takes the full path. Keep the LMCache restore and Blend work receipts to attribute reuse and recomputation to chunks. Those receipts provide context for the row comparison.
+
+### Measure the speed on a matched replay
+
+Start with MT-RAG. Keep each conversation on one D and retain the previous completed turn, as job 29530 did. Compare a forced full READ and a changed-row READ on the same requests, prompt policy, Blend settings, topology, route, retention budget, and arrival schedule. MuSiQue's independent questions need a compatible cross-request base on the selected D to test the same mechanism.
+
+Measure NIXL submission → completion, P KV ready → D target ready for decode, and client TTFT in both arms. Keep P HTTP time, fingerprinting and packing times, D base lookup and reconstruction time, and throughput over the measured replay window. Include requests that fall back to a full READ. A zero-payload handoff has zero READ time and still contributes to handoff time and TTFT. For example, median handoff speedup is full-mode p50 handoff time divided by changed-row-mode p50 handoff time. Compare output-token throughput over the same workload.
+
+In the earlier 20-conversation comparison, mean observed READ time went from **34.317 s to 7.480 s** and mean TTFT from **48.066 s to 20.131 s**. That comparison also changed routing and decoder retention. The next matched replay keeps those settings fixed and checks target reconstruction and generated output separately. [Prior full Blend run](https://github.com/Kibnelson/context_pilot_paper/blob/e390b7a0cad204c14f67c39439ebf208baf4df7c/traces/scheduler_v2_phase1_fullpath_diagnostic/e25c6fbba107_blend_20261025T202746Z/blend_xor_review/publication/report.md) · [Prior changed-row run](https://github.com/Kibnelson/context_pilot_paper/blob/f8d8da26b19f70f0e37beb4b85bc3f91463ad4ca/traces/scheduler_v2_phase1_fullpath_diagnostic/dd02d619c0ef_blend_delta_live_job29530/blend_xor_review/publication/report.md)
+
+### Predict the speedup and break-even point
+
+The [short formula sheet](kv-delta-speedup.md) gives the calculation and a worked example on one page.
+
+Start with the final per-layer K and V comparison above. **Base coverage** tells us how much of the full target D can compare against its retained KV. The **diff ratio** tells us how much of that covered KV changed. The **NIXL sent ratio** is what enters the speed formula.
+
+| Quantity | Formula | Meaning |
+| --- | --- | --- |
+| Logical full KV `L` | `U_b + C_b + N_b` | All final target KV bytes before transfer padding. |
+| Base coverage `q` | `(U_b + C_b) / L` | Fraction of the target with a compatible row on D. |
+| Diff ratio `d` | `C_b / (U_b + C_b)` | Fraction of the covered bytes whose final row differs. Count the full width of each changed row. |
+| Logical sent ratio `r` | `(C_b + N_b) / L = 1 − q × (1 − d)` | Fraction of target KV that must travel, including rows without a base. |
+| NIXL sent ratio `ρ` | `(L × r + O_delta) / (L + O_full)` | Fraction of full NIXL payload sent by the delta READ, including the layout of each transfer. |
+
+`O_full` and `O_delta` are the extra bytes carried by their respective READs. Account for metadata sent separately in the time it adds to the critical path. When `q = 0`, `d` is undefined, `r = 1`, and the protocol uses the full path. For use with measured traces, `ρ = B_delta / F` directly, with `B_delta` the completed delta READ bytes and `F` the completed full READ bytes for the matching request.
+
+```text
+full NIXL bytes F          = L + O_full
+packed delta bytes B_delta = C_b + N_b + O_delta
+NIXL bytes saved           = F × (1 − ρ) = U_b + O_full − O_delta
+```
+
+For a latency `T` of interest, use `T_full` as the measured baseline. For **handoff time**, the clock runs from P KV ready to D ready to decode. **TTFT** adds client start → P KV ready and D ready → client first token to that handoff. Let `H` be the net additional time outside the READ on the chosen critical path, in seconds. Depending on the interval, it can include fingerprinting, base lookup or restore, packing, metadata delivery, reconstruction, and verification. Count overlapping work by its effect on elapsed time.
+
+Use this first estimate when both modes issue a READ with the same effective payload bandwidth `W` (bytes/s) and fixed cost, and the READ is on the critical path.
+
+```text
+net time saved    = (F / W) × (1 − ρ) − H
+predicted T_delta = T_full − net time saved
+
+f = (F / W) / T_full     # fraction of baseline latency spent on byte-dependent READ time
+h = H / T_full           # added critical-path cost as a fraction of baseline latency
+predicted speedup = 1 / (1 − f × (1 − ρ) + h)
+break-even ρ      = 1 − h / f
+```
+
+The delta improves latency when the saved bytes exceed `W × H`, or when `ρ` is below break-even. To work backward from a target speedup `S_goal`, solve for `ρ_max = 1 − (1 − 1/S_goal + h) / f`. At fixed base coverage, transfer layout overhead, and timing costs, that allows a diff ratio of at most `d_max = (ρ_max × F − N_b − O_delta) / (U_b + C_b)`. This inversion needs positive bandwidth-dependent time (`f > 0`) and compatible base rows. A negative `d_max` means even reusing every covered row falls short of the goal under this model.
+
+For example, a **100 MB** target has **40 MB** of exact matches, **35 MB** of changed rows, and **25 MB** without a base after Blend. Coverage is **75%**, the diff ratio is **35 / 75 = 46.7%**, and the sent ratio is **60%** when both layouts add zero bytes. At **1 GB/s**, sending 60 MB saves **40 ms**. With a **110 ms** full handoff and **15 ms** of added handoff work, the delta takes **85 ms**, or **1.29×** faster. To achieve at least **1.25×** on that same handoff, the model requires `ρ ≤ 63%`, or `d ≤ 50.7%` at the same coverage. If full TTFT is **400 ms** and fingerprinting before P is ready adds another **5 ms**, the predicted TTFT is **380 ms**, or **1.05×** faster. This example uses decimal MB and GB.
+
+For a calibrated model, fit `READ time = fixed cost + payload bytes / effective bandwidth` to positive-payload transfers at comparable decoder load. Fit the two modes separately when packing changes the descriptor layout or effective bandwidth. Then replace `(F − B_delta) / W` with the difference between the two predicted READ times. A zero-byte handoff with no READ has zero READ time and still pays its preparation and reconstruction costs. A request that falls back to full must include time already spent on the delta attempt and any bytes already moved. Use the portion of READ time exposed on the critical path when stages overlap. The trace records both the observed READ window and native NIXL duration for calibration. [NIXL completion telemetry](../scripts/vllm_pd_legacy_trace_events.py#L67)
+
+On calibration requests, estimate `H` as `(T_delta − exposed READ time in delta mode) − (T_full − exposed READ time in full mode)`. On separate matched requests, make predictions from the row counts and those calibrated costs, then compare with observed handoff time and TTFT. Keep each request's `U_b`, `C_b`, `N_b`, `F`, `B_delta`, and latency intervals so prediction error can be checked across different coverage and diff ratios. For workload byte ratios, sum numerators and denominators before dividing. For latency, predict per request and compare matched summaries such as `p50(T_full) / p50(T_delta)`. Include every request in handoff and TTFT comparisons. Measure throughput directly as completed output tokens divided by replay wall time so concurrent requests contribute through their actual overlap.
+
+### Smoke check on archived GPU evidence
+
+The offline check rebuilt the published Full Blend and changed-row evidence for jobs 29538 and 29530 from their pinned Git objects. It verified all 971 input files and reproduced all 352 request records across the two modes byte for byte. For all 176 matched requests, the changed-row partition added to the full logical target, sent bytes equaled changed plus missing-base bytes, and D's recorded digest matched P's target. All 20 warm-ups sent the full target. The minimum-payload case, `shifted:005:00`, sent zero NIXL bytes and still took 829.5 ms from P ready to native import. [Full Blend evidence](https://github.com/Kibnelson/context_pilot_paper/blob/e390b7a0cad204c14f67c39439ebf208baf4df7c/traces/scheduler_v2_phase1_fullpath_diagnostic/e25c6fbba107_blend_20261025T202746Z/blend_xor_review/publication/report.md) · [Changed-row evidence](https://github.com/Kibnelson/context_pilot_paper/blob/f8d8da26b19f70f0e37beb4b85bc3f91463ad4ca/traces/scheduler_v2_phase1_fullpath_diagnostic/dd02d619c0ef_blend_delta_live_job29530/blend_xor_review/publication/report.md)
+
+| Byte-weighted result over the 156 measured requests | Value |
+| --- | ---: |
+| Base coverage `q` | 98.59% |
+| Diff ratio `d` among covered rows | 64.38% |
+| Logical KV sent ratio `r` | 64.88% |
+| NIXL sent ratio `ρ` including the native full READ's padding | 64.82% |
+
+The prior concurrent runs have different routing and retention. A simple linear fit of READ time against bytes explains under 6% of timing variance in either arm. For the current serial CLAPNQ full-READ traces, a trial fit per policy using three conversations for calibration and three for validation gave effective rates of 0.436–0.448 GB/s and mean absolute READ prediction errors of 12.7–20.5 ms on the held-out turns. Those fits describe the full READ over the observed sizes. The packed delta READ and its critical-path overhead still need their own measurements. [Current CLAPNQ stage timings and archives](datasets/mtrag.md#measured-stage-timings)
+
+### First EvidenceStore GPU smoke
+
+Use 1B/3D as in the earlier one-conversation smoke. Freeze the prompts and generation settings for turns 1–3 of CLAPNQ conversation `1534a095279f2cb888fb0bea17bd70da` under `previous-turn-first`. In the current archive, turns 2 and 3 each restored five chunks found in the immediately preceding turn. Run the same three prompts against full READ and changed-row READ, with fresh state for each arm and the conversation assigned to the same D. [Earlier one-conversation fused smoke](https://github.com/Kibnelson/context_pilot_paper/blob/35a67d4f85ff5a7bd67f2367c11480f9a892de37/traces/scheduler_v2_phase1_fullpath_diagnostic/8803df941345_blend_delta_live_job29484/blend_xor_review/publication/report.md) · [Selected CLAPNQ chunk rows](../reports/smoke/mtrag-multi-turn-repeat-legacy-full-blend-30511-20261120T150130Z/1p3d/blend/legacy-chunks.jsonl.gz)
+
+Check the cold full send first, then verify the retained predecessor and final digest on D for both later turns. Reconcile `U_b + C_b + N_b` with final target size and the packed plan with completed NIXL bytes. Record all timing boundaries for each arm and verify all three row outcomes across the smoke. Use a controlled prompt pair that shifts cached evidence if the natural turns leave a row outcome untested. Use more matched turns and payload sizes to calibrate speed after this correctness check passes.
+
+Include **gateway → P prompt delivery** in both arms. For each request, check that the selected P logs receipt of the final HTTP body bytes before JSON parsing, that the events join by `X-Request-Id`, and that the gateway's serialized body length matches the count at P. Retain the prompt token count, HTTP body bytes, and body-write-start → body-received duration. Show that delivery interval alongside gateway preparation, the full P HTTP round trip, and the later P → D NIXL transfer. [Gateway delivery trace TODO](#follow-ups-from-the-end-to-end-trace-review)
+
+The current EvidenceStore runtime uses full NIXL READs and removes the earlier final-write fingerprint hooks during its build. This GPU smoke needs those hooks and the changed-row decoder path integrated first. [Current standalone build patch](../third_party/legacy-full-blend-standalone.patch)
+
+### Sensitivity estimates from the existing full-READ traces
+
+The existing runs provide a full-payload baseline and a P-side candidate pool. Use these quantities to explore scenarios while final-row comparisons and decoder retention are pending.
+
+| Symbol | Meaning |
+| --- | --- |
+| `F` | Measured full NIXL payload bytes, including the native block padding. |
+| `R` | Candidate KV bytes within verified LMCache restores of repeat evidence on P. Count each restored destination range once. Leave the rest of `F` in the payload, including new evidence and prompt text outside the selected ranges. |
+| `a` | Fraction of `R` for which the selected D has a compatible retained base row. |
+| `c` | Fraction of those base-covered bytes that must still be sent. For packed replacements, count the full width of each changed row. Coarser transfer granularity can require sending extra bytes. |
+| `M` | Extra bytes for the delta manifest and format, accounted separately from KV. |
+
+```text
+KV bytes that can be omitted = R × a × (1 − c)
+estimated delta bytes        = F − R × a × (1 − c) + M
+bytes sent with full fallback = min(F, estimated delta bytes)
+payload reduction             = 1 − bytes sent / F
+ideal bandwidth-bound speedup = F / bytes sent
+```
+
+When `a = 0`, or `c = 1`, the full transfer is the byte-minimizing choice. For a batch of requests, sum the byte counts before taking either ratio. The dataset tables assume packed rows and set `M = 0` to show sensitivity. A tiny numerical change in every row can still result in `c = 1` with complete row replacements. Blend token-layer visits measure work. Determining `c` requires comparing **final K and V rows** against D's base after position handling and any later writes. The current traces establish P-side restores; `a` and `c` remain scenario inputs. [Earlier row comparison code](https://github.com/Kibnelson/context_pilot_paper/blob/e8cb79f3d668a795c44e2d878b2baf2c47444ad2/scheduler/v2/phase1_blend_delta_chunks.py#L35)
+
+Use the [latency model](#predict-the-speedup-and-break-even-point) with `ρ` equal to the scenario's estimated NIXL payload divided by `F`. Account for separately delivered metadata in `H`.
+
+## Follow-ups from the end-to-end trace review
+
+- [ ] **Measure gateway → P prompt delivery.** Under the existing trace gate, timestamp the start of the gateway's HTTP body write and the arrival of the final body bytes at P's HTTP API before JSON parsing. Join the events by `X-Request-Id`, reconcile sent and received body bytes, and retain the prompt token count, body length, and elapsed delivery time in the compact request archive. Use the resulting application-level delivery interval and byte count as a separate row alongside the existing P HTTP round trip. [Current gateway send and response events](../src/evidencestore/gateway.py#L108)
+- [x] **Check the diff-ratio calculation against archived GPU evidence.** Rebuild the matched full and changed-row archives and reconcile the byte split and reconstruction receipts. [Offline smoke results](#smoke-check-on-archived-gpu-evidence)
+- [ ] **Measure the post-Blend changed-row handoff.** Integrate the earlier final-row fingerprint, packing, and target verification flow. Check the byte split and fallback on the three-turn CLAPNQ smoke, then time both transfer arms with matched routing and retention. [GPU smoke](#first-evidencestore-gpu-smoke) · [Measurement design](#measure-the-speed-on-a-matched-replay)
+
+Collect the follow-ups during the end-to-end review. After the review, implement the agreed changes together, verify the new events and byte counts in a small traced smoke run, then rerun the MuSiQue and MT-RAG workloads.
+
 ## How we verify a repeated chunk
 
 - **Repeated occurrence.** The same `(doc_id, chunk_id, chunk_version)` appeared in an earlier request in the cohort. The report also records whether it appeared on the same P. In MT-RAG it records repeats within and across conversations. [Repeat tracking](../scripts/vllm_pd_legacy_blend_report.py#L243) · [Conversation scopes](../scripts/vllm_pd_legacy_blend_report.py#L278)

@@ -18,7 +18,12 @@ The MuSiQue search compared 2,417 archived questions and kept the strongest 40-q
 
 CLAPNQ has **93 within-conversation** and **27 across-conversation** repeat occurrences. Twelve occurrences count in both. The legacy prompt preview includes 83 within-conversation and 20 across-conversation shifts. The six complete conversations have 7, 5, 9, 7, 6, and 6 turns. Each conversation runs in turn order with the dataset’s fixed reference history and retrieval rewrites.
 
-The selection files record ordered request keys, hashes of the source queries and corpus, and expected evidence spans. The runner searches the full Faiss index for each selected question or turn. The report compares the resulting prompt hashes and evidence spans with the preview. It records observed repeat occurrences and verifies restores from the LMCache trace. LMCache availability also depends on the worker route, cache state, and the legacy connector’s lookup behavior.
+The selection files record ordered request keys, hashes of the source queries and corpus, and expected evidence spans. The runner searches the full Faiss index for each selected question or turn. The report checks the default prompt hashes and evidence spans against the preview. Gated policies can change placement, so the report checks the retrieved and retained chunk identities and Faiss ranks. It verifies observed restores from the LMCache trace. LMCache availability also depends on the worker route, cache state, and the legacy connector’s lookup behavior.
+
+## Dataset trace reviews
+
+- [MuSiQue](musique.md) covers the full native and shared replays and the matched `default` and `seen-first` Full Blend runs.
+- [MT-RAG](mtrag.md) covers the multi-turn CLAPNQ comparisons across `default`, `openclaw`, and `previous-turn-first`.
 
 ## Run the two workloads
 

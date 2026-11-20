@@ -149,3 +149,86 @@ The full replay defaults to `2p2d-shared` and sends all 2,417 development questi
 The paired report verifies the question IDs, prompt token hashes, and evidence spans across the two cohorts. It counts every occurrence after the first appearance of the same versioned chunk in another question, with separate counts for occurrences at the same or a changed prompt offset. The previous campaign found 8,248 repeat uses. The new run measures the scheduled P and D evidence tokens and completed KV movement for the naturally recurring chunks.
 
 Use `repeated-chunks.jsonl` to find a chunk and its previous occurrence. The paired rows give the scheduled evidence tokens and exclusive NIXL and LMCache bytes in each cohort. The per-cohort `chunk-review` files link the same chunk to CPU preparation intervals, scheduler steps, and transferred ranges. Count each boundary block once in the transfer ledger even when it overlaps more than one chunk.
+
+## Full Blend on 40 repeat-heavy questions
+
+Slurm job 30511 replayed 40 distinct three-hop, single-turn questions with one Blend prefiller and three native NIXL decoders. Each question retrieved six chunks from six distinct source documents using the full development-set Faiss HNSW index. Across the sample there were 31 distinct versioned chunks from 31 source documents. A repeat is a later occurrence of the same `doc_id`, `chunk_id`, and `chunk_version` in a different question. The paired report verified matching questions, retrieval ranks, and chunk identities. The default prompt uses retrieval order, and `seen-first` puts earlier chunks in first-seen order ahead of new chunks. The numbers below cover the 40 natural requests in each run. [Workload selection](../../workloads/musique-single-turn-40.json) · [Default summary](../../reports/smoke/musique-single-turn-40-legacy-full-blend-30511-20261120T135540Z/1p3d/blend/legacy-blend-summary.json) · [Seen-first summary](../../reports/smoke/musique-single-turn-40-legacy-full-blend-30511-20261120T140002Z/1p3d/blend/legacy-blend-summary.json)
+
+### Work and movement by evidence occurrence
+
+| Measurement | First, default | First, seen-first | Repeat, default | Repeat, seen-first |
+| --- | ---: | ---: | ---: | ---: |
+| Evidence occurrences | 31 | 31 | 209 | 209 |
+| Verified LMCache restores | 0 | 0 | 199 | 208 |
+| Verified restores at a different prompt offset | 0 | 0 | 194 | 201 |
+| Ordinary P scheduled evidence tokens | 5,599 | 5,599 | 1,879 | 117 |
+| Blend attention and MLP token-layer positions | 0 | 0 | 230,522 | 241,314 |
+| LMCache GPU → host evidence bytes | 825,606,144 | 808,353,792 | 0 | 17,252,352 |
+| LMCache host → GPU evidence bytes | 0 | 0 | 5,544,640,512 | 5,804,457,984 |
+| NIXL bytes exclusive to evidence | 757,334,016 | 759,693,312 | 5,367,398,400 | 5,365,039,104 |
+| D scheduled positions inside evidence | 0 | 0 | 0 | 0 |
+
+All 10 repeats that missed in the default run came after a first-seen chunk in the same prompt. Each had an earlier completed store on P, and the normal forward covered all 1,879 of their evidence positions. The pinned layerwise lookup stops at the first missing segment. With `seen-first`, nine more repeats restored and ordinary repeat prefill fell by 1,762 tokens. The one repeat that still missed had no completed store at its first occurrence. P computed its 117 positions again and stored the chunk on that repeat. [Default chunk records](../../reports/smoke/musique-single-turn-40-legacy-full-blend-30511-20261120T135540Z/1p3d/blend/legacy-chunks.jsonl.gz) · [Seen-first chunk records](../../reports/smoke/musique-single-turn-40-legacy-full-blend-30511-20261120T140002Z/1p3d/blend/legacy-chunks.jsonl.gz) · [Legacy lookup behavior](../slide-4-pd-measurement-plan.md#what-the-blend-settings-enable)
+
+D pulled **6,981,156,864 bytes** in each run. That includes 6,124,732,416 evidence-exclusive bytes, 658,243,584 shared or boundary bytes, and 198,180,864 bytes outside evidence. Reordering changed which blocks lay inside first-seen and repeated chunk spans. Whole-request LMCache GPU → host bytes rose from 881,786,880 to 882,081,792, and host → GPU bytes rose from 5,602,148,352 to 5,861,965,824. [Default request records](../../reports/smoke/musique-single-turn-40-legacy-full-blend-30511-20261120T135540Z/1p3d/blend/legacy-requests.jsonl.gz) · [Seen-first request records](../../reports/smoke/musique-single-turn-40-legacy-full-blend-30511-20261120T140002Z/1p3d/blend/legacy-requests.jsonl.gz)
+
+### What happens again on a repeat
+
+| Stage | Measured scope and effect of repeating evidence |
+| --- | --- |
+| Query embedding and Faiss HNSW | All 40 questions run live. Embedding and search times are per request. Each result carries its own retrieval rank and score. |
+| Read retrieved corpus rows | The client reads every occurrence, including 185,292 serialized corpus-row bytes for repeats and 26,654 bytes for first uses. The row read is measured per chunk. |
+| Render and tokenize | Each occurrence has an append event and a mapping to its final token range. Whole-prompt tokenization runs per request even when the evidence text repeats. The 40 prompts total 46,999 tokens in each run. |
+| Gateway and P dispatch | The trace records gateway validation, routing, and the P HTTP round trip per request. The request carries the complete rendered token sequence. |
+| Restore and Blend on P | A hit loads KV from P's CPU cache. The trace links the old and new token ranges and counts the evidence positions reaching attention and MLP per Blend layer. The check-layer projections may cover additional positions. Ordinary scheduled tokens and Blend token-layer positions have different units. |
+| Ordinary prefill and LMCache store | The scheduler records the positions assigned to the normal model forward. CUDA time covers the whole batch. A completed GPU → host store records its token range and KV payload. |
+| NIXL read on D | D pulls the assembled prompt KV, including restored and recomputed evidence. The report uses completed transfer bytes and assigns a block to a chunk only when it falls wholly inside that occurrence. |
+| D forward and response | D generated 32 tokens per request, or 1,280 across the workload. The first-token and response timings belong to the request. D scheduled no positions within the retrieved evidence spans. |
+
+Across 209 repeats, the measured per-chunk host intervals sum to 1.238 ms for row reads, 0.193 ms for appending text, and 10.253 ms for mapping token offsets in the default run. The `seen-first` totals are 1.250 ms, 0.205 ms, and 11.026 ms respectively. Whole-prompt tokenization has a request-level interval. Trace hooks synchronize GPU operations for attribution, so these runs report the observed work and movement under tracing. [Trace hooks and attribution](../vllm-legacy-full-blend-tracing.md#compute-and-timeline-stages)
+
+In `musique:3hop1__132967_40769_64047`, retrieval rank 5 was a 126-token repeat, `2cc56cd5895a…`. The default prompt put it at `[748, 874)` after first-seen rank 4. It restored zero bytes and P scheduled all 126 positions in the ordinary forward. `seen-first` put the same rank-5 chunk first at `[11, 137)`. It restored 18,579,456 bytes from the earlier `[150, 276)` store, scheduled zero ordinary P positions, and ran 2,856 Blend attention/MLP token-layer positions. In both runs D pulled 169,869,312 NIXL bytes for the whole request, including 16,515,072 bytes exclusive to this chunk. [Seen-first policy](../vllm-legacy-full-blend-runbook.md#compare-prompt-policies)
+
+### Measured stage timings
+
+Times are nearest-rank medians in milliseconds for the 40 natural requests per policy. Where movement occurred on a subset of requests, the median covers that subset and the table gives its size. [Default request records](../../reports/smoke/musique-single-turn-40-legacy-full-blend-30511-20261120T135540Z/1p3d/blend/legacy-requests.jsonl.gz) · [Seen-first request records](../../reports/smoke/musique-single-turn-40-legacy-full-blend-30511-20261120T140002Z/1p3d/blend/legacy-requests.jsonl.gz)
+
+| Stage | Type | `default` (p50 ms) | `seen-first` (p50 ms) | Total bytes (policy order) |
+| --- | --- | ---: | ---: | --- |
+| Embed query | Compute | 843.456 | 834.768 | — |
+| Search Faiss HNSW | Compute | 1.219 | 1.158 | — |
+| Materialize evidence | Compute + movement | 0.182 | 0.185 | 211,946 / 211,946 |
+| Render and map prompt | Compute | 2.746 | 2.986 | — |
+| Tokenize prompt | Compute | 1.967 | 2.098 | — |
+| Validate at gateway | Compute | 0.276 | 0.280 | — |
+| Select P and build HTTP request | Routing + compute | 0.254 | 0.257 | — |
+| Send prompt token IDs to P and receive response | Compute + movement | 217.315 | 216.695 | Raw trace only |
+| LMCache restore on P (host → GPU) | Movement | 161.272 (39/40) | 161.099 (39/40) | 5,602,148,352 / 5,861,965,824 |
+| Restore start to Blend completion | Compute + movement | 162.894 (39/40) | 162.612 (39/40) | — |
+| Ordinary P CUDA forward | Compute | 39.590 | 39.546 | — |
+| LMCache store on P (GPU → host) | Movement | 97.914 (12/40) | 62.659 (12/40) | 881,786,880 / 882,081,792 |
+| Route from P response to D dispatch | Routing + compute | 0.492 | 0.494 | — |
+| NIXL READ (P GPU → D GPU) | Movement | 388.947 | 387.066 | 6,981,156,864 / 6,981,156,864 |
+| All D CUDA forwards | Compute | 1,268.370 | 1,272.211 | — |
+| D dispatch to client first token | Latency | 450.214 | 451.343 | — |
+| Stream from first to last token | Compute + movement | 1,322.357 | 1,327.348 | Raw trace only |
+| Client time to first token | Latency | 1,516.170 | 1,513.518 | — |
+
+Byte totals sum the 40 requests per policy in the same left-to-right order as the timing columns. Materialization counts serialized corpus rows, and LMCache and NIXL count completed KV payloads. A dash marks a stage without a separate payload count. The raw gateway trace records HTTP body and stream bytes, which the compact archive omits. [Gateway byte counters](../../src/evidencestore/gateway.py#L108)
+
+After validation, the gateway selects P and builds a JSON request with all prompt token IDs. Both policies sent a median of **1,162 prompt tokens**, including repeated evidence. The send row measures the full HTTP round trip, from gateway dispatch through receipt and validation of P's handoff response. Raw gateway traces also record serialized request-body bytes per request. [Gateway dispatch and response events](../../src/evidencestore/gateway.py#L95)
+
+[Trace review TODO for gateway → P delivery time and bytes](../vllm-legacy-full-blend-tracing.md#follow-ups-from-the-end-to-end-trace-review)
+
+Read each row independently. Prompt rendering includes tokenization, the P round trip covers the P stages below it, and client time to first token starts before retrieval. LMCache timings are host intervals through the completion fence. The restore-to-Blend row includes the restore interval, and the chunk table above counts Blend attention/MLP work. The NIXL row spans host submission to completion. The CUDA rows use forward batch events, with all 32 D forwards summed per request. These were trace-on runs with GPU synchronization. [Trace timing and attribution](../vllm-legacy-full-blend-tracing.md#compute-and-timeline-stages)
+
+### Estimated savings from sending changed KV rows
+
+The NIXL row above measures the full P → D payload. This sensitivity table treats verified repeat-evidence KV restores on P as candidates. It assumes D already holds a compatible base for every candidate and that replacement rows can be packed with zero metadata overhead. Each scenario shows **payload reduction / ideal bandwidth-bound speedup** across 40 requests. Measured reuse would come from comparing the final post-Blend rows with an actual retained base on D. [Final-row method](../vllm-legacy-full-blend-tracing.md#calculate-actual-bytes-from-the-final-blend-output) · [Diff ratio and speedup](../vllm-legacy-full-blend-tracing.md#predict-the-speedup-and-break-even-point)
+
+| Policy | Measured full bytes | Candidate bytes | 10% of candidate KV sent | 50% sent | 90% sent |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `default` | 6,981,156,864 | 5,544,640,512 | 71.48% / 3.51× | 39.71% / 1.66× | 7.94% / 1.09× |
+| `seen-first` | 6,981,156,864 | 5,804,457,984 | 74.83% / 3.97× | 41.57% / 1.71× | 8.31% / 1.09× |
+
+For `seen-first` at 10% changed, the model sends about **1.76 GB of 6.98 GB**. If only 30% of the original TTFT scales with payload size and extra processing costs zero, that case gives about **1.29× TTFT speedup**. Both policies converge to the measured full payload at 100% changed. The all-base scenario for these independent questions would require retaining and locating compatible KV across requests on D.

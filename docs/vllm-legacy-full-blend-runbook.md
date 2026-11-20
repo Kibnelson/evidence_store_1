@@ -166,6 +166,41 @@ From a current checkout inside an idle four-GPU allocation, run the block below.
 
 Use the `--compare` command above with the two printed MT-RAG cohort paths. Check matching evidence selections and verified LMCache restores on later turns. The optional `openclaw` comparison remains available from the same workload and index.
 
+### Repeat MT-RAG and MuSiQue with delta estimates
+
+Use the same four-GPU tmux allocation as above. Paste this block inside the GPU shell. It clones `main` to node-local scratch, so you can run it from your home directory. It reuses a verified runtime if `EVIDENCESTORE_LEGACY_RUNTIME` is set and builds one otherwise. Both workloads replay their same 40 selected requests with fresh 1B/3D workers. Set `MTRAG_PREPARED` and `MUSIQUE_PREPARED` if their prepared indexes are available.
+
+```bash
+(
+  set -euo pipefail
+  umask 077
+  : "${SLURM_JOB_ID:?Run inside the four-GPU allocation}"
+  node_root="/tmp/$(id -un)"
+  mkdir -p "$node_root"
+  [[ -O "$node_root" && ! -L "$node_root" ]]
+  df -h "$node_root"
+  source_repo=$(mktemp -d "$node_root/blend-estimate-source-$SLURM_JOB_ID.XXXXXX")
+  git clone --depth=1 --branch main --no-tags \
+    https://github.com/Kibnelson/evidence_store_1.git "$source_repo"
+  test -r "$source_repo/scripts/vllm_pd_legacy_delta_estimate.py"
+  if [[ -z "${EVIDENCESTORE_LEGACY_RUNTIME:-}" ]]; then
+    activation_receipt=$(mktemp "$node_root/blend-estimate-activation-$SLURM_JOB_ID.XXXXXX")
+    trap 'rm -f -- "$activation_receipt"' EXIT
+    bash "$source_repo/scripts/vllm_pd_legacy_blend_runtime.sh" "$activation_receipt"
+    source "$(<"$activation_receipt")"
+    export EVIDENCESTORE_LEGACY_RUNTIME="$PD_EXEC_ROOT"
+  fi
+  export EVIDENCESTORE_LEGACY_REPORT_DIR="${EVIDENCESTORE_LEGACY_REPORT_DIR:-$node_root/blend-estimate-archives-$SLURM_JOB_ID}"
+  runner="$source_repo/scripts/vllm_pd_legacy_blend_run.sh"
+  bash "$runner" 1b3d on mtrag-multi-turn-repeat previous-turn-first --estimate-delta
+  bash "$runner" 1b3d on musique-single-turn-40 seen-first --estimate-delta
+)
+```
+
+The workers send the full NIXL payload. With `--estimate-delta`, the runner saves `legacy-delta-estimate.json` and `legacy-delta-estimate.jsonl` under each printed `1p3d/blend/` cohort. The first file has totals, and the second links each natural request to its measured bytes, READ interval, and chunk candidates. The scenarios assume 10%, 50%, 90%, or 100% of covered KV changes. Both workloads report the scope where D has a base for all verified repeat restores. MT-RAG also reports the narrower scope limited to chunks in the previous turn of the same conversation. These assumptions give a projected byte saving and ideal bandwidth-only speedup. The live timings still come from full transfers. [Formula sheet](kv-delta-speedup.md)
+
+To generate the same estimates from a published cohort without a GPU, run `python3 scripts/vllm_pd_legacy_delta_estimate.py "$cohort" --output "$(mktemp -d)"`. The publisher verifies and includes the estimate summary and compressed request log when the launcher records the opt-in. [Publish the review packet](#publish-the-review-packet-to-git)
+
 ## Retry using a verified runtime
 
 If a worker startup failed after runtime verification, use a fresh checkout of `main` and the original idle GPU allocation. Set `EVIDENCESTORE_LEGACY_RUNTIME` to the absolute runtime scratch directory printed during setup. The runner checks source compatibility, applies the worker import fix if needed, verifies the Python import, and reuses the built runtime and any prepared index for the selected workload. Each retry has its own result directory and launcher log. A new allocation can reuse those files on the same node while the scratch directory remains available.

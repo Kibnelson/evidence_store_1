@@ -8,6 +8,7 @@ layout="${1:-1b3d}"
 trace="${2:-on}"
 workload="${3:-musique-smoke}"
 prompt_policy="${4:-default}"
+estimate_delta="${5:-}"
 case "$layout" in
   1b3d) topology=1p3d ;;
   2b2d) topology=2p2d ;;
@@ -19,14 +20,21 @@ case "$workload" in
   musique-single-turn-40|mtrag-multi-turn-repeat) run_prefix="$workload" ;;
   *) printf 'Unknown Full Blend workload %s\n' "$workload" >&2; exit 2 ;;
 esac
-if (( $# > 4 )) || [[ "$trace" != on && "$trace" != off ]]; then
-  printf 'Usage: %s [1b3d|2b2d|both] [on|off] [workload] [default|seen-first|openclaw|previous-turn-first]\n' "$0" >&2
+if (( $# > 5 )) || [[ "$trace" != on && "$trace" != off ]] ||
+    [[ -n "$estimate_delta" && "$estimate_delta" != --estimate-delta ]]; then
+  printf 'Usage: %s [1b3d|2b2d|both] [on|off] [workload] [prompt-policy] [--estimate-delta]\n' "$0" >&2
   exit 2
 fi
 case "$prompt_policy:$workload" in
   default:*|seen-first:musique-*|openclaw:mtrag-multi-turn-repeat|previous-turn-first:mtrag-multi-turn-repeat) ;;
   *) printf 'Use seen-first with MuSiQue, and openclaw or previous-turn-first with MT-RAG.\n' >&2; exit 2 ;;
 esac
+if [[ -n "$estimate_delta" ]]; then
+  case "$trace:$prompt_policy:$workload" in
+    on:previous-turn-first:mtrag-multi-turn-repeat|on:seen-first:musique-single-turn-40) ;;
+    *) printf 'Use --estimate-delta with trace on and MT-RAG previous-turn-first or MuSiQue seen-first.\n' >&2; exit 2 ;;
+  esac
+fi
 
 source_repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 node_root="/tmp/$(id -un)"
@@ -104,9 +112,12 @@ if [[ -n "$retained" ]]; then
   sha256sum "$lane_patch" > "$CHECK_ROOT/$run_name-lane-support.sha256"
 fi
 printf 'Run artifacts: %s\n' "$run_root"
-"$PYTHON" "$launcher_repo/scripts/vllm_pd_legacy_blend.py" run --topology "$topology" \
-  --trace "$trace" --workload "$workload" --prompt-policy "$prompt_policy" \
-  --prepared "$prepared" --run-root "$run_root" 2>&1 | tee "$run_log"
+replay_args=(run --topology "$topology" --trace "$trace" --workload "$workload"
+  --prompt-policy "$prompt_policy" --prepared "$prepared" --run-root "$run_root")
+if [[ -n "$estimate_delta" ]]; then
+  replay_args+=("$estimate_delta")
+fi
+"$PYTHON" "$launcher_repo/scripts/vllm_pd_legacy_blend.py" "${replay_args[@]}" 2>&1 | tee "$run_log"
 
 report_dir="${EVIDENCESTORE_LEGACY_REPORT_DIR:-$HOME/evidence_store_legacy_reports}"
 mkdir -p "$report_dir"

@@ -13,6 +13,7 @@ from vllm_pd_blend_smoke import (
     fixture_doc, musique_sample, verify_replay_pair, write_replay_sample,
 )
 from vllm_pd_cluster import MODEL, REVISION, ROOT, TOPOLOGIES
+from vllm_pd_legacy_delta_estimate import POLICIES as DELTA_ESTIMATE_POLICIES, SCHEMA_VERSION, write_estimate
 from vllm_pd_legacy_workloads import SMOKE, WORKLOADS, load_selected
 from vllm_pd_replay import load_tokenizer
 
@@ -76,6 +77,8 @@ def run(args):
     if ((args.prompt_policy in ("openclaw", "previous-turn-first") and args.workload != "mtrag-multi-turn-repeat")
             or (args.prompt_policy == "seen-first" and args.workload == "mtrag-multi-turn-repeat")):
         raise ValueError("Use openclaw or previous-turn-first with MT-RAG, and seen-first with MuSiQue")
+    if args.estimate_delta and (args.trace != "on" or (args.workload, args.prompt_policy) not in DELTA_ESTIMATE_POLICIES):
+        raise ValueError("Delta estimates require tracing and either MT-RAG previous-turn-first or MuSiQue seen-first")
     prepared = args.prepared.resolve()
     index = prepared / "index"
     if args.workload == SMOKE:
@@ -88,6 +91,8 @@ def run(args):
         manifest["evidence_order"] = args.prompt_policy
     elif args.prompt_policy == "openclaw":
         manifest["prompt_format"] = "legacy-blend-openclaw"
+    if args.estimate_delta:
+        manifest["delta_estimate_schema"] = SCHEMA_VERSION
     tokenizer = load_tokenizer(MODEL, REVISION)
     layouts = TOPOLOGIES if args.topology == "both" else (args.topology,)
     root = args.run_root.resolve()
@@ -111,6 +116,9 @@ def run(args):
         ], check=True)
         subprocess.run([sys.executable, str(ROOT / "scripts/vllm_pd_legacy_blend_report.py"),
                         "--run-dir", str(cohort), "--trace", args.trace], check=True)
+        if args.estimate_delta:
+            write_estimate(cohort)
+            print(f"Delta estimate and per-request receipts saved in {cohort}", flush=True)
     if not args.prepare_only and args.topology == "both":
         verify_replay_pair(root, manifest["dataset"], len(sample))
 
@@ -124,6 +132,7 @@ def main():
     smoke.add_argument("--prepared", "--musique-prepared", dest="prepared", type=Path, required=True)
     smoke.add_argument("--workload", choices=WORKLOADS, default=SMOKE)
     smoke.add_argument("--prompt-policy", choices=PROMPT_POLICIES, default="default")
+    smoke.add_argument("--estimate-delta", action="store_true", help="save hypothetical changed-row savings")
     smoke.add_argument("--prepare-only", action="store_true")
     workload = modes.add_parser("replay", help="replay both request groups after the workers are ready")
     workload.add_argument("--inputs", type=Path, required=True)
