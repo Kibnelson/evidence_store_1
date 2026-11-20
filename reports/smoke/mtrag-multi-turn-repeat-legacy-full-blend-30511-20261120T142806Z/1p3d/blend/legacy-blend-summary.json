@@ -1,0 +1,122 @@
+{
+  "status": "passed",
+  "trace_enabled": true,
+  "cache_backend": "in_process_local_cpu_per_prefiller",
+  "prefill_workers": [
+    "p0"
+  ],
+  "decode_workers": [
+    "d0",
+    "d1",
+    "d2"
+  ],
+  "natural_requests": 40,
+  "controlled_requests": 2,
+  "completed_nixl_reads": 42,
+  "completed_nixl_bytes": 11142955008,
+  "nixl_reconciliation": {
+    "status": "matched",
+    "workers": {
+      "p0": {
+        "prometheus": {
+          "sum": 0,
+          "count": 0
+        },
+        "trace": {
+          "sum": 0,
+          "count": 0
+        },
+        "matched": true
+      },
+      "d0": {
+        "prometheus": {
+          "sum": 4284481536,
+          "count": 16
+        },
+        "trace": {
+          "sum": 4284481536,
+          "count": 16
+        },
+        "matched": true
+      },
+      "d1": {
+        "prometheus": {
+          "sum": 3298295808,
+          "count": 13
+        },
+        "trace": {
+          "sum": 3298295808,
+          "count": 13
+        },
+        "matched": true
+      },
+      "d2": {
+        "prometheus": {
+          "sum": 3560177664,
+          "count": 13
+        },
+        "trace": {
+          "sum": 3560177664,
+          "count": 13
+        },
+        "matched": true
+      }
+    }
+  },
+  "prompt_policy": "openclaw",
+  "prompt_format": "legacy-blend-openclaw",
+  "workload": "mtrag-multi-turn-repeat",
+  "natural_label": "mtrag",
+  "domain": "clapnq",
+  "conversation_turn_counts": {
+    "0208bf26ec357a803445290fa88a2e9e": 7,
+    "1534a095279f2cb888fb0bea17bd70da": 5,
+    "a2698b2973ea7db1ee5adb5e70ec02e4": 9,
+    "a3f07e9ed5f257db6aecd30511f03af1": 7,
+    "c1e53df98a28f19448f4af244304b89a": 6,
+    "cfbcfa3e382f12aed450b10f87a72aeb": 6
+  },
+  "selection_agreement": {
+    "matching_retrieval_identity_and_ranks": 40,
+    "matching_kept_identity_and_ranks": 40,
+    "mismatching_request_keys": []
+  },
+  "natural_evidence_occurrences": 240,
+  "natural_repeat_occurrences": 108,
+  "natural_same_worker_repeat_occurrences": 108,
+  "natural_shifted_restore_occurrences": 0,
+  "controlled_reuse_verified_on": [
+    "p0"
+  ],
+  "transfer_payload_bytes_by_label": {
+    "mtrag": {
+      "nixl_p2d": 10439884800,
+      "lmcache_d2h": 6598361088,
+      "lmcache_h2d": 286507008
+    },
+    "legacy-probes": {
+      "nixl_p2d": 703070208,
+      "lmcache_d2h": 350502912,
+      "lmcache_h2d": 348438528
+    }
+  },
+  "measurement_scope": {
+    "model_gpu_duration": "CUDA event duration for each ordinary model forward batch",
+    "blend_computation": "Token positions that reached each Blend layer's attention and MLP, mapped to evidence spans. The check-layer projections and scoring can visit more positions.",
+    "lmcache_movement_duration": "Host interval through the native completion fence",
+    "trace_only_gpu_synchronization": true
+  },
+  "natural_verified_restore_occurrences": 6,
+  "conversation_reuse": {
+    "within_conversation": {
+      "repeat_occurrences": 93,
+      "verified_restore_occurrences": 0,
+      "shifted_restore_occurrences": 0
+    },
+    "across_conversations": {
+      "repeat_occurrences": 27,
+      "verified_restore_occurrences": 6,
+      "shifted_restore_occurrences": 0
+    }
+  }
+}

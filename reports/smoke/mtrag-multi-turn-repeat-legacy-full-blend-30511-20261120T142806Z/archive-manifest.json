@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "run_id": "mtrag-multi-turn-repeat-legacy-full-blend-30511-20261120T142806Z",
+  "layouts": [
+    "1p3d"
+  ],
+  "source_archive_sha256": "b9e8f1dc53ae84a096baae9580d9261c6f59dd6a4854d5f8b324827c2e10bcbd",
+  "runtime": {
+    "vllm": "0.23.0",
+    "lmcache": "0.5.0",
+    "torch": "2.11.0+cu129",
+    "nixl": "1.4.1",
+    "faiss": "1.16.0",
+    "torch_cuda": "12.9",
+    "vllm_wheel_base": "0fc695fc6d1d82e9a5ac6835ac8e4e1c83703665",
+    "vllm_wheel_sha256": "d90a2beec3638dda3e01aab2b2d34c7f44bfa5044cc6bef58c99ac987edfe207",
+    "ucx_memory_types": [
+      "DRAM_SEG",
+      "VRAM_SEG"
+    ],
+    "standalone_patch_sha256": "509c1afcc1478a0f4fd9b0a63829ef674705188b66ca66437f3678700de8df77",
+    "trace_overlay_sha256": "c8dd6268db561f3f9eb7878dfd7b9b5083bbd8d32d7cff3bdc93087b4ad91592",
+    "lane_support_patch_sha256": "9c4eec40292ff356e989dcb9c3cb530fafb8631ee0277f05ec16b27e78f5e94d",
+    "worker_runner_module": "vllm.v1.worker.gpu_model_runner",
+    "build_commit": "3cbdc4b9d32d1055b45335474ae74a60067f6a49",
+    "replay_commit": "3cbdc4b9d32d1055b45335474ae74a60067f6a49"
+  },
+  "files": {
+    "1p3d/blend/cleanup.json": {
+      "bytes": 206,
+      "sha256": "27e6e5e1370b97d46eee04bc75efb9d6f2aa6d8979b6d2c200ca9b2712195230"
+    },
+    "1p3d/blend/legacy-blend-summary.json": {
+      "bytes": 3164,
+      "sha256": "ca99cad02cd46cd4043f953714e674a9aa8e5149deb14424950eaac4e79a8a88"
+    },
+    "1p3d/blend/legacy-chunks.jsonl.gz": {
+      "bytes": 48433,
+      "sha256": "5c644d3abe49566037fc15d34b3c6f544ae7363795f48c42445c0945a8f5437f"
+    },
+    "1p3d/blend/legacy-requests.jsonl.gz": {
+      "bytes": 97497,
+      "sha256": "fb243abb7ca46c694169af653302baf3ad2a6b0862a77855b6270661165cf584"
+    },
+    "1p3d/blend/metrics-after.json": {
+      "bytes": 293,
+      "sha256": "18681d130d9cccaa7891353e0889a13b8b3ca79c9d3e2639545401194369019c"
+    },
+    "1p3d/blend/metrics-before.json": {
+      "bytes": 263,
+      "sha256": "74c3ff75c12878675cac45ab6ba589a4a56550644749d89ed17bc8b7a829f304"
+    },
+    "1p3d/blend/provenance.json": {
+      "bytes": 127202,
+      "sha256": "df4815cac04ffac3fab2dad10e0a98fcd991191587c7654bfbd6f5d3f058288b"
+    },
+    "1p3d/blend/responses.jsonl.gz": {
+      "bytes": 4762,
+      "sha256": "403a347af1a381580aac17136a035f7c1529b81126f1345055655a32e380fef1"
+    }
+  }
+}
