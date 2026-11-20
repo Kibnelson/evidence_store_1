@@ -77,3 +77,19 @@ Each archived `<topology>/blend/` directory contains:
 - `client/`, `trace/`, counter snapshots, worker logs, and `cleanup.json` as supporting evidence.
 
 When `layout=both`, `musique-pair.json` verifies matching natural prompts and evidence across layouts. Review the smoke before launching the full MuSiQue workload.
+
+## Publish the review packet to Git
+
+From a scratch checkout on `main`, set `archive` to the `.tar.gz` path and `archive_sha256` to the digest printed at the end of the smoke. The publisher verifies the tarball, recomputes the measurement report from the traces, and stages the summary, request and chunk measurements, counters, response hashes, and source receipt in `reports/smoke/<run-id>/`. Prompt and completion content and build logs stay in the original tarball.
+
+```bash
+if result=$(python3 scripts/vllm_pd_legacy_blend_archive.py \
+      --source "$archive" --sha256 "$archive_sha256"); then
+  git remote set-url --push origin git@github.com:Kibnelson/evidence_store_1.git &&
+    git add -- "$result" &&
+    git commit -m "Archive Full Blend smoke ${result##*/}" -- "$result" &&
+    git push origin main
+fi
+```
+
+After pulling that result commit, verify the review packet with `python3 scripts/vllm_pd_legacy_blend_archive.py --verify "$result"` from the repository root.
