@@ -309,6 +309,10 @@ def replay(args):
             row.get("conversation_id") or row.get("reference_history") for row in rows
         ):
             raise ValueError("Seen-first evidence ordering requires single-turn queries")
+        if args.evidence_order == "previous-turn-first" and any(
+            row.get("dataset") != "mtrag" or not row.get("conversation_id") for row in rows
+        ):
+            raise ValueError("Previous-turn-first evidence ordering requires MT-RAG conversation turns")
         retriever = HnswRetriever(args.index_dir, args.embedding_device)
         tokenizer = load_tokenizer(args.tokenizer, args.tokenizer_revision)
     if not rows or len({row["request_key"] for row in rows}) != len(rows):
@@ -325,22 +329,40 @@ def replay(args):
     failed = 0
     lock = Lock()
     seen_chunks = {}
+    previous_turns = {}
+    previous_turn_first = args.evidence_order == "previous-turn-first"
 
     def first_seen(chunk):
         return seen_chunks.get(_chunk_identity(chunk), len(seen_chunks))
-
-    evidence_order = first_seen if args.evidence_order == "seen-first" else None
 
     def run_group(group, epoch):
         offset = group[0][1].get("start_offset_us", 0)
         delay = (epoch + offset * 1000 - time.monotonic_ns()) / 1e9
         if delay > 0:
             time.sleep(delay)
+        if previous_turn_first:
+            conversation_id = group[0][1]["conversation_id"]
+            previous_order = previous_turns.setdefault(conversation_id, {})
+
+            def previous_prompt_order(chunk):
+                identity = _chunk_identity(chunk)
+                if identity in previous_order:
+                    return 0, previous_order[identity]
+                return 1, seen_chunks.get(identity, len(seen_chunks))
+
+            evidence_order = previous_prompt_order
+        else:
+            evidence_order = first_seen if args.evidence_order == "seen-first" else None
+
         for index, row in group:
             frozen, response = serve_row(args, row, tracer, retriever, tokenizer, evidence_order)
             if evidence_order is not None and response["success"]:
-                for chunk in frozen["evidence"]:
-                    seen_chunks.setdefault(_chunk_identity(chunk), len(seen_chunks))
+                identities = [_chunk_identity(chunk) for chunk in frozen["evidence"]]
+                for identity in identities:
+                    seen_chunks.setdefault(identity, len(seen_chunks))
+                if previous_turn_first:
+                    previous_order.clear()
+                    previous_order.update((identity, position) for position, identity in enumerate(identities))
             yield index, frozen, response
 
     with (output / "responses.jsonl").open("x", encoding="utf-8") as receipt:
@@ -387,7 +409,7 @@ def replay(args):
     for prompt_format in PROMPT_FORMATS[1:]:
         if formats == {prompt_format}:
             manifest["prompt_format"] = prompt_format
-    if evidence_order is not None:
+    if args.evidence_order != "retrieval":
         manifest["evidence_order"] = args.evidence_order
     (output / "manifest.json").write_text(json_line(manifest), encoding="utf-8")
     print(f"{manifest['succeeded']}/{manifest['requested']} complete. Receipts: {output}")
@@ -447,15 +469,15 @@ def parse_args(argv=None):
                       help="trace live corpus-row reads, prompt chunks, and whole-prompt assembly")
     send.add_argument("--prompt-format", choices=PROMPT_FORMATS, default="standard",
                       help="render live queries with the selected prompt format")
-    send.add_argument("--evidence-order", choices=("retrieval", "seen-first"), default="retrieval",
-                      help="order retained evidence by retrieval rank or by first appearance in serial replay")
+    send.add_argument("--evidence-order", choices=("retrieval", "seen-first", "previous-turn-first"),
+                      default="retrieval", help="order retained evidence using retrieval rank or replay history")
     args = parser.parse_args(argv)
     if args.command == "replay" and args.frozen and args.prompt_format != "standard":
         parser.error("--prompt-format applies to live --queries only")
-    if args.command == "replay" and args.evidence_order == "seen-first" and (
+    if args.command == "replay" and args.evidence_order != "retrieval" and (
         args.frozen or args.concurrency != 1
     ):
-        parser.error("--evidence-order seen-first requires live --queries with --concurrency 1")
+        parser.error("Replay-based evidence ordering requires live --queries with --concurrency 1")
     return args
 
 

@@ -20,7 +20,7 @@ from evidencestore.retrieval import json_line, prompt_sha256, render_prompt
 
 
 SCRIPT = Path(__file__).resolve()
-PROMPT_POLICIES = ("default", "seen-first", "openclaw")
+PROMPT_POLICIES = ("default", "seen-first", "openclaw", "previous-turn-first")
 
 
 def prepare_controlled(tokenizer, topology, output):
@@ -73,9 +73,9 @@ def replay(args):
 
 
 def run(args):
-    if ((args.prompt_policy == "openclaw" and args.workload != "mtrag-multi-turn-repeat")
+    if ((args.prompt_policy in ("openclaw", "previous-turn-first") and args.workload != "mtrag-multi-turn-repeat")
             or (args.prompt_policy == "seen-first" and args.workload == "mtrag-multi-turn-repeat")):
-        raise ValueError("OpenClaw layout requires MT-RAG and seen-first ordering requires MuSiQue")
+        raise ValueError("Use openclaw or previous-turn-first with MT-RAG, and seen-first with MuSiQue")
     prepared = args.prepared.resolve()
     index = prepared / "index"
     if args.workload == SMOKE:
@@ -84,8 +84,8 @@ def run(args):
         sample, manifest = load_selected(ROOT / "workloads" / f"{args.workload}.json", args.workload, prepared, index)
     if args.prompt_policy != "default":
         manifest["prompt_policy"] = args.prompt_policy
-    if args.prompt_policy == "seen-first":
-        manifest["evidence_order"] = "seen-first"
+    if args.prompt_policy in ("seen-first", "previous-turn-first"):
+        manifest["evidence_order"] = args.prompt_policy
     elif args.prompt_policy == "openclaw":
         manifest["prompt_format"] = "legacy-blend-openclaw"
     tokenizer = load_tokenizer(MODEL, REVISION)

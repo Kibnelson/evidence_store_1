@@ -18,7 +18,11 @@ from evidencestore.pd_report import (
 from evidencestore.retrieval import json_line, prompt_sha256, read_jsonl, sha256_file
 
 
-_PROMPT_POLICIES = {"seen-first": "legacy-blend", "openclaw": "legacy-blend-openclaw"}
+_PROMPT_POLICIES = {
+    "seen-first": "legacy-blend",
+    "previous-turn-first": "legacy-blend",
+    "openclaw": "legacy-blend-openclaw",
+}
 _LATENCY_SPANS = {
     "prompt_render": ("prompt_render_start", "prompt_render_end"),
     "client_ttft": ("client_request_start", "client_first_token"),
@@ -352,6 +356,31 @@ def _retrieval_agreement(replays, reference):
             "mismatching_request_keys": sorted(expected.keys() - (retrieved & kept))}
 
 
+def _verify_previous_turn_order(replays):
+    first_seen = {}
+    previous_turns = {}
+    for _, prompt, _ in replays:
+        conversation = prompt.get("conversation_id")
+        if not conversation:
+            raise ValueError(f"Missing conversation for {prompt['request_key']}")
+        previous = previous_turns.get(conversation, {})
+        evidence = prompt["evidence"]
+
+        def order(chunk):
+            identity = _key(chunk)
+            if identity in previous:
+                return 0, previous[identity]
+            if identity in first_seen:
+                return 1, first_seen[identity]
+            return 2, chunk["rank"]
+
+        if evidence != sorted(evidence, key=order):
+            raise ValueError(f"Previous-turn-first evidence order differs for {prompt['request_key']}")
+        for chunk in evidence:
+            first_seen.setdefault(_key(chunk), len(first_seen))
+        previous_turns[conversation] = {_key(chunk): index for index, chunk in enumerate(evidence)}
+
+
 def _prompt_settings(sample):
     if "prompt_policy" not in sample:
         if sample.get("prompt_format", "legacy-blend") != "legacy-blend" or "evidence_order" in sample:
@@ -363,10 +392,10 @@ def _prompt_settings(sample):
     if prompt_format is None or sample.get("prompt_format") != prompt_format:
         raise ValueError("Natural replay prompt format differs from its policy")
     settings = {"prompt_policy": policy, "prompt_format": prompt_format}
-    if policy == "seen-first":
-        if sample.get("evidence_order") != "seen-first":
-            raise ValueError("The seen-first policy requires seen-first evidence order")
-        settings["evidence_order"] = "seen-first"
+    if policy in ("seen-first", "previous-turn-first"):
+        if sample.get("evidence_order") != policy:
+            raise ValueError(f"The {policy} policy requires {policy} evidence order")
+        settings["evidence_order"] = policy
     elif "evidence_order" in sample:
         raise ValueError("The openclaw policy requires retrieval-ranked evidence")
     return settings
@@ -390,6 +419,8 @@ def report(run_dir, *, trace):
     if selected and (sample["queries_sha256"] != sha256_file(queries)
                      or sample["query_keys"] != [prompt["request_key"] for _, prompt, _ in natural_replays]):
         raise ValueError("Natural replay differs from the selected workload")
+    if settings.get("evidence_order") == "previous-turn-first":
+        _verify_previous_turn_order(natural_replays)
     probes = _read_replay(run_dir, "legacy-probes", run_dir / "inputs/controlled.jsonl",
                           len(prefill) * 2, live=False, trace=trace)
     cases = Counter((prompt["pd_route"]["prefill"], prompt["case"]) for _, prompt, _ in probes)

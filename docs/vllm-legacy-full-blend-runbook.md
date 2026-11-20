@@ -47,7 +47,7 @@ Change `layout` to `2b2d` or `both` to change the GPU split. Keep `trace=on` for
 
 Set `workload=musique-single-turn-40` or `workload=mtrag-multi-turn-repeat` to run the selected high-repeat workloads. The MT-RAG mode stages the pinned Human release and builds the full CLAPNQ index. `MTRAG_PREPARED` can point to an existing prepared CLAPNQ corpus and index. [Request selections and repeat counts](datasets/repeat-workloads.md)
 
-Use `prompt_policy=seen-first` for MuSiQue or `prompt_policy=openclaw` for MT-RAG. Keep `prompt_policy=default` for the baseline layout. [Prompt policy details and comparison commands](#compare-prompt-policies)
+Use `prompt_policy=seen-first` for MuSiQue or `prompt_policy=previous-turn-first` for the MT-RAG ordering test. MT-RAG also supports `prompt_policy=openclaw`. Keep `prompt_policy=default` for the baseline layout. [Prompt policy details and comparison commands](#compare-prompt-policies)
 
 Detach with `Ctrl+b` then `d`. To reattach, reconnect to the same login node and run:
 
@@ -76,6 +76,7 @@ The fourth optional launcher argument controls client-side prompt assembly. `tra
 | --- | --- | --- |
 | `default` | Any | Instructions, then `¶`-delimited evidence in Faiss order, then saved conversation history and the current question. |
 | `seen-first` | MuSiQue | Uses the default layout and selects evidence by the original retrieval ranking and prompt budget. Among the selected chunks, orders chunks seen on earlier successful requests by their first appearance during serial replay, then places new chunks in Faiss order. Receipts record original retrieval ranks. |
+| `previous-turn-first` | `mtrag-multi-turn-repeat` | Uses the legacy layout with evidence before history and question. Orders selected chunks retained by the previous successful turn of the same conversation in that turn’s prompt order. Other chunks retained by earlier successful requests follow in order of first appearance in the replay. Unseen chunks follow in Faiss order. Selection uses the original Faiss ranks and prompt budget. Receipts record the original retrieval ranks. |
 | `openclaw` | `mtrag-multi-turn-repeat` | Instructions `¶` saved reference history and current question `¶` retrieved documents in Faiss order `¶` answer cue. |
 
 For `seen-first`, earlier inclusion is an ordering signal across the replay. In 2B/2D, an earlier request can have used the other producer's cache. Evaluate actual reuse from completed host-to-device restores and traced Blend recompute.
@@ -136,11 +137,42 @@ The comparison matches requests and versioned chunks and reports ordinary P toke
 
 Check the p50 and p95 prompt-render time, client time to first token (TTFT), dispatch-to-first-token time, and prefill HTTP time. The report also computes gated-minus-default differences for matching request keys. Client TTFT includes retrieval and prompt assembly. Dispatch-to-first-token time starts after those stages. These timings include the synchronization used by trace-on runs.
 
+### Test MT-RAG only
+
+From a current checkout inside an idle four-GPU allocation, run the block below. Both arms replay the same 40 CLAPNQ turns in order with tracing on. The first arm prepares the CLAPNQ index if needed, and the second reuses it. Set `MTRAG_PREPARED` to use an existing prepared CLAPNQ corpus and index. The block can reuse an exported `EVIDENCESTORE_LEGACY_RUNTIME` that points to a verified runtime on this node. Archives default to node-local scratch.
+
+```bash
+(
+  set -euo pipefail
+  umask 077
+  : "${SLURM_JOB_ID:?Run inside the four-GPU allocation}"
+  source_repo=$(git rev-parse --show-toplevel)
+  node_root="/tmp/$(id -un)"
+  mkdir -p "$node_root"
+  [[ -O "$node_root" && ! -L "$node_root" ]]
+  if [[ -z "${EVIDENCESTORE_LEGACY_RUNTIME:-}" ]]; then
+    activation_receipt=$(mktemp "$node_root/blend-mtrag-activation-$SLURM_JOB_ID.XXXXXX")
+    trap 'rm -f -- "$activation_receipt"' EXIT
+    bash "$source_repo/scripts/vllm_pd_legacy_blend_runtime.sh" "$activation_receipt"
+    source "$(<"$activation_receipt")"
+    export EVIDENCESTORE_LEGACY_RUNTIME="$PD_EXEC_ROOT"
+  fi
+  export EVIDENCESTORE_LEGACY_REPORT_DIR="${EVIDENCESTORE_LEGACY_REPORT_DIR:-$node_root/blend-mtrag-archives-$SLURM_JOB_ID}"
+  runner="$source_repo/scripts/vllm_pd_legacy_blend_run.sh"
+  bash "$runner" 1b3d on mtrag-multi-turn-repeat default
+  bash "$runner" 1b3d on mtrag-multi-turn-repeat previous-turn-first
+)
+```
+
+Use the `--compare` command above with the two printed MT-RAG cohort paths. Check matching evidence selections and verified LMCache restores on later turns. The optional `openclaw` comparison remains available from the same workload and index.
+
 ## Retry using a verified runtime
 
 If a worker startup failed after runtime verification, use a fresh checkout of `main` and the original idle GPU allocation. Set `EVIDENCESTORE_LEGACY_RUNTIME` to the absolute runtime scratch directory printed during setup. The runner checks source compatibility, applies the worker import fix if needed, verifies the Python import, and reuses the built runtime and any prepared index for the selected workload. Each retry has its own result directory and launcher log. A new allocation can reuse those files on the same node while the scratch directory remains available.
 
 ## Review the archive
+
+[Full Blend tracing for compute and KV movement](vllm-legacy-full-blend-tracing.md) explains the source hooks, per-chunk attribution, and a verified MuSiQue example.
 
 A successful run saves the archive in `$HOME/evidence_store_legacy_reports` and prints its path and SHA-256. Set `EVIDENCESTORE_LEGACY_REPORT_DIR` to a writable persistent directory if the home quota is full. A build, replay, verification, or archive failure leaves the Slurm shell open with the scratch and log locations in the pane output.
 

@@ -20,12 +20,12 @@ case "$workload" in
   *) printf 'Unknown Full Blend workload %s\n' "$workload" >&2; exit 2 ;;
 esac
 if (( $# > 4 )) || [[ "$trace" != on && "$trace" != off ]]; then
-  printf 'Usage: %s [1b3d|2b2d|both] [on|off] [workload] [default|seen-first|openclaw]\n' "$0" >&2
+  printf 'Usage: %s [1b3d|2b2d|both] [on|off] [workload] [default|seen-first|openclaw|previous-turn-first]\n' "$0" >&2
   exit 2
 fi
 case "$prompt_policy:$workload" in
-  default:*|seen-first:musique-*|openclaw:mtrag-multi-turn-repeat) ;;
-  *) printf 'Use seen-first with MuSiQue or openclaw with MT-RAG.\n' >&2; exit 2 ;;
+  default:*|seen-first:musique-*|openclaw:mtrag-multi-turn-repeat|previous-turn-first:mtrag-multi-turn-repeat) ;;
+  *) printf 'Use seen-first with MuSiQue, and openclaw or previous-turn-first with MT-RAG.\n' >&2; exit 2 ;;
 esac
 
 source_repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
