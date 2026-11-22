@@ -74,16 +74,22 @@ This run uses 1B/3D, so all 40 selected CLAPNQ turns across six conversations us
 
 ### Start the allocation and run the trace
 
-From the Slurm login node, start a dedicated tmux session. If you already have an idle four-GPU allocation on `gpu-grad-01`, use its GPU shell.
+From the Slurm login node, start a dedicated tmux session. If you already have a tmux pane on the login node, run the allocation block at its prompt. If you already have an idle four-GPU allocation on `gpu-grad-01`, use its GPU shell.
 
 ```bash
-module load slurm && srun --version &&
-  tmux -L evidence-store-mtrag-storage -f /dev/null new-session -s mtrag-storage \
-    /bin/bash --noprofile --norc -c '
-      srun -p all -A oana2026 -q research12h -N 1 -w gpu-grad-01 \
-        --gpus=4 -c 16 --mem=192G -t 12:00:00 --pty bash -l
-      exec /bin/bash --noprofile --norc -i
-    '
+tmux -L evidence-store-mtrag-storage -f /dev/null new-session -A -s mtrag-storage \
+  /bin/bash -il
+```
+
+At the pane prompt, load and verify Slurm in the same shell that submits the allocation. If `module` is unavailable in an existing pane, run `exec bash -il` first and then paste the allocation block.
+
+```bash
+if [[ -n "${SLURM_JOB_ID:-}" ]]; then
+  printf 'Already inside Slurm job %s. Use the compute-node step.\n' "$SLURM_JOB_ID"
+elif module load slurm && srun --version; then
+  srun -p all -A oana2026 -q research12h -N 1 -w gpu-grad-01 \
+    --gpus=4 -c 16 --mem=192G -t 12:00:00 --pty bash -l
+fi
 ```
 
 Detach with `Ctrl+b` then `d`. Reattach from the same login node with `tmux -L evidence-store-mtrag-storage attach-session -t mtrag-storage`.
