@@ -92,6 +92,8 @@ def arguments() -> argparse.Namespace:
                         help="sample differential KV storage on legacy Full Blend producers")
     parser.add_argument("--trace-kv-pages", action="store_true",
                         help="measure differential storage for native P pages in the Full Blend smoke")
+    parser.add_argument("--capture-kv-pages", action="store_true",
+                        help="capture raw page payloads from the four-turn KV page smoke")
     parser.add_argument("--lmcache-size-gb", type=float, default=8)
     parser.add_argument("--lmcache-chunk-size", type=int, default=256)
     parser.add_argument("--lmcache-port", type=int, default=6555)
@@ -124,6 +126,8 @@ def arguments() -> argparse.Namespace:
     if args.trace_kv_pages and (not args.legacy_full_blend or args.trace != "on" or args.topology != "1p3d"
                                 or args.trace_kv_storage):
         parser.error("--trace-kv-pages requires legacy Full Blend, 1p3d, trace on, and no object storage trace")
+    if args.capture_kv_pages and not args.trace_kv_pages:
+        parser.error("--capture-kv-pages requires --trace-kv-pages")
     if args.minimum_nixl_reads < 0 or (args.minimum_nixl_reads and not args.client):
         parser.error("--minimum-nixl-reads requires a workload and a nonnegative count")
     args.trace_blend_server = bool(args.prefill_mode and not args.external_lmcache and args.trace == "on")
@@ -263,6 +267,7 @@ def worker_env(args: argparse.Namespace, worker: Worker) -> dict[str, str]:
         "EVIDENCESTORE_PD_TRACE": "1" if args.trace == "on" else "0",
         "EVIDENCESTORE_TRACE_KV_STORAGE": "1" if args.trace_kv_storage and worker.role == "P" else "0",
         "EVIDENCESTORE_TRACE_KV_PAGES": "1" if args.trace_kv_pages and worker.role == "P" else "0",
+        "EVIDENCESTORE_CAPTURE_KV_PAGES": "1" if args.capture_kv_pages and worker.role == "P" else "0",
         "EVIDENCESTORE_TRACE_DIR": str(args.run_dir / "trace"),
         "EVIDENCESTORE_RUN_ID": args.run_dir.name,
         "EVIDENCESTORE_WORKER_ID": worker.id,
@@ -698,7 +703,8 @@ def run(args: argparse.Namespace) -> int:
         manifest["legacy_full_blend"] = {"mode": "in_process", "cache_per_producer_gib": args.lmcache_size_gb,
                                          "lmcache_source": identity["lmcache_source"],
                                          "kv_storage_trace_enabled": args.trace_kv_storage,
-                                         "kv_page_trace_enabled": args.trace_kv_pages}
+                                         "kv_page_trace_enabled": args.trace_kv_pages,
+                                         "raw_page_capture_enabled": args.capture_kv_pages}
         for worker, _, env in plans:
             if worker.role == "P":
                 write_json(Path(env["LMCACHE_CONFIG_FILE"]), {

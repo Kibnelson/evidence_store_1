@@ -90,6 +90,8 @@ def run(args):
         raise ValueError("The KV page smoke requires MT-RAG previous-turn-first, 1p3d, and trace on")
     if args.trace_kv_pages and (args.trace_kv_storage or args.estimate_delta):
         raise ValueError("Run the KV page smoke separately from KV storage tracing and delta estimates")
+    if args.capture_kv_pages and not args.trace_kv_pages:
+        raise ValueError("Raw KV page capture requires the four-turn page trace")
     prepared = args.prepared.resolve()
     index = prepared / "index"
     if args.workload == SMOKE:
@@ -121,6 +123,8 @@ def run(args):
         cohort = layout / "blend"
         storage_flags = ["--trace-kv-storage"] if args.trace_kv_storage else []
         page_flags = ["--trace-kv-pages"] if args.trace_kv_pages else []
+        if args.capture_kv_pages:
+            page_flags.append("--capture-kv-pages")
         subprocess.run([
             sys.executable, str(ROOT / "scripts/vllm_pd_cluster.py"), "--legacy-full-blend",
             "--run-dir", str(cohort), "--topology", topology, "--trace", args.trace,
@@ -156,6 +160,7 @@ def main():
     smoke.add_argument("--prompt-policy", choices=PROMPT_POLICIES, default="default")
     smoke.add_argument("--estimate-delta", action="store_true", help="save hypothetical changed-row savings")
     smoke.add_argument("--trace-kv-pages", action="store_true", help="measure KV pages on four selected MT-RAG turns")
+    smoke.add_argument("--capture-kv-pages", action="store_true", help="save the committed raw page tensors for offline comparison")
     smoke.add_argument("--prepare-only", action="store_true")
     workload = modes.add_parser("replay", help="replay both request groups after the workers are ready")
     workload.add_argument("--inputs", type=Path, required=True)

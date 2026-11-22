@@ -16,6 +16,7 @@ from vllm_pd_smoke_archive import MANIFEST, ROOT, fingerprint, read_json, sha256
 from vllm_pd_detail_archive import _RESPONSE_FIELDS, _encode, _output, _read_rows, _select
 from vllm_pd_legacy_blend_report import report
 from vllm_pd_legacy_delta_estimate import FILES as ESTIMATE_FILES, SCHEMA_VERSION, write_estimate
+from vllm_pd_legacy_page_payloads import AVAILABLE, PAYLOAD_DIRECTORY, capture_records, load_payload, payload_path
 from vllm_pd_legacy_page_report import REPORT_FILENAME as PAGE_REPORT, build_report as build_page_report
 from vllm_pd_legacy_storage_report import REPORT_FILENAME as STORAGE_REPORT, build_report
 from vllm_pd_legacy_storage_smoke import VERIFICATION_INPUT, VERIFICATION_LABEL
@@ -109,7 +110,26 @@ def stage_delta_estimate(package, names, prefix, work, destination, sample, trac
             shutil.copyfile(work / name, destination / name)
 
 
-def stage_cohort(package, names, prefix, work, destination, layout, job_id, workload):
+def _payload_specs(report):
+    raw_sizes = capture_records(report)
+    compressed_sizes = {}
+    for row in report["stores"]:
+        digest = row.get("tensor_sha256")
+        if (digest in raw_sizes and row.get("payload_capture_status") in AVAILABLE
+                and row.get("native_transfer_matched") is True):
+            size = row["payload_capture_compressed_bytes"]
+            if type(size) is not int or size <= 0 or compressed_sizes.setdefault(digest, size) != size:
+                raise ValueError("Invalid compressed page capture size")
+    if "raw_page_capture" in report:
+        capture = report["raw_page_capture"]
+        if (capture["native_matched_unique_payloads"] != len(raw_sizes)
+                or capture["native_matched_raw_bytes"] != sum(raw_sizes.values())
+                or capture["native_matched_compressed_bytes"] != sum(compressed_sizes.values())):
+            raise ValueError("Raw payload receipts disagree with the page report summary")
+    return {digest: (size, compressed_sizes[digest]) for digest, size in raw_sizes.items()}
+
+
+def stage_cohort(package, names, prefix, work, destination, layout, job_id, workload, *, include_raw_kv_pages=False):
     for name in CORE_FILES:
         copy_member(package, prefix, name, work)
     sample = read_json(work / "inputs/manifest.json")
@@ -118,7 +138,14 @@ def stage_cohort(package, names, prefix, work, destination, layout, job_id, work
         raise ValueError(f"Unexpected dataset selection in {layout}")
     launch = read_json(work / "run_manifest.json")
     original = read_json(work / "legacy-blend-summary.json")
-    storage_trace = launch["legacy_full_blend"].get("kv_storage_trace_enabled", False)
+    legacy = launch["legacy_full_blend"]
+    storage_trace = legacy.get("kv_storage_trace_enabled", False)
+    page_trace = legacy.get("kv_page_trace_enabled", False)
+    raw_capture = legacy.get("raw_page_capture_enabled") is True
+    if raw_capture and not page_trace:
+        raise ValueError(f"Raw page capture requires page trace receipts in {layout}")
+    if include_raw_kv_pages and (not raw_capture or dataset != "mtrag"):
+        raise ValueError(f"Raw publication requires a captured MT-RAG page trace in {layout}")
     labels = (dataset, "legacy-probes")
     if original.get("storage_verification_requests"):
         if not storage_trace:
@@ -167,12 +194,26 @@ def stage_cohort(package, names, prefix, work, destination, layout, job_id, work
         if build_report(work, replay_label=dataset) != storage:
             raise ValueError(f"Recomputed KV storage report differs in {layout}")
         write_json(destination / STORAGE_REPORT, storage)
-    if launch["legacy_full_blend"].get("kv_page_trace_enabled", False):
+    if page_trace:
         with read_member(package, prefix + PAGE_REPORT) as stream:
             pages = json.load(stream)
         if build_page_report(work, replay_label=dataset) != pages:
             raise ValueError(f"Recomputed KV page report differs in {layout}")
         write_json(destination / PAGE_REPORT, pages)
+        if include_raw_kv_pages:
+            specs = _payload_specs(pages)
+            if not specs:
+                raise ValueError(f"No verified natural MT-RAG page captures to include in {layout}")
+            captures = []
+            for digest, (_, compressed_bytes) in specs.items():
+                relative = payload_path(digest).as_posix()
+                member = package.getmember(prefix + relative)
+                if not member.isfile() or member.size != compressed_bytes:
+                    raise ValueError(f"Invalid page capture member {member.name}")
+                captures.append((member.offset_data, relative))
+            # Keep extraction forward-only inside the gzip-compressed tar stream.
+            for _, relative in sorted(captures):
+                copy_member(package, prefix, relative, destination)
 
 
 def gzip_rows(path):
@@ -206,17 +247,40 @@ def check_layout(path):
             raise ValueError(f"Request and chunk measurements disagree with the summary in {path}")
 
 
+def _verify_page_payloads(cohort, *, included):
+    directory = cohort / PAYLOAD_DIRECTORY
+    if not included:
+        if directory.exists() or directory.is_symlink():
+            raise ValueError(f"Raw page captures were not opted into for {cohort}")
+        return
+    report = read_json(cohort / PAGE_REPORT)
+    specs = _payload_specs(report)
+    expected = {payload_path(digest).name for digest in specs}
+    if (not expected or directory.is_symlink() or not directory.is_dir()
+            or {path.name for path in directory.iterdir()} != expected):
+        raise ValueError(f"Raw page capture inventory disagrees with natural receipts in {cohort}")
+    for digest, (raw_bytes, compressed_bytes) in specs.items():
+        load_payload(cohort, digest, raw_bytes)
+        if (cohort / payload_path(digest)).stat().st_size != compressed_bytes:
+            raise ValueError(f"Raw page capture compressed size differs for {digest}")
+
+
 def verify(directory):
     manifest = read_json(directory / MANIFEST)
+    included = manifest.get("include_raw_kv_pages", False)
     if (manifest["run_id"] != directory.name or manifest["schema_version"] != 1
             or not manifest["layouts"] or any(item not in LAYOUTS for item in manifest["layouts"])
-            or fingerprint(directory) != manifest["files"]):
+            or type(included) is not bool):
         raise ValueError(f"Invalid Full Blend archive manifest in {directory}")
     for layout in manifest["layouts"]:
-        check_layout(directory / layout / "blend")
+        cohort = directory / layout / "blend"
+        _verify_page_payloads(cohort, included=included)
+        check_layout(cohort)
+    if fingerprint(directory) != manifest["files"]:
+        raise ValueError(f"Invalid Full Blend archive manifest in {directory}")
 
 
-def archive(source, digest):
+def archive(source, digest, *, include_raw_kv_pages=False):
     run_name = source.name.removesuffix(".tar.gz")
     match = RUN_NAME.fullmatch(run_name)
     if not match or source.name == run_name or sha256_file(source) != digest:
@@ -224,8 +288,14 @@ def archive(source, digest):
     target = ROOT / "reports/smoke" / run_name
     if target.exists():
         verify(target)
-        if read_json(target / MANIFEST)["source_archive_sha256"] != digest:
+        manifest = read_json(target / MANIFEST)
+        if manifest["source_archive_sha256"] != digest:
             raise ValueError(f"A different archive is already published at {target}")
+        if manifest.get("include_raw_kv_pages", False) != include_raw_kv_pages:
+            if include_raw_kv_pages:
+                raise ValueError(f"{target} is already staged metadata-only. The saved source archive still contains "
+                                 "its captures for offline use; stage raw payloads only in a checkout without this packet.")
+            raise ValueError(f"{target} includes raw pages. Use --include-raw-kv-pages to restage that same packet.")
         return target
     target.parent.mkdir(parents=True, exist_ok=True)
     with TemporaryDirectory(dir=target.parent) as scratch, tarfile.open(source, "r:gz") as package:
@@ -238,16 +308,20 @@ def archive(source, digest):
             if prefix + "legacy-blend-summary.json" not in names:
                 continue
             work = Path(scratch) / "private" / layout / "blend"
-            stage_cohort(package, names, prefix, work, staged / layout / "blend", layout, match[2], match[1])
+            stage_cohort(package, names, prefix, work, staged / layout / "blend", layout, match[2], match[1],
+                         include_raw_kv_pages=include_raw_kv_pages)
             layouts.append(layout)
         if layouts == list(LAYOUTS):
             label = DATASETS.get(match[1], "musique")
             copy_member(package, f"{run_name}/", f"{label}-pair.json", staged)
-        write_json(staged / MANIFEST, {
+        manifest = {
             "schema_version": 1, "run_id": run_name, "layouts": layouts,
             "source_archive_sha256": digest, "runtime": source_receipt(package, names, run_name),
             "files": fingerprint(staged),
-        })
+        }
+        if include_raw_kv_pages:
+            manifest["include_raw_kv_pages"] = True
+        write_json(staged / MANIFEST, manifest)
         verify(staged)
         staged.rename(target)
     return target
@@ -259,15 +333,19 @@ def main():
     mode.add_argument("--source", type=Path)
     mode.add_argument("--verify", type=Path)
     parser.add_argument("--sha256")
+    parser.add_argument("--include-raw-kv-pages", action="store_true",
+                        help="include verified MT-RAG page tensors from the source archive")
     args = parser.parse_args()
     try:
         if args.verify:
+            if args.include_raw_kv_pages:
+                parser.error("--include-raw-kv-pages requires --source")
             verify(args.verify)
             print(f"Verified {args.verify}")
         else:
             if not re.fullmatch(r"[0-9a-f]{64}", args.sha256 or ""):
                 parser.error("--source requires the SHA-256 printed by the smoke runner")
-            print(archive(args.source, args.sha256).relative_to(ROOT))
+            print(archive(args.source, args.sha256, include_raw_kv_pages=args.include_raw_kv_pages).relative_to(ROOT))
     except (KeyError, OSError, TypeError, ValueError, tarfile.TarError) as error:
         parser.exit(1, f"Full Blend archive failed: {error}\n")
 

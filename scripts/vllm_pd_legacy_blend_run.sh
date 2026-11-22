@@ -11,11 +11,13 @@ prompt_policy="${4:-default}"
 estimate_delta=0
 trace_kv_storage=0
 trace_kv_pages=0
+capture_kv_pages=0
 for option in "${@:5}"; do
   case "$option" in
     --estimate-delta) estimate_delta=1 ;;
     --trace-kv-storage) trace_kv_storage=1 ;;
     --trace-kv-pages) trace_kv_pages=1 ;;
+    --capture-kv-pages) capture_kv_pages=1 ;;
     *) printf 'Unknown Full Blend option %s\n' "$option" >&2; exit 2 ;;
   esac
 done
@@ -31,7 +33,7 @@ case "$workload" in
   *) printf 'Unknown Full Blend workload %s\n' "$workload" >&2; exit 2 ;;
 esac
 if [[ "$trace" != on && "$trace" != off ]]; then
-  printf 'Usage: %s [1b3d|2b2d|both] [on|off] [workload] [prompt-policy] [--estimate-delta] [--trace-kv-storage|--trace-kv-pages]\n' "$0" >&2
+  printf 'Usage: %s [1b3d|2b2d|both] [on|off] [workload] [prompt-policy] [--estimate-delta] [--trace-kv-storage|--trace-kv-pages] [--capture-kv-pages]\n' "$0" >&2
   exit 2
 fi
 case "$prompt_policy:$workload" in
@@ -50,7 +52,11 @@ if (( trace_kv_storage )) && [[ "$trace:$workload" != on:mtrag-multi-turn-repeat
 fi
 if (( trace_kv_pages )) && { [[ "$layout:$trace:$workload:$prompt_policy" != 1b3d:on:mtrag-multi-turn-repeat:previous-turn-first ]] ||
     (( trace_kv_storage || estimate_delta )); }; then
-  printf 'Use --trace-kv-pages with 1b3d on mtrag-multi-turn-repeat previous-turn-first as the only option.\n' >&2
+  printf 'Use --trace-kv-pages with 1b3d on mtrag-multi-turn-repeat previous-turn-first.\n' >&2
+  exit 2
+fi
+if (( capture_kv_pages && !trace_kv_pages )); then
+  printf 'Use --capture-kv-pages with --trace-kv-pages.\n' >&2
   exit 2
 fi
 
@@ -141,6 +147,9 @@ if (( trace_kv_storage )); then
 fi
 if (( trace_kv_pages )); then
   replay_args+=(--trace-kv-pages)
+fi
+if (( capture_kv_pages )); then
+  replay_args+=(--capture-kv-pages)
 fi
 "$PYTHON" "$launcher_repo/scripts/vllm_pd_legacy_blend.py" "${replay_args[@]}" 2>&1 | tee "$run_log"
 

@@ -5,10 +5,14 @@ from __future__ import annotations
 from array import array
 from collections import OrderedDict
 from dataclasses import dataclass
+import gzip
 from hashlib import sha256
 import logging
 import os
+from pathlib import Path
+import stat
 import struct
+from tempfile import NamedTemporaryFile
 from threading import Lock
 from time import monotonic_ns
 
@@ -16,12 +20,14 @@ from vllm._evidencestore_legacy_trace import ENABLED as TRACE_ENABLED, emit
 
 
 ENABLED = TRACE_ENABLED and os.environ.get("EVIDENCESTORE_TRACE_KV_PAGES") == "1"
+CAPTURE_ENABLED = ENABLED and os.environ.get("EVIDENCESTORE_CAPTURE_KV_PAGES") == "1"
 BACKEND = "LocalCPUBackend"
 MAX_OBJECTS = 128
 MAX_VERSIONS = 512
 MAX_ENCODED_BYTES = 64 * 1024**2
 MAX_PAGES_PER_REQUEST = 128
 MAX_CANDIDATES = 2
+MAX_CAPTURE_RAW_BYTES = 512 * 1024**2
 MIN_PREFIX_TOKENS = 8
 # Magic, block size, layer count, K/V row width, and digests for the
 # target/base versions and base tensor. The bitmap follows the header.
@@ -32,6 +38,8 @@ _LOCK = Lock()
 _OBJECTS = OrderedDict()
 _VERSIONS = OrderedDict()
 _ENCODED_BYTES = 0
+_CAPTURE_LOCK = Lock()
+_CAPTURED_RAW_BYTES = 0
 
 
 @dataclass(frozen=True)
@@ -93,6 +101,66 @@ class Codec:
 
 def _digest(data):
     return sha256(data).hexdigest()
+
+
+def _existing_capture(path, current):
+    try:
+        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    except FileNotFoundError:
+        return None
+    with os.fdopen(fd, "rb") as stream:
+        info = os.fstat(stream.fileno())
+        if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:
+            raise ValueError("Existing KV page payload is not a private regular file")
+        with gzip.GzipFile(fileobj=stream, mode="rb") as compressed:
+            if compressed.read(len(current) + 1) != current:
+                raise ValueError("Existing KV page payload differs from the observed page")
+        return info.st_size
+
+
+def _capture_payload(tensor_digest, current):
+    global _CAPTURED_RAW_BYTES
+    if not CAPTURE_ENABLED:
+        return {}
+    try:
+        directory = Path(os.environ["EVIDENCESTORE_TRACE_DIR"]).parent / "page-payloads"
+        target = directory / f"{tensor_digest}.bin.gz"
+        # Serialize writes and budget updates in this GPU worker. Exclusive
+        # publication also deduplicates matching pages across workers.
+        with _CAPTURE_LOCK:
+            directory.mkdir(mode=0o700, exist_ok=True)
+            info = directory.lstat()
+            if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:
+                raise ValueError("KV page payload directory is not private")
+            size = _existing_capture(target, current)
+            if size is not None:
+                return {"payload_capture_status": "reused", "payload_capture_compressed_bytes": size}
+            if _CAPTURED_RAW_BYTES + len(current) > MAX_CAPTURE_RAW_BYTES:
+                return {"payload_capture_status": "budget_exhausted"}
+            temporary = None
+            try:
+                with NamedTemporaryFile(mode="w+b", prefix=".page-", dir=directory, delete=False) as stream:
+                    temporary = Path(stream.name)
+                    with gzip.GzipFile(filename="", fileobj=stream, mode="wb", compresslevel=1, mtime=0) as compressed:
+                        compressed.write(current)
+                    size = stream.tell()
+                    stream.flush()
+                    os.fsync(stream.fileno())
+                try:
+                    os.link(temporary, target, follow_symlinks=False)
+                except FileExistsError:
+                    size = _existing_capture(target, current)
+                    if size is None:
+                        raise ValueError("Concurrent KV page payload publication disappeared")
+                    return {"payload_capture_status": "reused", "payload_capture_compressed_bytes": size}
+                _CAPTURED_RAW_BYTES += len(current)
+                return {"payload_capture_status": "captured", "payload_capture_compressed_bytes": size}
+            finally:
+                if temporary is not None:
+                    temporary.unlink(missing_ok=True)
+    except Exception:
+        _LOG.exception("Could not capture diagnostic KV page payload")
+        return {"payload_capture_status": "write_error"}
 
 
 def _emit(kind, request_id, **fields):
@@ -369,11 +437,14 @@ def _sample_store(backend, request_id, obj, span, layout, expected):
     elif candidate_count:
         reason = "not_smaller"
     _remember((id(backend), obj.key_id, relative), page)
-    _emit("legacy_kv_page_put", request_id, status="measured", **common, **_page_fields(page),
+    page_fields = _page_fields(page)
+    duration = monotonic_ns() - started
+    capture_fields = _capture_payload(tensor, current)
+    _emit("legacy_kv_page_put", request_id, status="measured", **common, **page_fields,
           candidate_status=reason, candidate_count=candidate_count, base_available=None,
           compared_layers=best.layers if best is not None and codec is None else (),
           compared_base_version_sha256=best.base.version_id if best is not None and codec is None else None,
-          duration_ns=monotonic_ns() - started)
+          duration_ns=duration, **capture_fields)
 
 
 def sample_put(engine, request_id, keys, objects, starts, ends, tokens, slots):

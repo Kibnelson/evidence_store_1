@@ -13,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from evidencestore.pd_report import load_events, request_joins
 from evidencestore.retrieval import read_jsonl
+from vllm_pd_legacy_page_payloads import AVAILABLE, CAPTURE_LAYOUT, CAPTURE_STATUSES, capture_records
 
 
 REPORT_FILENAME = "legacy-kv-page-report.json"
@@ -34,7 +35,8 @@ FIELDS = (
     "candidate_status", "candidate_count", "base_available", "base_object_key_sha256", "base_logical_page_sha256",
     "base_version_sha256", "base_tensor_sha256", "base_start_token", "base_end_token", "base_raw_bytes",
     "base_read_bytes", "common_prefix_tokens", "common_in_page_prefix_tokens", "observed_sha256",
-    "reconstructed_sha256", "compared_base_version_sha256", *LIMIT_FIELDS,
+    "reconstructed_sha256", "compared_base_version_sha256", "payload_capture_status",
+    "payload_capture_compressed_bytes", *LIMIT_FIELDS,
 )
 
 
@@ -251,8 +253,10 @@ def build_report(run_dir: Path, *, replay_label="mtrag"):
         raise ValueError("KV page reporting requires the MT-RAG replay label")
     run_dir = run_dir.expanduser().resolve()
     manifest = json.loads((run_dir / "run_manifest.json").read_text(encoding="utf-8"))
-    if manifest.get("legacy_full_blend", {}).get("kv_page_trace_enabled") is not True:
+    legacy = manifest.get("legacy_full_blend", {})
+    if legacy.get("kv_page_trace_enabled") is not True:
         raise ValueError("KV page tracing was not enabled for this replay")
+    raw_capture = legacy.get("raw_page_capture_enabled") is True
     responses = _responses(run_dir, replay_label)
     events = list(load_events(run_dir))
     bound, unjoined, native_bytes = _bound_events(events, responses)
@@ -333,6 +337,23 @@ def build_report(run_dir: Path, *, replay_label="mtrag"):
                 nodes[target]["last_verified_lookup_ns"] = row["ts_ns"]
 
     complete = [row for row in pages if row["status"] == "measured"]
+    capture_counts = Counter()
+    capture_sizes = {}
+    for row in (*pages, *restores, *fragments):
+        capture_status = row.get("payload_capture_status")
+        encoded_size = row.get("payload_capture_compressed_bytes")
+        if raw_capture and row["event"] == PUT and row["status"] == "measured":
+            if (capture_status not in CAPTURE_STATUSES
+                    or (capture_status in AVAILABLE and (not _int(encoded_size) or not encoded_size))
+                    or (capture_status not in AVAILABLE and encoded_size is not None)):
+                raise ValueError("Invalid capture receipt for a measured native page put")
+            capture_counts[capture_status] += 1
+            if capture_status in AVAILABLE:
+                digest = row["tensor_sha256"]
+                if capture_sizes.setdefault(digest, encoded_size) != encoded_size:
+                    raise ValueError("Same page tensor has conflicting compressed capture lengths")
+        elif capture_status is not None or encoded_size is not None:
+            raise ValueError("Unexpected raw capture receipt outside a gated measured page put")
     limits = {}
     for row in (*pages, *restores, *fragments):
         for field in LIMIT_FIELDS:
@@ -375,7 +396,7 @@ def build_report(run_dir: Path, *, replay_label="mtrag"):
     for operation, counts in coverage.items():
         if counts["unaccounted_native_raw_bytes"] or counts["page_raw_bytes_above_native"]:
             diagnostics.append(f"Page trace {operation} raw bytes do not fully reconcile with native receipts.")
-    return {
+    report = {
         "schema_version": 1,
         "status": ("proof_failed" if failed else "instrumentation_error" if hook_errors else "measured" if complete else
                    "no_complete_pages" if pages or restores or fragments else "instrumentation_missing"),
@@ -449,6 +470,16 @@ def build_report(run_dir: Path, *, replay_label="mtrag"):
         "restores": restores,
         "fragments": fragments,
     }
+    if raw_capture:
+        capture = report["raw_page_capture"] = {
+            "schema_version": 1,
+            "layout": CAPTURE_LAYOUT,
+            "status_counts": dict(capture_counts),
+        }
+        captures = capture_records(report)
+        capture.update(native_matched_unique_payloads=len(captures), native_matched_raw_bytes=sum(captures.values()),
+                       native_matched_compressed_bytes=sum(capture_sizes[digest] for digest in captures))
+    return report
 
 
 def main():
