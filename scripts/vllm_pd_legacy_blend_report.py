@@ -163,7 +163,7 @@ def _prior_restore(chunk, movement, tokens, prior):
 def _chunk_record(chunk, occurrence, request, bytes_by_chunk, stages, events, by_worker, by_identity):
     identity = _key(chunk)
     start, end = chunk["start_token"], chunk["end_token"]
-    if request["label"] != "legacy-probes":
+    if request["label"] not in ("legacy-probes", VERIFICATION_LABEL):
         retained = [row for row in stages[identity] if row["stage"] == "corpus_row_read"
                     or (row["retained"] and row["accepted_attempt"])]
         mapped = next((row for row in retained if row["stage"] == "prompt_chunk_offset_map"), {})

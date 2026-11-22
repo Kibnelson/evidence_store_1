@@ -69,7 +69,12 @@ def source_receipt(package, names, run_name):
         if not re.fullmatch(r"[0-9a-f]{64}", digest):
             raise ValueError("Invalid lane support patch digest")
         runtime["lane_support_patch_sha256"] = digest
-    if any(not re.fullmatch(r"[0-9a-f]{40}", runtime[field]) for field in ("build_commit", "replay_commit")):
+    report_source = f"check/{run_name}-report-source.txt"
+    if report_source in names:
+        with read_member(package, report_source) as stream:
+            runtime["report_commit"] = stream.read().decode().strip()
+    if any(not re.fullmatch(r"[0-9a-f]{40}", runtime[field])
+           for field in ("build_commit", "replay_commit", "report_commit") if field in runtime):
         raise ValueError("Invalid Full Blend source commit")
     return runtime
 

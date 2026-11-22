@@ -119,6 +119,49 @@ Run the following in the GPU shell. It builds a fresh runtime with the trace hoo
 
 After the natural turns, the runner can replay one exact prompt per P whose original request produced a patch candidate. Those verification requests have their own label. The natural storage totals cover only the first pass.
 
+### Recover a completed capture after a report error
+
+If the replay finished and the report failed, stay on the compute node. Set `run_root` to the absolute path printed after `Run artifacts`. This block uses the saved traces to rebuild and archive the reports on CPU. It records the reporting revision alongside the original build and replay revisions.
+
+```bash
+(
+  set -euo pipefail
+  umask 077
+  : "${run_root:?Set run_root to the printed Run artifacts path}"
+  : "${SLURM_JOB_ID:?Use the GPU shell that ran the trace}"
+  node_root="/tmp/$(id -un)"
+  run_id="${run_root##*/}"
+  runtime="${run_root%/repo/reports/runs/*}"
+  cohort="$run_root/1p3d/blend"
+  [[ "$run_id" == mtrag-multi-turn-repeat-legacy-full-blend-"$SLURM_JOB_ID"-* ]]
+  [[ "$runtime" == "$node_root/"* && -O "$runtime" ]]
+  test -s "$cohort/cleanup.json"
+  report_dir="$node_root/blend-storage-archives-$SLURM_JOB_ID"
+  mkdir -p "$report_dir"
+  source_repo=$(mktemp -d "$node_root/mtrag-storage-recovery-$SLURM_JOB_ID.XXXXXX")
+  git clone --depth=1 --branch main --no-tags \
+    https://github.com/Kibnelson/evidence_store_1.git "$source_repo"
+  python="$runtime/venv/bin/python"
+  "$python" "$source_repo/scripts/vllm_pd_legacy_blend_report.py" --run-dir "$cohort" --trace on
+  if [[ ! -s "$cohort/legacy-kv-storage-report.json" ]]; then
+    "$python" "$source_repo/scripts/vllm_pd_legacy_storage_report.py" --run-dir "$cohort" --replay-label mtrag
+  fi
+  archive="$report_dir/$run_id.tar.gz"
+  if [[ ! -e "$archive" ]]; then
+    git -C "$source_repo" rev-parse HEAD > "$runtime/check/$run_id-report-source.txt"
+    temp_archive=$(mktemp "$report_dir/.recover-$run_id.XXXXXX")
+    trap 'rm -f -- "$temp_archive"' EXIT
+    tar -czf "$temp_archive" -C "$runtime" check -C "${run_root%/*}" "$run_id"
+    tar -tzf "$temp_archive" >/dev/null
+    mv -- "$temp_archive" "$archive"
+  fi
+  {
+    sha256sum "$archive"
+    printf 'MT-RAG KV storage trace archived at %s\n' "$archive"
+  } | tee -a "$report_dir/launch.log"
+)
+```
+
 ### Publish the verified packet
 
 After `MT-RAG KV storage trace archived at` appears, use the same GPU shell to run the block below. It reads the archive path and digest from the launch log, rebuilds the review packet, and pushes that packet over SSH from a scratch clone. The compressed run archive stays on the node.
