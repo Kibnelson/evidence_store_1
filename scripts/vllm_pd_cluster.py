@@ -88,6 +88,8 @@ def arguments() -> argparse.Namespace:
     parser.add_argument("--lmcache-source", type=Path)
     parser.add_argument("--trace-lmcache-transfers", action="store_true",
                         help="record completed LMCache staging transfers and verified token ranges")
+    parser.add_argument("--trace-kv-storage", action="store_true",
+                        help="sample differential KV storage on legacy Full Blend producers")
     parser.add_argument("--lmcache-size-gb", type=float, default=8)
     parser.add_argument("--lmcache-chunk-size", type=int, default=256)
     parser.add_argument("--lmcache-port", type=int, default=6555)
@@ -115,6 +117,8 @@ def arguments() -> argparse.Namespace:
         parser.error("--trace-lmcache-transfers requires --lmcache and --trace on")
     if args.trace_lmcache_transfers and args.prefill_mode:
         parser.error("--prefill-mode pilots use blend-server counters and do not support --trace-lmcache-transfers")
+    if args.trace_kv_storage and (not args.legacy_full_blend or args.trace != "on"):
+        parser.error("--trace-kv-storage requires --legacy-full-blend and --trace on")
     if args.minimum_nixl_reads < 0 or (args.minimum_nixl_reads and not args.client):
         parser.error("--minimum-nixl-reads requires a workload and a nonnegative count")
     args.trace_blend_server = bool(args.prefill_mode and not args.external_lmcache and args.trace == "on")
@@ -252,6 +256,7 @@ def worker_env(args: argparse.Namespace, worker: Worker) -> dict[str, str]:
         "UCX_TLS": os.environ.get("UCX_TLS", "all"),
         "UCX_NET_DEVICES": os.environ.get("UCX_NET_DEVICES", "all"),
         "EVIDENCESTORE_PD_TRACE": "1" if args.trace == "on" else "0",
+        "EVIDENCESTORE_TRACE_KV_STORAGE": "1" if args.trace_kv_storage and worker.role == "P" else "0",
         "EVIDENCESTORE_TRACE_DIR": str(args.run_dir / "trace"),
         "EVIDENCESTORE_RUN_ID": args.run_dir.name,
         "EVIDENCESTORE_WORKER_ID": worker.id,
@@ -580,6 +585,8 @@ def legacy_runtime_identity(args: argparse.Namespace) -> dict:
         if (version(module) != expected or not spec or not spec.origin or
                 Path(spec.origin).resolve() != source / f"{module}/__init__.py"):
             raise ValueError(f"Activate the verified editable legacy {module} {expected} runtime")
+    if args.trace_kv_storage and not (args.source / "vllm/_evidencestore_legacy_storage_trace.py").is_file():
+        raise ValueError("Build a fresh Full Blend runtime with the KV storage trace overlay")
     return {"vllm_source": identity, "lmcache_source": str(args.lmcache_source), "blend_plugin": None}
 
 
@@ -681,7 +688,8 @@ def run(args: argparse.Namespace) -> int:
         )
     if args.legacy_full_blend:
         manifest["legacy_full_blend"] = {"mode": "in_process", "cache_per_producer_gib": args.lmcache_size_gb,
-                                         "lmcache_source": identity["lmcache_source"]}
+                                         "lmcache_source": identity["lmcache_source"],
+                                         "kv_storage_trace_enabled": args.trace_kv_storage}
         for worker, _, env in plans:
             if worker.role == "P":
                 write_json(Path(env["LMCACHE_CONFIG_FILE"]), {

@@ -8,7 +8,15 @@ layout="${1:-1b3d}"
 trace="${2:-on}"
 workload="${3:-musique-smoke}"
 prompt_policy="${4:-default}"
-estimate_delta="${5:-}"
+estimate_delta=0
+trace_kv_storage=0
+for option in "${@:5}"; do
+  case "$option" in
+    --estimate-delta) estimate_delta=1 ;;
+    --trace-kv-storage) trace_kv_storage=1 ;;
+    *) printf 'Unknown Full Blend option %s\n' "$option" >&2; exit 2 ;;
+  esac
+done
 case "$layout" in
   1b3d) topology=1p3d ;;
   2b2d) topology=2p2d ;;
@@ -20,20 +28,23 @@ case "$workload" in
   musique-single-turn-40|mtrag-multi-turn-repeat) run_prefix="$workload" ;;
   *) printf 'Unknown Full Blend workload %s\n' "$workload" >&2; exit 2 ;;
 esac
-if (( $# > 5 )) || [[ "$trace" != on && "$trace" != off ]] ||
-    [[ -n "$estimate_delta" && "$estimate_delta" != --estimate-delta ]]; then
-  printf 'Usage: %s [1b3d|2b2d|both] [on|off] [workload] [prompt-policy] [--estimate-delta]\n' "$0" >&2
+if [[ "$trace" != on && "$trace" != off ]]; then
+  printf 'Usage: %s [1b3d|2b2d|both] [on|off] [workload] [prompt-policy] [--estimate-delta] [--trace-kv-storage]\n' "$0" >&2
   exit 2
 fi
 case "$prompt_policy:$workload" in
   default:*|seen-first:musique-*|openclaw:mtrag-multi-turn-repeat|previous-turn-first:mtrag-multi-turn-repeat) ;;
   *) printf 'Use seen-first with MuSiQue, and openclaw or previous-turn-first with MT-RAG.\n' >&2; exit 2 ;;
 esac
-if [[ -n "$estimate_delta" ]]; then
+if (( estimate_delta )); then
   case "$trace:$prompt_policy:$workload" in
     on:previous-turn-first:mtrag-multi-turn-repeat|on:seen-first:musique-single-turn-40) ;;
     *) printf 'Use --estimate-delta with trace on and MT-RAG previous-turn-first or MuSiQue seen-first.\n' >&2; exit 2 ;;
   esac
+fi
+if (( trace_kv_storage )) && [[ "$trace:$workload" != on:mtrag-multi-turn-repeat ]]; then
+  printf 'Use --trace-kv-storage with trace on and mtrag-multi-turn-repeat.\n' >&2
+  exit 2
 fi
 
 source_repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
@@ -55,7 +66,8 @@ if [[ -n "$retained" ]]; then
   launcher_repo="$source_repo"
   for file in third_party/{vllm,lmcache}-full-blend-fork.json \
       third_party/legacy-full-blend-standalone.patch \
-      scripts/vllm_pd_legacy_trace_{events,overlay}.py; do
+      scripts/vllm_pd_legacy_trace_{events,overlay}.py \
+      scripts/vllm_pd_legacy_storage_trace.py; do
     if ! cmp -s "$source_repo/$file" "$REPO/$file"; then
       printf 'The retained runtime uses a different %s. Build a fresh runtime.\n' "$file" >&2
       exit 1
@@ -114,8 +126,11 @@ fi
 printf 'Run artifacts: %s\n' "$run_root"
 replay_args=(run --topology "$topology" --trace "$trace" --workload "$workload"
   --prompt-policy "$prompt_policy" --prepared "$prepared" --run-root "$run_root")
-if [[ -n "$estimate_delta" ]]; then
-  replay_args+=("$estimate_delta")
+if (( estimate_delta )); then
+  replay_args+=(--estimate-delta)
+fi
+if (( trace_kv_storage )); then
+  replay_args+=(--trace-kv-storage)
 fi
 "$PYTHON" "$launcher_repo/scripts/vllm_pd_legacy_blend.py" "${replay_args[@]}" 2>&1 | tee "$run_log"
 
@@ -126,4 +141,8 @@ tar -czf "$archive" -C "$PD_EXEC_ROOT" check "${run_log##*/}" -C "$REPO/reports/
 tar -tzf "$archive" >/dev/null
 mv -- "$archive" "$report_dir/$run_name.tar.gz"
 sha256sum "$report_dir/$run_name.tar.gz"
-printf 'Legacy Full Blend smoke passed. Archive: %s\n' "$report_dir/$run_name.tar.gz"
+if (( trace_kv_storage )); then
+  printf 'MT-RAG KV storage trace archived at %s\n' "$report_dir/$run_name.tar.gz"
+else
+  printf 'Legacy Full Blend smoke passed. Archive: %s\n' "$report_dir/$run_name.tar.gz"
+fi

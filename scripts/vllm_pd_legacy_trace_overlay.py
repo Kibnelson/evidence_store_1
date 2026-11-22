@@ -100,8 +100,15 @@ def _edit_vllm(root):
 def _edit_lmcache(root):
     anchor = "from lmcache.logging import init_logger\n"
     emit = LM_CACHE_HOOK + "from vllm._evidencestore_legacy_trace import emit as _es_legacy_emit\n"
+    storage_hooks = (
+        "from vllm._evidencestore_legacy_storage_trace import (\n"
+        "    ENABLED as _es_storage_trace_on,\n"
+        "    sample_put as _es_sample_storage_put,\n"
+        "    sample_restore as _es_sample_storage_restore,\n"
+        ")\n"
+    )
     return [
-        _plan(root, "lmcache/v1/cache_engine.py", anchor, emit, [(
+        _plan(root, "lmcache/v1/cache_engine.py", anchor, emit + storage_hooks, [(
             "            t_start = time.perf_counter()\n            mem_obj_generator = self.gpu_connector.batched_from_gpu(\n",
             "            t_start = time.perf_counter()\n"
             "            if _es_legacy_trace_on:\n"
@@ -115,6 +122,9 @@ def _edit_lmcache(root):
         ), (
             "                    keys[layer_id], memory_objs[layer_id], location=self.store_location\n                )\n",
             "                    keys[layer_id], memory_objs[layer_id], location=self.store_location\n                )\n"
+            "                if _es_storage_trace_on and layer_id in (0, self.num_layers // 2, self.num_layers - 1):\n"
+            "                    _es_sample_storage_put(self.storage_manager, self.store_location, req_id, layer_id,\n"
+            "                                           keys[layer_id], memory_objs[layer_id], starts, ends, tokens)\n"
             "\n            if _es_legacy_trace_on:\n"
             '                _es_legacy_emit("legacy_lmcache_d2h_complete", component="lmcache",\n'
             "                                native_request_id=req_id, started_ns=_es_store_started,\n"
@@ -133,7 +143,10 @@ def _edit_lmcache(root):
             "                        for _es_index, _es_obj in enumerate(mem_objs_layer):\n"
             "                            _es_load_bytes[_es_index] += _es_obj.get_size()\n"
             "                            if layer_id == 0:\n"
-            "                                _es_cached_positions.append(_es_obj.metadata.cached_positions)\n",
+            "                                _es_cached_positions.append(_es_obj.metadata.cached_positions)\n"
+            "                    if _es_storage_trace_on and layer_id in (0, self.num_layers // 2, self.num_layers - 1):\n"
+            "                        _es_sample_storage_restore(self.storage_manager, location, req_id, layer_id,\n"
+            "                                                   keys_layer_major[layer_id], mem_objs_layer, starts, ends)\n",
         ), (
             "                _consumer_terminal_complete = True\n",
             "                _consumer_terminal_complete = True\n"
@@ -180,14 +193,16 @@ def _edit_lmcache(root):
 
 def install(vllm_source, lmcache_source):
     planned = {"vllm": _edit_vllm(vllm_source), "lmcache": _edit_lmcache(lmcache_source)}
-    module = vllm_source / "vllm/_evidencestore_legacy_trace.py"
-    helper = Path(__file__).with_name("vllm_pd_legacy_trace_events.py").read_text(encoding="utf-8")
-    compile(helper, str(module), "exec")
-    if module.exists():
-        raise ValueError(f"Legacy trace helper already exists: {module}")
-    planned["vllm"].append((module, helper, {
-        "path": "vllm/_evidencestore_legacy_trace.py", "after_sha256": _sha(helper),
-    }))
+    for source_name, module_name in (
+        ("vllm_pd_legacy_trace_events.py", "vllm/_evidencestore_legacy_trace.py"),
+        ("vllm_pd_legacy_storage_trace.py", "vllm/_evidencestore_legacy_storage_trace.py"),
+    ):
+        module = vllm_source / module_name
+        helper = Path(__file__).with_name(source_name).read_text(encoding="utf-8")
+        compile(helper, str(module), "exec")
+        if module.exists():
+            raise ValueError(f"Legacy trace helper already exists: {module}")
+        planned["vllm"].append((module, helper, {"path": module_name, "after_sha256": _sha(helper)}))
     for paths in planned.values():
         for path, text, _ in paths:
             path.write_text(text, encoding="utf-8")

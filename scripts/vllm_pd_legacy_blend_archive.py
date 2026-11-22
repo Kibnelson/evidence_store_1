@@ -16,6 +16,8 @@ from vllm_pd_smoke_archive import MANIFEST, ROOT, fingerprint, read_json, sha256
 from vllm_pd_detail_archive import _RESPONSE_FIELDS, _encode, _output, _read_rows, _select
 from vllm_pd_legacy_blend_report import report
 from vllm_pd_legacy_delta_estimate import FILES as ESTIMATE_FILES, SCHEMA_VERSION, write_estimate
+from vllm_pd_legacy_storage_report import REPORT_FILENAME as STORAGE_REPORT, build_report
+from vllm_pd_legacy_storage_smoke import VERIFICATION_INPUT, VERIFICATION_LABEL
 from vllm_pd_legacy_workloads import DATASETS
 
 
@@ -108,15 +110,21 @@ def stage_cohort(package, names, prefix, work, destination, layout, job_id, work
     dataset = DATASETS.get(workload, "musique")
     if sample.get("dataset", "musique") != dataset or sample.get("workload", "musique") != workload:
         raise ValueError(f"Unexpected dataset selection in {layout}")
+    launch = read_json(work / "run_manifest.json")
+    original = read_json(work / "legacy-blend-summary.json")
+    storage_trace = launch["legacy_full_blend"].get("kv_storage_trace_enabled", False)
     labels = (dataset, "legacy-probes")
+    if original.get("storage_verification_requests"):
+        if not storage_trace:
+            raise ValueError(f"Unexpected KV storage verification in {layout}")
+        copy_member(package, prefix, VERIFICATION_INPUT.as_posix(), work)
+        labels += (VERIFICATION_LABEL,)
     files = [f"client/{label}/{name}" for label in labels for name in CLIENT_FILES]
     files.extend(sorted(name[len(prefix):] for name in names
                         if name.startswith(prefix) and TRACE_PATH.fullmatch(name[len(prefix):])))
     for name in files:
         copy_member(package, prefix, name, work)
-    launch = read_json(work / "run_manifest.json")
     cleanup = read_json(work / "cleanup.json")
-    original = read_json(work / "legacy-blend-summary.json")
     if (launch["slurm_job_id"] != job_id or launch["topology"] != layout
             or launch["legacy_full_blend"]["mode"] != "in_process"
             or launch["prefix_cache_by_role"] != {"P": "off", "D": "off"}
@@ -147,6 +155,12 @@ def stage_cohort(package, names, prefix, work, destination, layout, job_id, work
                 raise ValueError(f"Recomputed {name} differs in {layout}")
             write_rows(destination / f"{name}.gz", map(transform, measured))
     stage_delta_estimate(package, names, prefix, work, destination, sample, trace)
+    if storage_trace:
+        with read_member(package, prefix + STORAGE_REPORT) as stream:
+            storage = json.load(stream)
+        if build_report(work, replay_label=dataset) != storage:
+            raise ValueError(f"Recomputed KV storage report differs in {layout}")
+        write_json(destination / STORAGE_REPORT, storage)
 
 
 def gzip_rows(path):
@@ -158,6 +172,8 @@ def check_layout(path):
     summary = read_json(path / "legacy-blend-summary.json")
     label = summary.get("natural_label", "musique")
     expected = {label: summary["natural_requests"], "legacy-probes": summary["controlled_requests"]}
+    if summary.get("storage_verification_requests"):
+        expected[VERIFICATION_LABEL] = summary["storage_verification_requests"]
     responses = gzip_rows(path / "responses.jsonl.gz")
     identities = {row["request_id"] for row in responses}
     if (summary["status"] != "passed" or Counter(row["label"] for row in responses) != expected

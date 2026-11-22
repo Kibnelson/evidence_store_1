@@ -68,6 +68,96 @@ The compute-node command can also run directly inside an existing idle four-GPU 
 bash scripts/vllm_pd_legacy_blend_run.sh 1b3d on
 ```
 
+## Trace differential storage on MT-RAG
+
+This run uses 1B/3D, so all 40 selected CLAPNQ turns across six conversations use the same P cache. The prompt order is `previous-turn-first`. [Selected conversations](datasets/repeat-workloads.md)
+
+### Start the allocation and run the trace
+
+From the Slurm login node, start a dedicated tmux session. If you already have an idle four-GPU allocation on `gpu-grad-01`, use its GPU shell.
+
+```bash
+module load slurm && srun --version &&
+  tmux -L evidence-store-mtrag-storage -f /dev/null new-session -s mtrag-storage \
+    /bin/bash --noprofile --norc -c '
+      srun -p all -A oana2026 -q research12h -N 1 -w gpu-grad-01 \
+        --gpus=4 -c 16 --mem=192G -t 12:00:00 --pty bash -l
+      exec /bin/bash --noprofile --norc -i
+    '
+```
+
+Detach with `Ctrl+b` then `d`. Reattach from the same login node with `tmux -L evidence-store-mtrag-storage attach-session -t mtrag-storage`.
+
+Run the following in the GPU shell. It builds a fresh runtime with the trace hooks and keeps the result archive and the launch log on node-local scratch. You can set `MTRAG_PREPARED` to a matching prepared corpus and index before running it.
+
+```bash
+(
+  set -euo pipefail
+  umask 077
+  : "${SLURM_JOB_ID:?Run inside the four-GPU allocation}"
+  node_root="/tmp/$(id -un)"
+  mkdir -p "$node_root"
+  [[ -O "$node_root" && ! -L "$node_root" ]]
+  df -h "$node_root"
+  source_repo=$(mktemp -d "$node_root/mtrag-storage-source-$SLURM_JOB_ID.XXXXXX")
+  git clone --depth=1 --branch main --no-tags \
+    https://github.com/Kibnelson/evidence_store_1.git "$source_repo"
+  unset EVIDENCESTORE_LEGACY_RUNTIME
+  export EVIDENCESTORE_LEGACY_REPORT_DIR="$node_root/blend-storage-archives-$SLURM_JOB_ID"
+  mkdir -p "$EVIDENCESTORE_LEGACY_REPORT_DIR"
+  bash "$source_repo/scripts/vllm_pd_legacy_blend_run.sh" \
+    1b3d on mtrag-multi-turn-repeat previous-turn-first --trace-kv-storage \
+    2>&1 | tee "$EVIDENCESTORE_LEGACY_REPORT_DIR/launch.log"
+)
+```
+
+After the natural turns, the runner can replay one exact prompt per P whose original request produced a patch candidate. Those verification requests have their own label. The natural storage totals cover only the first pass.
+
+### Publish the verified packet
+
+After `MT-RAG KV storage trace archived at` appears, use the same GPU shell to run the block below. It reads the archive path and digest from the launch log, rebuilds the review packet, and pushes that packet over SSH from a scratch clone. The compressed run archive stays on the node.
+
+```bash
+(
+  set -euo pipefail
+  umask 077
+  : "${SLURM_JOB_ID:?Use the GPU shell that ran the trace}"
+  node_root="/tmp/$(id -un)"
+  archive_dir="$node_root/blend-storage-archives-$SLURM_JOB_ID"
+  if ! read -r archive_sha256 archive < <(awk '
+    length($1) == 64 && $1 ~ /^[0-9a-f]+$/ &&
+      $2 ~ /\/mtrag-multi-turn-repeat-legacy-full-blend-[0-9]+-[0-9TZ]+\.tar\.gz$/ {
+        print $1, $2
+      }
+  ' "$archive_dir/launch.log") || [[ "$archive" != "$archive_dir/"* || ! -s "$archive" ]]; then
+    printf 'No completed MT-RAG storage archive in %s/launch.log\n' "$archive_dir" >&2
+    exit 1
+  fi
+  publish_repo=$(mktemp -d "$node_root/mtrag-storage-publish-$SLURM_JOB_ID.XXXXXX")
+  git clone --depth=1 --branch main --no-tags \
+    https://github.com/Kibnelson/evidence_store_1.git "$publish_repo"
+  cd "$publish_repo"
+  result=$(python3 scripts/vllm_pd_legacy_blend_archive.py \
+    --source "$archive" --sha256 "$archive_sha256")
+  git remote set-url --push origin git@github.com:Kibnelson/evidence_store_1.git
+  git add -- "$result"
+  if ! git diff --cached --quiet -- "$result"; then
+    git commit -m "Archive MT-RAG KV storage trace ${result##*/}" -- "$result"
+  fi
+  git push origin main
+  printf 'Published %s at %s\n' "$result" "$(git rev-parse --short HEAD)"
+  printf 'After pulling locally, run these from the repo root\n'
+  printf 'python3 scripts/vllm_pd_legacy_blend_archive.py --verify %q\n' "$result"
+  printf 'python3 -m json.tool %q\n' "$result/1p3d/blend/legacy-kv-storage-report.json"
+)
+```
+
+### Pull and review locally
+
+From your local `evidence_store_1` checkout, run `git pull --ff-only origin main`, then run the two commands printed by the publisher.
+
+In `legacy-kv-storage-report.json`, start with `storage.gross_saved_bytes` for sampled savings including patch metadata. Then check `native_lookup_verification.nonidentical_delta_store_samples_with_verified_load` for changed targets reconstructed byte for byte on a later LMCache load. A report with zero savings is a valid result. A patch candidate without a verified load establishes a size opportunity only. [How the trace measures storage and restore](vllm-legacy-full-blend-tracing.md#differential-storage-on-mt-rag)
+
 ## Compare prompt policies
 
 The fourth optional launcher argument controls client-side prompt assembly. `trace` separately controls instrumentation. The same Full Blend workers perform prefill and decode, with a full native NIXL handoff and counters reconciled per decoder. Controlled probes use the original prompt layout in every mode.

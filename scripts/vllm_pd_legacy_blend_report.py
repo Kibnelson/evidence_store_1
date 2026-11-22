@@ -16,6 +16,7 @@ from evidencestore.pd_report import (
     _OUTER_TIMELINE_EVENTS, _attribute_bytes, _reconcile, load_events, request_joins,
 )
 from evidencestore.retrieval import json_line, prompt_sha256, read_jsonl, sha256_file
+from vllm_pd_legacy_storage_smoke import VERIFICATION_INPUT, VERIFICATION_LABEL
 
 
 _PROMPT_POLICIES = {
@@ -426,7 +427,14 @@ def report(run_dir, *, trace):
     cases = Counter((prompt["pd_route"]["prefill"], prompt["case"]) for _, prompt, _ in probes)
     if cases != Counter((worker, condition) for worker in prefill for condition in ("cold", "reordered")):
         raise ValueError("Expected one cold and one reordered probe on each Blend worker")
-    replays = natural_replays + probes
+    verification_path = run_dir / VERIFICATION_INPUT
+    verification = []
+    if verification_path.is_file():
+        verification = _read_replay(
+            run_dir, VERIFICATION_LABEL, verification_path, len(_by_key(verification_path)),
+            live=False, trace=trace, prompt_format=settings.get("prompt_format", "legacy-blend"),
+        )
+    replays = natural_replays + verification + probes
     events = list(load_events(run_dir))
     if not trace and events:
         raise ValueError("Trace-off run wrote detailed trace records")
@@ -445,6 +453,8 @@ def report(run_dir, *, trace):
         "completed_nixl_reads": total_reads, "completed_nixl_bytes": total_bytes,
         "nixl_reconciliation": reconciliation,
     }
+    if verification:
+        summary["storage_verification_requests"] = len(verification)
     summary.update(settings)
     if selected:
         selection_agreement = _retrieval_agreement if settings else _selection_agreement

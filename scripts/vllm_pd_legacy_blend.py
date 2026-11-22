@@ -14,6 +14,7 @@ from vllm_pd_blend_smoke import (
 )
 from vllm_pd_cluster import MODEL, REVISION, ROOT, TOPOLOGIES
 from vllm_pd_legacy_delta_estimate import POLICIES as DELTA_ESTIMATE_POLICIES, SCHEMA_VERSION, write_estimate
+from vllm_pd_legacy_storage_smoke import replay_storage_targets
 from vllm_pd_legacy_workloads import SMOKE, WORKLOADS, load_selected
 from vllm_pd_replay import load_tokenizer
 
@@ -69,6 +70,8 @@ def replay(args):
     if args.trace == "on":
         natural.append("--trace-chunk-stages")
     subprocess.run([*command, *natural], check=True)
+    if args.trace_kv_storage:
+        replay_storage_targets(run_dir, command, manifest["dataset"])
     subprocess.run([*command, "--label", "legacy-probes", "--max-tokens", "8",
                     "--frozen", str(directory / "controlled.jsonl")], check=True)
 
@@ -79,6 +82,8 @@ def run(args):
         raise ValueError("Use openclaw or previous-turn-first with MT-RAG, and seen-first with MuSiQue")
     if args.estimate_delta and (args.trace != "on" or (args.workload, args.prompt_policy) not in DELTA_ESTIMATE_POLICIES):
         raise ValueError("Delta estimates require tracing and either MT-RAG previous-turn-first or MuSiQue seen-first")
+    if args.trace_kv_storage and (args.trace != "on" or args.workload != "mtrag-multi-turn-repeat"):
+        raise ValueError("KV storage tracing requires trace on and the MT-RAG multi-turn workload")
     prepared = args.prepared.resolve()
     index = prepared / "index"
     if args.workload == SMOKE:
@@ -106,16 +111,21 @@ def run(args):
         if args.prepare_only:
             continue
         cohort = layout / "blend"
+        storage_flags = ["--trace-kv-storage"] if args.trace_kv_storage else []
         subprocess.run([
             sys.executable, str(ROOT / "scripts/vllm_pd_cluster.py"), "--legacy-full-blend",
             "--run-dir", str(cohort), "--topology", topology, "--trace", args.trace,
             "--source", os.environ["VLLM_SOURCE"], "--lmcache-source", os.environ["LMCACHE_SOURCE"],
             "--lmcache-size-gb", "25", "--minimum-nixl-reads", str(len(sample) + probes),
+            *storage_flags,
             "--", sys.executable, str(SCRIPT), "replay", "--inputs", str(inputs),
-            "--index-dir", str(index), "--trace", args.trace,
+            "--index-dir", str(index), "--trace", args.trace, *storage_flags,
         ], check=True)
         subprocess.run([sys.executable, str(ROOT / "scripts/vllm_pd_legacy_blend_report.py"),
                         "--run-dir", str(cohort), "--trace", args.trace], check=True)
+        if args.trace_kv_storage:
+            subprocess.run([sys.executable, str(ROOT / "scripts/vllm_pd_legacy_storage_report.py"),
+                            "--run-dir", str(cohort), "--replay-label", manifest["dataset"]], check=True)
         if args.estimate_delta:
             write_estimate(cohort)
             print(f"Delta estimate and per-request receipts saved in {cohort}", flush=True)
@@ -139,6 +149,7 @@ def main():
     workload.add_argument("--index-dir", type=Path, required=True)
     for mode in (smoke, workload):
         mode.add_argument("--trace", choices=("on", "off"), default="on")
+        mode.add_argument("--trace-kv-storage", action="store_true", help="measure differential KV storage on MT-RAG")
     args = parser.parse_args()
     try:
         (run if args.mode == "run" else replay)(args)
