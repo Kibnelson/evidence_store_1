@@ -10,10 +10,12 @@ workload="${3:-musique-smoke}"
 prompt_policy="${4:-default}"
 estimate_delta=0
 trace_kv_storage=0
+trace_kv_pages=0
 for option in "${@:5}"; do
   case "$option" in
     --estimate-delta) estimate_delta=1 ;;
     --trace-kv-storage) trace_kv_storage=1 ;;
+    --trace-kv-pages) trace_kv_pages=1 ;;
     *) printf 'Unknown Full Blend option %s\n' "$option" >&2; exit 2 ;;
   esac
 done
@@ -29,7 +31,7 @@ case "$workload" in
   *) printf 'Unknown Full Blend workload %s\n' "$workload" >&2; exit 2 ;;
 esac
 if [[ "$trace" != on && "$trace" != off ]]; then
-  printf 'Usage: %s [1b3d|2b2d|both] [on|off] [workload] [prompt-policy] [--estimate-delta] [--trace-kv-storage]\n' "$0" >&2
+  printf 'Usage: %s [1b3d|2b2d|both] [on|off] [workload] [prompt-policy] [--estimate-delta] [--trace-kv-storage|--trace-kv-pages]\n' "$0" >&2
   exit 2
 fi
 case "$prompt_policy:$workload" in
@@ -44,6 +46,11 @@ if (( estimate_delta )); then
 fi
 if (( trace_kv_storage )) && [[ "$trace:$workload" != on:mtrag-multi-turn-repeat ]]; then
   printf 'Use --trace-kv-storage with trace on and mtrag-multi-turn-repeat.\n' >&2
+  exit 2
+fi
+if (( trace_kv_pages )) && { [[ "$layout:$trace:$workload:$prompt_policy" != 1b3d:on:mtrag-multi-turn-repeat:previous-turn-first ]] ||
+    (( trace_kv_storage || estimate_delta )); }; then
+  printf 'Use --trace-kv-pages with 1b3d on mtrag-multi-turn-repeat previous-turn-first as the only option.\n' >&2
   exit 2
 fi
 
@@ -67,7 +74,7 @@ if [[ -n "$retained" ]]; then
   for file in third_party/{vllm,lmcache}-full-blend-fork.json \
       third_party/legacy-full-blend-standalone.patch \
       scripts/vllm_pd_legacy_trace_{events,overlay}.py \
-      scripts/vllm_pd_legacy_storage_trace.py; do
+      scripts/vllm_pd_legacy_storage_trace.py scripts/vllm_pd_legacy_page_trace.py; do
     if ! cmp -s "$source_repo/$file" "$REPO/$file"; then
       printf 'The retained runtime uses a different %s. Build a fresh runtime.\n' "$file" >&2
       exit 1
@@ -132,6 +139,9 @@ fi
 if (( trace_kv_storage )); then
   replay_args+=(--trace-kv-storage)
 fi
+if (( trace_kv_pages )); then
+  replay_args+=(--trace-kv-pages)
+fi
 "$PYTHON" "$launcher_repo/scripts/vllm_pd_legacy_blend.py" "${replay_args[@]}" 2>&1 | tee "$run_log"
 
 report_dir="${EVIDENCESTORE_LEGACY_REPORT_DIR:-$HOME/evidence_store_legacy_reports}"
@@ -141,7 +151,9 @@ tar -czf "$archive" -C "$PD_EXEC_ROOT" check "${run_log##*/}" -C "$REPO/reports/
 tar -tzf "$archive" >/dev/null
 mv -- "$archive" "$report_dir/$run_name.tar.gz"
 sha256sum "$report_dir/$run_name.tar.gz"
-if (( trace_kv_storage )); then
+if (( trace_kv_pages )); then
+  printf 'MT-RAG KV page trace archived at %s\n' "$report_dir/$run_name.tar.gz"
+elif (( trace_kv_storage )); then
   printf 'MT-RAG KV storage trace archived at %s\n' "$report_dir/$run_name.tar.gz"
 else
   printf 'Legacy Full Blend smoke passed. Archive: %s\n' "$report_dir/$run_name.tar.gz"

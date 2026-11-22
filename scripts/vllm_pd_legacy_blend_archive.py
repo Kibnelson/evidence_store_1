@@ -16,6 +16,7 @@ from vllm_pd_smoke_archive import MANIFEST, ROOT, fingerprint, read_json, sha256
 from vllm_pd_detail_archive import _RESPONSE_FIELDS, _encode, _output, _read_rows, _select
 from vllm_pd_legacy_blend_report import report
 from vllm_pd_legacy_delta_estimate import FILES as ESTIMATE_FILES, SCHEMA_VERSION, write_estimate
+from vllm_pd_legacy_page_report import REPORT_FILENAME as PAGE_REPORT, build_report as build_page_report
 from vllm_pd_legacy_storage_report import REPORT_FILENAME as STORAGE_REPORT, build_report
 from vllm_pd_legacy_storage_smoke import VERIFICATION_INPUT, VERIFICATION_LABEL
 from vllm_pd_legacy_workloads import DATASETS
@@ -166,6 +167,12 @@ def stage_cohort(package, names, prefix, work, destination, layout, job_id, work
         if build_report(work, replay_label=dataset) != storage:
             raise ValueError(f"Recomputed KV storage report differs in {layout}")
         write_json(destination / STORAGE_REPORT, storage)
+    if launch["legacy_full_blend"].get("kv_page_trace_enabled", False):
+        with read_member(package, prefix + PAGE_REPORT) as stream:
+            pages = json.load(stream)
+        if build_page_report(work, replay_label=dataset) != pages:
+            raise ValueError(f"Recomputed KV page report differs in {layout}")
+        write_json(destination / PAGE_REPORT, pages)
 
 
 def gzip_rows(path):

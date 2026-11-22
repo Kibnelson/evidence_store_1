@@ -15,7 +15,7 @@ from vllm_pd_blend_smoke import (
 from vllm_pd_cluster import MODEL, REVISION, ROOT, TOPOLOGIES
 from vllm_pd_legacy_delta_estimate import POLICIES as DELTA_ESTIMATE_POLICIES, SCHEMA_VERSION, write_estimate
 from vllm_pd_legacy_storage_smoke import replay_storage_targets
-from vllm_pd_legacy_workloads import SMOKE, WORKLOADS, load_selected
+from vllm_pd_legacy_workloads import SMOKE, WORKLOADS, load_selected, page_smoke
 from vllm_pd_replay import load_tokenizer
 
 from evidencestore.retrieval import json_line, prompt_sha256, render_prompt
@@ -84,12 +84,20 @@ def run(args):
         raise ValueError("Delta estimates require tracing and either MT-RAG previous-turn-first or MuSiQue seen-first")
     if args.trace_kv_storage and (args.trace != "on" or args.workload != "mtrag-multi-turn-repeat"):
         raise ValueError("KV storage tracing requires trace on and the MT-RAG multi-turn workload")
+    if args.trace_kv_pages and (args.workload, args.prompt_policy, args.topology, args.trace) != (
+        "mtrag-multi-turn-repeat", "previous-turn-first", "1p3d", "on",
+    ):
+        raise ValueError("The KV page smoke requires MT-RAG previous-turn-first, 1p3d, and trace on")
+    if args.trace_kv_pages and (args.trace_kv_storage or args.estimate_delta):
+        raise ValueError("Run the KV page smoke separately from KV storage tracing and delta estimates")
     prepared = args.prepared.resolve()
     index = prepared / "index"
     if args.workload == SMOKE:
         sample, manifest = musique_sample(prepared, index)
     else:
         sample, manifest = load_selected(ROOT / "workloads" / f"{args.workload}.json", args.workload, prepared, index)
+    if args.trace_kv_pages:
+        sample, manifest = page_smoke(sample, manifest)
     if args.prompt_policy != "default":
         manifest["prompt_policy"] = args.prompt_policy
     if args.prompt_policy in ("seen-first", "previous-turn-first"):
@@ -112,12 +120,13 @@ def run(args):
             continue
         cohort = layout / "blend"
         storage_flags = ["--trace-kv-storage"] if args.trace_kv_storage else []
+        page_flags = ["--trace-kv-pages"] if args.trace_kv_pages else []
         subprocess.run([
             sys.executable, str(ROOT / "scripts/vllm_pd_cluster.py"), "--legacy-full-blend",
             "--run-dir", str(cohort), "--topology", topology, "--trace", args.trace,
             "--source", os.environ["VLLM_SOURCE"], "--lmcache-source", os.environ["LMCACHE_SOURCE"],
             "--lmcache-size-gb", "25", "--minimum-nixl-reads", str(len(sample) + probes),
-            *storage_flags,
+            *storage_flags, *page_flags,
             "--", sys.executable, str(SCRIPT), "replay", "--inputs", str(inputs),
             "--index-dir", str(index), "--trace", args.trace, *storage_flags,
         ], check=True)
@@ -126,6 +135,9 @@ def run(args):
         if args.trace_kv_storage:
             subprocess.run([sys.executable, str(ROOT / "scripts/vllm_pd_legacy_storage_report.py"),
                             "--run-dir", str(cohort), "--replay-label", manifest["dataset"]], check=True)
+        if args.trace_kv_pages:
+            subprocess.run([sys.executable, str(ROOT / "scripts/vllm_pd_legacy_page_report.py"),
+                            "--run-dir", str(cohort)], check=True)
         if args.estimate_delta:
             write_estimate(cohort)
             print(f"Delta estimate and per-request receipts saved in {cohort}", flush=True)
@@ -143,6 +155,7 @@ def main():
     smoke.add_argument("--workload", choices=WORKLOADS, default=SMOKE)
     smoke.add_argument("--prompt-policy", choices=PROMPT_POLICIES, default="default")
     smoke.add_argument("--estimate-delta", action="store_true", help="save hypothetical changed-row savings")
+    smoke.add_argument("--trace-kv-pages", action="store_true", help="measure KV pages on four selected MT-RAG turns")
     smoke.add_argument("--prepare-only", action="store_true")
     workload = modes.add_parser("replay", help="replay both request groups after the workers are ready")
     workload.add_argument("--inputs", type=Path, required=True)

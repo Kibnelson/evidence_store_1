@@ -10,6 +10,8 @@ from vllm_pd_replay import read_jsonl, sha256_file
 SMOKE = "musique-smoke"
 WORKLOADS = (SMOKE, "musique-single-turn-40", "mtrag-multi-turn-repeat")
 DATASETS = {"musique-single-turn-40": "musique", "mtrag-multi-turn-repeat": "mtrag"}
+PAGE_SMOKE_CONVERSATION = "1534a095279f2cb888fb0bea17bd70da"
+PAGE_SMOKE_TURNS = (1, 2, 3, 4)
 
 
 def complete_conversations(sample, available):
@@ -62,4 +64,27 @@ def load_selected(path, workload, prepared, index_dir):
         "selection_sha256": sha256_file(path), "selection_provenance": provenance,
         "selection_metrics": selection["selection"], "corpus_sha256": corpus_sha256,
         "index_sha256": index["index_sha256"],
+    }
+
+
+def page_smoke(sample, manifest):
+    """Take the first four turns of the page smoke conversation from the validated selection."""
+    if manifest["workload"] != "mtrag-multi-turn-repeat" or manifest["domain"] != "clapnq":
+        raise ValueError("The KV page smoke requires the selected MT-RAG CLAPNQ workload")
+    turns = [row for row in sample if row["conversation_id"] == PAGE_SMOKE_CONVERSATION
+             and row["turn"] in PAGE_SMOKE_TURNS]
+    if tuple(row["turn"] for row in turns) != PAGE_SMOKE_TURNS:
+        raise ValueError("The selected MT-RAG workload is missing the four ordered KV page smoke turns")
+    keys = [row["request_key"] for row in turns]
+    selection = manifest["selection_metrics"]
+    references = [row for row in selection["per_request"] if row["request_key"] in keys]
+    if [row["request_key"] for row in references] != keys:
+        raise ValueError("The KV page smoke turns do not match their selected retrieval references")
+    return turns, {
+        **manifest,
+        "query_keys": keys,
+        "conversation_turn_counts": {PAGE_SMOKE_CONVERSATION: len(turns)},
+        "selection_metrics": {"per_request": references},
+        "kv_page_trace": {"schema_version": 1, "conversation_id": PAGE_SMOKE_CONVERSATION,
+                          "turns": list(PAGE_SMOKE_TURNS)},
     }

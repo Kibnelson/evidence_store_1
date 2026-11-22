@@ -70,7 +70,7 @@ bash scripts/vllm_pd_legacy_blend_run.sh 1b3d on
 
 ## Trace differential storage on MT-RAG
 
-This run uses 1B/3D, so all 40 selected CLAPNQ turns across six conversations use the same P cache. The prompt order is `previous-turn-first`. [Selected conversations](datasets/repeat-workloads.md)
+These runs use 1B/3D and `previous-turn-first`, so every turn goes through the same P cache. Choose `storage` for the 40-turn LMCache object trace or `pages` for turns 1–4 of CLAPNQ conversation `1534a095279f2cb888fb0bea17bd70da`. [Selected conversations](datasets/repeat-workloads.md)
 
 ### Start the allocation and run the trace
 
@@ -94,13 +94,14 @@ fi
 
 Detach with `Ctrl+b` then `d`. Reattach from the same login node with `tmux -L evidence-store-mtrag-storage attach-session -t mtrag-storage`.
 
-Run the following in the GPU shell. It builds a fresh runtime with the trace hooks and keeps the result archive and the launch log on node-local scratch. You can set `MTRAG_PREPARED` to a matching prepared corpus and index before running it.
+Run the following in the GPU shell. It builds a fresh runtime with the trace hooks and keeps the result archive and the launch log on node-local scratch. Set `MTRAG_PREPARED` to a matching prepared corpus and index to reuse one. The block defaults to the 40-turn object trace. For the four-turn native page smoke, set `kv_trace=pages` in the GPU shell before pasting it.
 
 ```bash
 (
   set -euo pipefail
   umask 077
   : "${SLURM_JOB_ID:?Run inside the four-GPU allocation}"
+  kv_trace="${kv_trace:-storage}"
   node_root="/tmp/$(id -un)"
   mkdir -p "$node_root"
   [[ -O "$node_root" && ! -L "$node_root" ]]
@@ -112,12 +113,12 @@ Run the following in the GPU shell. It builds a fresh runtime with the trace hoo
   export EVIDENCESTORE_LEGACY_REPORT_DIR="$node_root/blend-storage-archives-$SLURM_JOB_ID"
   mkdir -p "$EVIDENCESTORE_LEGACY_REPORT_DIR"
   bash "$source_repo/scripts/vllm_pd_legacy_blend_run.sh" \
-    1b3d on mtrag-multi-turn-repeat previous-turn-first --trace-kv-storage \
+    1b3d on mtrag-multi-turn-repeat previous-turn-first "--trace-kv-$kv_trace" \
     2>&1 | tee "$EVIDENCESTORE_LEGACY_REPORT_DIR/launch.log"
 )
 ```
 
-After the natural turns, the runner can replay one exact prompt per P whose original request produced a patch candidate. Those verification requests have their own label. The natural storage totals cover only the first pass.
+The object trace can replay one exact prompt per P whose original request produced a patch candidate. Those verification requests have their own label. The page smoke measures native loads across the four natural turns and reports complete 16-token pages and boundary bytes separately. Both modes run two standard Full Blend probes to check the handoff and reconcile the counters. [Page and object trace measurements](vllm-legacy-full-blend-tracing.md#differential-storage-on-mt-rag)
 
 ### Recover a completed capture after a report error
 
@@ -143,8 +144,9 @@ If the replay finished and the report failed, stay on the compute node. Set `run
     https://github.com/Kibnelson/evidence_store_1.git "$source_repo"
   python="$runtime/venv/bin/python"
   "$python" "$source_repo/scripts/vllm_pd_legacy_blend_report.py" --run-dir "$cohort" --trace on
-  if [[ ! -s "$cohort/legacy-kv-storage-report.json" ]]; then
-    "$python" "$source_repo/scripts/vllm_pd_legacy_storage_report.py" --run-dir "$cohort" --replay-label mtrag
+  report_kind=$("$python" -c 'import json, sys; config = json.load(sys.stdin)["legacy_full_blend"]; print("page" if config.get("kv_page_trace_enabled") else "storage")' < "$cohort/run_manifest.json")
+  if [[ ! -s "$cohort/legacy-kv-$report_kind-report.json" ]]; then
+    "$python" "$source_repo/scripts/vllm_pd_legacy_${report_kind}_report.py" --run-dir "$cohort"
   fi
   archive="$report_dir/$run_id.tar.gz"
   if [[ ! -e "$archive" ]]; then
@@ -157,14 +159,14 @@ If the replay finished and the report failed, stay on the compute node. Set `run
   fi
   {
     sha256sum "$archive"
-    printf 'MT-RAG KV storage trace archived at %s\n' "$archive"
+    printf 'MT-RAG KV %s trace archived at %s\n' "$report_kind" "$archive"
   } | tee -a "$report_dir/launch.log"
 )
 ```
 
 ### Publish the verified packet
 
-After `MT-RAG KV storage trace archived at` appears, use the same GPU shell to run the block below. It reads the archive path and digest from the launch log, rebuilds the review packet, and pushes that packet over SSH from a scratch clone. The compressed run archive stays on the node.
+After the page or storage trace prints its archive path, use the same GPU shell to run the block below. It reads the archive path and digest from the launch log, rebuilds the review packet, and pushes that packet over SSH from a scratch clone. The compressed run archive stays on the node.
 
 ```bash
 (
@@ -191,13 +193,17 @@ After `MT-RAG KV storage trace archived at` appears, use the same GPU shell to r
   git remote set-url --push origin git@github.com:Kibnelson/evidence_store_1.git
   git add -- "$result"
   if ! git diff --cached --quiet -- "$result"; then
-    git commit -m "Archive MT-RAG KV storage trace ${result##*/}" -- "$result"
+    git commit -m "Archive MT-RAG KV trace ${result##*/}" -- "$result"
   fi
   git push origin main
   printf 'Published %s at %s\n' "$result" "$(git rev-parse --short HEAD)"
   printf 'After pulling locally, run these from the repo root\n'
   printf 'python3 scripts/vllm_pd_legacy_blend_archive.py --verify %q\n' "$result"
-  printf 'python3 -m json.tool %q\n' "$result/1p3d/blend/legacy-kv-storage-report.json"
+  report="$result/1p3d/blend/legacy-kv-page-report.json"
+  if [[ ! -f "$report" ]]; then
+    report="$result/1p3d/blend/legacy-kv-storage-report.json"
+  fi
+  printf 'python3 -m json.tool %q\n' "$report"
 )
 ```
 
@@ -206,6 +212,8 @@ After `MT-RAG KV storage trace archived at` appears, use the same GPU shell to r
 From your local `evidence_store_1` checkout, run `git pull --ff-only origin main`, then run the two commands printed by the publisher.
 
 In `legacy-kv-storage-report.json`, start with `storage.gross_saved_bytes` for sampled savings including patch metadata. Then check `native_lookup_verification.nonidentical_delta_store_samples_with_verified_load` for changed targets reconstructed byte for byte on a later LMCache load. A report with zero savings is a valid result. A patch candidate without a verified load establishes a size opportunity only. [How the trace measures storage and restore](vllm-legacy-full-blend-tracing.md#differential-storage-on-mt-rag)
+
+In `legacy-kv-page-report.json`, compare `storage.representations` for raw pages, references, and patches. Check `native_lookup_verification.all_layer_verified_events` and missing-base counts for the loads that were observed. The graph records the raw base and target page versions. Per-page rows retain native block mappings, token spans, and K/V changed-row counts by layer. [How the page trace identifies source and destination blocks](vllm-legacy-full-blend-tracing.md#native-page-smoke)
 
 ## Compare prompt policies
 
