@@ -280,12 +280,12 @@ def verify(directory):
         raise ValueError(f"Invalid Full Blend archive manifest in {directory}")
 
 
-def archive(source, digest, *, include_raw_kv_pages=False):
+def archive(source, digest, *, include_raw_kv_pages=False, output_root=None):
     run_name = source.name.removesuffix(".tar.gz")
     match = RUN_NAME.fullmatch(run_name)
     if not match or source.name == run_name or sha256_file(source) != digest:
         raise ValueError("The Full Blend archive filename or SHA-256 differs from the run receipt")
-    target = ROOT / "reports/smoke" / run_name
+    target = (ROOT / "reports/smoke" if output_root is None else output_root) / run_name
     if target.exists():
         verify(target)
         manifest = read_json(target / MANIFEST)

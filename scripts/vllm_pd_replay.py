@@ -20,6 +20,7 @@ from urllib.request import Request, urlopen
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from evidencestore.retrieval import (  # noqa: E402
     HnswRetriever,
+    LEGACY_BLEND_SEPARATOR,
     PROMPT_FORMATS,
     build_hnsw,
     chunk_record,
@@ -207,6 +208,21 @@ def _chunk_identity(chunk):
     return (chunk["doc_id"], chunk["chunk_id"], chunk["chunk_version"])
 
 
+def _escape_legacy_input(question, history, hits):
+    """Protect literal input from being interpreted as a Blend boundary."""
+    count = 0
+
+    def escape(text):
+        nonlocal count
+        count += text.count(LEGACY_BLEND_SEPARATOR)
+        return text.replace(LEGACY_BLEND_SEPARATOR, r"\u00b6")
+
+    question = escape(question)
+    history = [{**turn, "speaker": escape(turn["speaker"]), "text": escape(turn["text"])} for turn in history]
+    hits = [{**hit, "text": escape(hit["text"])} for hit in hits]
+    return question, history, hits, count
+
+
 def serve_row(args, row, tracer, retriever, tokenizer, evidence_order=None):
     fields = _request_fields(row, args.label)
     frozen = None
@@ -235,16 +251,19 @@ def serve_row(args, row, tracer, retriever, tokenizer, evidence_order=None):
                         **materialize_stage_fields)
             render_stage_fields = {"chunk_stages": []} if args.trace_chunk_stages else {}
             tracer.emit("prompt_render_start", **fields)
-            rendered = render_prompt(tokenizer, row["question"], row.get("reference_history", []),
-                                     hits, args.max_prompt_tokens, prompt_format=args.prompt_format,
+            question, history = row["question"], row.get("reference_history", [])
+            format_fields = {}
+            if args.escape_legacy_separator:
+                question, history, hits, escaped = _escape_legacy_input(question, history, hits)
+                format_fields["escaped_input_separator_count"] = escaped
+            rendered = render_prompt(tokenizer, question, history, hits, args.max_prompt_tokens, prompt_format=args.prompt_format,
                                      evidence_order=evidence_order,
                                      **render_stage_fields)
             tokens, evidence = rendered.token_ids, rendered.evidence
             prompt_hash = prompt_sha256(tokens)
-            format_fields = {}
             if rendered.blend_separator_token_spans is not None:
-                format_fields = {"prompt_format": args.prompt_format,
-                                 "blend_separator_token_spans": rendered.blend_separator_token_spans}
+                format_fields.update(prompt_format=args.prompt_format,
+                                     blend_separator_token_spans=rendered.blend_separator_token_spans)
             if evidence_order is not None:
                 format_fields["evidence_order"] = args.evidence_order
             tracer.emit("prompt_render_end", **fields, prompt_token_count=len(tokens),
@@ -405,6 +424,8 @@ def replay(args):
     }
     if args.trace_chunk_stages:
         manifest["trace_chunk_stages"] = retriever is not None
+    if args.escape_legacy_separator:
+        manifest["escape_legacy_separator"] = True
     formats = {row.get("prompt_format", "standard") for row in rows} if args.frozen else {args.prompt_format}
     for prompt_format in PROMPT_FORMATS[1:]:
         if formats == {prompt_format}:
@@ -469,11 +490,15 @@ def parse_args(argv=None):
                       help="trace live corpus-row reads, prompt chunks, and whole-prompt assembly")
     send.add_argument("--prompt-format", choices=PROMPT_FORMATS, default="standard",
                       help="render live queries with the selected prompt format")
+    send.add_argument("--escape-legacy-separator", action="store_true",
+                      help="escape literal ¶ in legacy Blend prompt inputs")
     send.add_argument("--evidence-order", choices=("retrieval", "seen-first", "previous-turn-first"),
                       default="retrieval", help="order retained evidence using retrieval rank or replay history")
     args = parser.parse_args(argv)
     if args.command == "replay" and args.frozen and args.prompt_format != "standard":
         parser.error("--prompt-format applies to live --queries only")
+    if args.command == "replay" and args.escape_legacy_separator and (args.frozen or args.prompt_format == "standard"):
+        parser.error("--escape-legacy-separator requires live queries and a legacy Blend prompt format")
     if args.command == "replay" and args.evidence_order != "retrieval" and (
         args.frozen or args.concurrency != 1
     ):

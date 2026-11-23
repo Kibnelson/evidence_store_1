@@ -5,6 +5,7 @@ from itertools import groupby
 import json
 import re
 
+from vllm_pd_mtrag_scale_select import DOMAINS, REFERENCE_COHORT, REFERENCE_RUN
 from vllm_pd_replay import read_jsonl, sha256_file
 
 
@@ -65,6 +66,57 @@ def load_selected(path, workload, prepared, index_dir):
         "selection_sha256": sha256_file(path), "selection_provenance": provenance,
         "selection_metrics": selection["selection"], "corpus_sha256": corpus_sha256,
         "index_sha256": index["index_sha256"],
+    }
+
+
+def load_scale_conversation(path, prepared, index_dir, *, domain, conversation_id, turn_window):
+    """Check the frozen full-turn queue and the current domain's prepared inputs."""
+    plan = json.loads(path.read_text(encoding="utf-8"))
+    if (plan["schema_version"] != 1 or plan["dataset"] != "mtrag" or domain not in DOMAINS
+            or plan["native_reference_run"] != REFERENCE_RUN
+            or plan["native_reference_cohort"] != REFERENCE_COHORT):
+        raise ValueError(f"Invalid MT-RAG scale plan at {path}")
+    matches = [row for row in plan["conversations"] if row["conversation_id"] == conversation_id]
+    if len(matches) != 1 or conversation_id in plan["regression_conversations"]:
+        raise ValueError(f"Expected one held-out conversation {conversation_id} in {path}")
+    entry = matches[0]
+    if entry["domain"] != domain or entry["turn_window"] != turn_window:
+        raise ValueError(f"Use the full turn window and domain in the frozen plan for {conversation_id}")
+
+    queries = prepared / "queries.jsonl"
+    reference = entry["native_retrieval_reference"]
+    keys = [row["request_key"] for row in reference]
+    turns = list(range(1, entry["turns"] + 1))
+    sample = [row for row in read_jsonl(queries) if row["conversation_id"] == conversation_id]
+    if (len(turns) < 2 or turn_window != f"1:{len(turns)}" or [row["turn"] for row in sample] != turns
+            or [row["request_key"] for row in sample] != keys
+            or any(row["dataset"] != "mtrag" or row["domain"] != domain or row.get("pd_route") for row in sample)):
+        raise ValueError(f"Full query order does not match the frozen plan for {conversation_id}")
+
+    index = json.loads((index_dir / "manifest.json").read_text(encoding="utf-8"))
+    source = plan["domains"][domain]
+    corpus_sha256 = sha256_file(prepared / "corpus.jsonl")
+    if (sha256_file(queries) != source["queries_sha256"] or corpus_sha256 != source["corpus_sha256"]
+            or index["corpus_sha256"] != corpus_sha256 or index["chunks_sha256"] != corpus_sha256
+            or index["embedding_model"] != "intfloat/e5-base-v2"
+            or index["embedding_revision"] != "f52bf8ec8c7124536f0efb74aca902b2995e5bcd"
+            or (index["hnsw_m"], index["ef_construction"], index["ef_search"]) != (32, 200, 200)
+            or not all((index_dir / name).is_file() for name in ("index.faiss", "chunks.jsonl"))):
+        raise ValueError(f"Expected the full pinned queries, corpus, and HNSW settings for {domain}")
+    return sample, {
+        "dataset": "mtrag", "domain": domain, "workload": "mtrag-multi-turn-repeat", "query_keys": keys,
+        "prompt_format": "legacy-blend", "conversation_turn_counts": {conversation_id: len(turns)},
+        "selection_sha256": sha256_file(path), "selection_provenance": source,
+        "selection_metrics": {"per_request": reference}, "corpus_sha256": corpus_sha256,
+        "index_sha256": index["index_sha256"], "kv_page_trace": {
+            "schema_version": 1, "conversation_id": conversation_id, "turns": turns,
+        },
+        "scale_selection": {
+            "native_reference_run": REFERENCE_RUN, "native_reference_cohort": REFERENCE_COHORT,
+            "archived_repeated_chunk_occurrences": entry["archived_repeated_chunk_occurrences"],
+            "archived_chunk_occurrences": entry["archived_chunk_occurrences"], "stage_end": entry["stage_end"],
+            "literal_separator_encoding": r"\u00b6",
+        },
     }
 
 

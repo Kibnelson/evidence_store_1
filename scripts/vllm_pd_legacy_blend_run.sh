@@ -14,6 +14,8 @@ trace_kv_pages=0
 capture_kv_pages=0
 page_conversation=""
 page_turns=""
+mtrag_scale_plan=""
+mtrag_domain=""
 shift "$(( $# < 4 ? $# : 4 ))"
 while (( $# )); do
   option="$1"
@@ -23,16 +25,17 @@ while (( $# )); do
     --trace-kv-storage) trace_kv_storage=1 ;;
     --trace-kv-pages) trace_kv_pages=1 ;;
     --capture-kv-pages) capture_kv_pages=1 ;;
-    --page-conversation|--page-turns)
+    --page-conversation|--page-turns|--mtrag-scale-plan|--mtrag-domain)
       if (( $# == 0 )) || [[ -z "$1" || "$1" == --* ]]; then
         printf 'Provide a value for %s.\n' "$option" >&2
         exit 2
       fi
-      if [[ "$option" == --page-conversation ]]; then
-        page_conversation="$1"
-      else
-        page_turns="$1"
-      fi
+      case "$option" in
+        --page-conversation) page_conversation="$1" ;;
+        --page-turns) page_turns="$1" ;;
+        --mtrag-scale-plan) mtrag_scale_plan="$1" ;;
+        --mtrag-domain) mtrag_domain="$1" ;;
+      esac
       shift
       ;;
     *) printf 'Unknown Full Blend option %s\n' "$option" >&2; exit 2 ;;
@@ -50,7 +53,7 @@ case "$workload" in
   *) printf 'Unknown Full Blend workload %s\n' "$workload" >&2; exit 2 ;;
 esac
 if [[ "$trace" != on && "$trace" != off ]]; then
-  printf 'Usage: %s [1b3d|2b2d|both] [on|off] [workload] [prompt-policy] [--estimate-delta] [--trace-kv-storage|--trace-kv-pages] [--capture-kv-pages] [--page-conversation ID] [--page-turns FIRST:LAST]\n' "$0" >&2
+  printf 'Usage: %s [1b3d|2b2d|both] [on|off] [workload] [prompt-policy] [--estimate-delta] [--trace-kv-storage|--trace-kv-pages] [--capture-kv-pages] [--page-conversation ID] [--page-turns FIRST:LAST] [--mtrag-scale-plan FILE --mtrag-domain DOMAIN]\n' "$0" >&2
   exit 2
 fi
 case "$prompt_policy:$workload" in
@@ -81,12 +84,19 @@ if (( !trace_kv_pages )) && [[ -n "$page_conversation" || -n "$page_turns" ]]; t
   exit 2
 fi
 if [[ -n "$page_conversation" && ! "$page_conversation" =~ ^[0-9a-f]{32}$ ]]; then
-  printf 'Use a 32-character CLAPNQ conversation ID.\n' >&2
+  printf 'Use a 32-character MT-RAG conversation ID.\n' >&2
   exit 2
 fi
 if [[ -n "$page_turns" && ! "$page_turns" =~ ^[1-9][0-9]*:[1-9][0-9]*$ ]]; then
   printf 'Use --page-turns FIRST:LAST with positive turn numbers.\n' >&2
   exit 2
+fi
+if [[ -n "$mtrag_scale_plan" || -n "$mtrag_domain" ]]; then
+  if (( !capture_kv_pages )) || [[ ! "$mtrag_scale_plan" = /* || ! -s "$mtrag_scale_plan" ||
+      ! "$mtrag_domain" =~ ^(clapnq|cloud|fiqa|govt)$ || -z "$page_conversation" || -z "$page_turns" ]]; then
+    printf 'Scaled MT-RAG requires the absolute plan path, its domain, full conversation and turn window, and --capture-kv-pages.\n' >&2
+    exit 2
+  fi
 fi
 
 source_repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
@@ -133,8 +143,11 @@ fi
 
 replay="$launcher_repo/scripts/vllm_pd_replay.py"
 if [[ "$workload" == mtrag-multi-turn-repeat ]]; then
-  domain="$("$PYTHON" -c 'import json, sys; print(json.load(open(sys.argv[1]))["domain"])' \
-    "$launcher_repo/workloads/$workload.json")"
+  domain="$mtrag_domain"
+  if [[ -z "$domain" ]]; then
+    domain="$("$PYTHON" -c 'import json, sys; print(json.load(open(sys.argv[1]))["domain"])' \
+      "$launcher_repo/workloads/$workload.json")"
+  fi
   [[ "$domain" =~ ^(clapnq|cloud|fiqa|govt)$ ]]
   prepared_override="${MTRAG_PREPARED:-}"
   prepared="${prepared_override:-$PD_EXEC_ROOT/data/mtrag/$domain}"
@@ -185,6 +198,9 @@ if [[ -n "$page_conversation" ]]; then
 fi
 if [[ -n "$page_turns" ]]; then
   replay_args+=(--page-turns "$page_turns")
+fi
+if [[ -n "$mtrag_scale_plan" ]]; then
+  replay_args+=(--mtrag-scale-plan "$mtrag_scale_plan" --mtrag-domain "$mtrag_domain")
 fi
 "$PYTHON" "$launcher_repo/scripts/vllm_pd_legacy_blend.py" "${replay_args[@]}" 2>&1 | tee "$run_log"
 

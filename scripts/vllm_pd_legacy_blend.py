@@ -15,7 +15,8 @@ from vllm_pd_blend_smoke import (
 from vllm_pd_cluster import MODEL, REVISION, ROOT, TOPOLOGIES
 from vllm_pd_legacy_delta_estimate import POLICIES as DELTA_ESTIMATE_POLICIES, SCHEMA_VERSION, write_estimate
 from vllm_pd_legacy_storage_smoke import replay_storage_targets
-from vllm_pd_legacy_workloads import SMOKE, WORKLOADS, load_selected, page_smoke
+from vllm_pd_legacy_workloads import SMOKE, WORKLOADS, load_scale_conversation, load_selected, page_smoke
+from vllm_pd_mtrag_scale_select import DOMAINS
 from vllm_pd_replay import load_tokenizer
 
 from evidencestore.retrieval import json_line, prompt_sha256, render_prompt
@@ -67,6 +68,8 @@ def replay(args):
                "--prompt-format", manifest["prompt_format"]]
     if "evidence_order" in manifest:
         natural.extend(("--evidence-order", manifest["evidence_order"]))
+    if "scale_selection" in manifest:
+        natural.append("--escape-legacy-separator")
     if args.trace == "on":
         natural.append("--trace-chunk-stages")
     subprocess.run([*command, *natural], check=True)
@@ -94,13 +97,21 @@ def run(args):
         raise ValueError("Raw KV page capture requires --trace-kv-pages")
     if not args.trace_kv_pages and (args.page_conversation is not None or args.page_turns is not None):
         raise ValueError("--page-conversation and --page-turns require --trace-kv-pages")
+    scaled = args.mtrag_scale_plan is not None or args.mtrag_domain is not None
+    if scaled and (not args.capture_kv_pages or not all(
+        (args.mtrag_scale_plan, args.mtrag_domain, args.page_conversation, args.page_turns)
+    )):
+        raise ValueError("Scaled MT-RAG requires the plan, its domain, full conversation and turn window, and raw capture")
     prepared = args.prepared.resolve()
     index = prepared / "index"
-    if args.workload == SMOKE:
+    if scaled:
+        sample, manifest = load_scale_conversation(args.mtrag_scale_plan, prepared, index, domain=args.mtrag_domain,
+                                                   conversation_id=args.page_conversation, turn_window=args.page_turns)
+    elif args.workload == SMOKE:
         sample, manifest = musique_sample(prepared, index)
     else:
         sample, manifest = load_selected(ROOT / "workloads" / f"{args.workload}.json", args.workload, prepared, index)
-    if args.trace_kv_pages:
+    if args.trace_kv_pages and not scaled:
         sample, manifest = page_smoke(sample, manifest, conversation_id=args.page_conversation,
                                       turn_window=args.page_turns)
     if args.prompt_policy != "default":
@@ -164,8 +175,10 @@ def main():
     smoke.add_argument("--estimate-delta", action="store_true", help="save hypothetical changed-row savings")
     smoke.add_argument("--trace-kv-pages", action="store_true", help="measure KV pages on one selected MT-RAG conversation")
     smoke.add_argument("--capture-kv-pages", action="store_true", help="save the committed raw page tensors for offline comparison")
-    smoke.add_argument("--page-conversation", metavar="ID", help="select one conversation from the CLAPNQ workload")
-    smoke.add_argument("--page-turns", metavar="FIRST:LAST", help="inclusive turn window for the page trace, default 1:4")
+    smoke.add_argument("--page-conversation", metavar="ID", help="select a conversation from the workload or frozen plan")
+    smoke.add_argument("--page-turns", metavar="FIRST:LAST", help="inclusive window for the page trace, default 1:4 for CLAPNQ")
+    smoke.add_argument("--mtrag-scale-plan", type=Path, help="select a complete conversation from the frozen MT-RAG scale plan")
+    smoke.add_argument("--mtrag-domain", choices=DOMAINS, help="select the prepared domain from the scale plan")
     smoke.add_argument("--prepare-only", action="store_true")
     workload = modes.add_parser("replay", help="replay both request groups after the workers are ready")
     workload.add_argument("--inputs", type=Path, required=True)

@@ -51,17 +51,15 @@ def _archive(capture_dir):
     return path, digest
 
 
-def record(repo, capture_dir, conversation, window, budget_mib):
-    archive, digest = _archive(capture_dir)
-    cohort = repo / "reports" / "runs" / archive.name.removesuffix(".tar.gz") / "1p3d" / "blend"
-    report = json.loads((cohort / "legacy-kv-page-report.json").read_text(encoding="utf-8"))
+def capture_receipt(report, conversation, window, *, budget_mib=None):
+    """Check capture scope and return its replay-independent receipt fields."""
     first, last = map(int, window.split(":"))
     turns = [(row["conversation_id"], row["turn"]) for row in report["turns"]]
-    if turns != [(conversation, turn) for turn in range(first, last + 1)]:
+    if not turns or first < 1 or turns != [(conversation, turn) for turn in range(first, last + 1)]:
         raise ValueError(f"Archive does not cover {conversation} turns {window}")
     if report["status"] != "measured":
         raise ValueError(f"Page trace for {conversation} reports {report['status']}")
-    if report["trace_bounds"].get("max_capture_raw_bytes") != budget_mib * MIB:
+    if budget_mib is not None and report["trace_bounds"].get("max_capture_raw_bytes") != budget_mib * MIB:
         raise ValueError(f"Capture did not use its requested {budget_mib} MiB budget")
 
     for operation, coverage in report["native_movement_coverage"].items():
@@ -81,20 +79,26 @@ def record(repo, capture_dir, conversation, window, budget_mib):
         for row in report["stores"]
     ):
         raise ValueError(f"Incomplete raw capture for {conversation}. {report['raw_page_capture']}")
-    for tensor_sha256, size in inventory.items():
-        load_payload(cohort, tensor_sha256, size)
-
     for row in report["restores"]:
         if (not row.get("native_transfer_matched") or not row.get("source_store_version_matched")
                 or row.get("observed_sha256") not in inventory
                 or row["observed_sha256"] != row.get("tensor_sha256")):
             raise ValueError(f"Unverified native page load for {conversation} on turn {row['turn']}")
-    print(json.dumps({
+    return {
         "conversation_id": conversation, "turn_window": window, "turns": len(turns),
         "stores": len(report["stores"]), "observed_loads": len(report["restores"]),
         "unique_raw_pages": len(inventory), "raw_capture_bytes": sum(inventory.values()),
-        "archive": str(archive), "sha256": digest,
-    }))
+    }
+
+
+def record(repo, capture_dir, conversation, window, budget_mib):
+    archive, digest = _archive(capture_dir)
+    cohort = repo / "reports" / "runs" / archive.name.removesuffix(".tar.gz") / "1p3d" / "blend"
+    report = json.loads((cohort / "legacy-kv-page-report.json").read_text(encoding="utf-8"))
+    receipt = capture_receipt(report, conversation, window, budget_mib=budget_mib)
+    for tensor_sha256, size in capture_records(report).items():
+        load_payload(cohort, tensor_sha256, size)
+    print(json.dumps({**receipt, "archive": str(archive), "sha256": digest}))
 
 
 def main():

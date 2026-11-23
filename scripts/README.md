@@ -11,6 +11,10 @@
 | `vllm_pd_report.py` | Capture native NIXL counters and generate the joined request timelines and report. |
 | `vllm_pd_publish_smoke.sh` | Archive and push a passed smoke pair from the shared checkout. |
 | `vllm_pd_full_campaign.sh` | Stage and index all dataset inputs and replay the four cohorts in the current allocation. |
+| `vllm_pd_legacy_exponent_replay.py` | Replay a verified KV page campaign on CPU with standalone and forward-pinned exponent-delta storage at matched cache budgets. |
+| `vllm_pd_mtrag_scale_select.py` | Freeze the held-out MT-RAG conversation queue from the verified four-domain retrieval traces. |
+| `vllm_pd_mtrag_scale_run.py` | Run one conversation at a time through GPU capture, CPU replay, publication, and verified scratch cleanup. |
+| `vllm_pd_mtrag_scale_publish.py` | Publish exact raw capture archives as GitHub Release assets, checkpoint their CPU reports in Git, and verify or download a checkpoint. |
 | `vllm_pd_chunk_smoke.sh` | Run the MuSiQue chunk-trace smoke or use `--full` for one pass in `2p2d-shared`. Add `--paired` for a native comparison. |
 | `vllm_pd_blend_smoke.py` | Test controlled prefix-to-Blend reuse or use `--musique-prepared` to test natural Blend reuse in both four-GPU layouts. |
 | `vllm_pd_blend_natural_report.py` | Verify live MuSiQue replay and attribute completed shifted LMCache restores to repeated evidence. |
@@ -22,3 +26,5 @@
 | `vllm_pd_smoke_archive.py` | Verify a pulled smoke archive against its file hashes and cohort receipts. |
 
 The [native PD runbook](../docs/vllm-native-pd-runbook.md) gives the commands for the entire Slurm allocation.
+
+The [MT-RAG scale runbook](../docs/mtrag-kv-capture-scale-plan.md#run-the-pilot-and-campaign) gives the commands for the raw-page pilot, larger capture, and independent CPU replay.

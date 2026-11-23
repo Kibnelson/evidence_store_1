@@ -357,6 +357,52 @@ def _retrieval_agreement(replays, reference):
             "mismatching_request_keys": sorted(expected.keys() - (retrieved & kept))}
 
 
+def _scaled_retrieval_agreement(replays, reference, events, domain):
+    """Check live ranked hits and prompt trimming, and report historical differences."""
+    fields = ("doc_id", "chunk_id", "chunk_version", "rank")
+    by_request = defaultdict(lambda: defaultdict(list))
+    for event in events:
+        if event["event"] in ("chunk_materialize_end", "prompt_render_end") and event.get("label") == "mtrag":
+            by_request[event["request_id"]][event["event"]].append(event)
+    expected = {row["request_key"]: row["evidence"] for row in reference}
+    retrieved, kept, archived = set(), set(), set()
+    escaped = 0
+    for _, prompt, response in replays:
+        key = prompt["request_key"]
+        stages = by_request[response["request_id"]]
+        materialized = _one(stages, "chunk_materialize_end")
+        rendered = _one(stages, "prompt_render_end")
+        hits = prompt["retrieval_hits"]
+        ids = [hit["chunk_id"] for hit in hits]
+        chunks = prompt["evidence"]
+        drops = prompt["dropped_chunk_ids"]
+        n = len(chunks)
+        escape_count = prompt["escaped_input_separator_count"]
+        if (hits == materialized["hits"] and [hit["rank"] for hit in hits] == list(range(1, 7))
+                and len(set(ids)) == 6 and all(identity.startswith(f"mtrag:{domain}:chunk:") for identity in ids)):
+            retrieved.add(key)
+        frozen_ranks = [{field: hit[field] for field in fields} for hit in hits]
+        if frozen_ranks == expected[key]:
+            archived.add(key)
+        retained_ranks = sorted(({field: chunk[field] for field in fields} for chunk in chunks),
+                                key=lambda item: item["rank"])
+        if (n and retained_ranks == frozen_ranks[:n] and drops == ids[n:][::-1]
+                and drops == rendered["dropped_chunk_ids"] and rendered["prompt_sha256"] == prompt["prompt_sha256"]
+                and type(escape_count) is int and escape_count >= 0
+                and escape_count == rendered["escaped_input_separator_count"]):
+            kept.add(key)
+            escaped += escape_count
+    return {
+        "reference": "live_ranked_hits_and_prompt_trace",
+        "matching_retrieval_identity_and_ranks": len(retrieved),
+        "matching_kept_identity_and_ranks": len(kept),
+        "mismatching_request_keys": sorted(expected.keys() - (retrieved & kept)),
+        "matching_archived_identity_and_ranks": len(archived),
+        "archived_rank_mismatching_request_keys": sorted(expected.keys() - archived),
+        "escaped_input_separator_count": escaped,
+    }
+
+
 def _verify_previous_turn_order(replays):
     first_seen = {}
     previous_turns = {}
@@ -457,10 +503,18 @@ def report(run_dir, *, trace):
         summary["storage_verification_requests"] = len(verification)
     summary.update(settings)
     if selected:
-        selection_agreement = _retrieval_agreement if settings else _selection_agreement
+        reference = sample["selection_metrics"]["per_request"]
+        if "scale_selection" in sample:
+            replay_manifest = _json(run_dir / "client" / label / "manifest.json")
+            if replay_manifest.get("escape_legacy_separator") is not True:
+                raise ValueError("Missing escaped-separator mode for scaled MT-RAG replay")
+            agreement = _scaled_retrieval_agreement(natural_replays, reference, events, sample["domain"])
+        else:
+            selection_agreement = _retrieval_agreement if settings else _selection_agreement
+            agreement = selection_agreement(natural_replays, reference)
         summary.update(workload=sample["workload"], natural_label=label, domain=sample["domain"],
                        conversation_turn_counts=sample["conversation_turn_counts"],
-                       selection_agreement=selection_agreement(natural_replays, sample["selection_metrics"]["per_request"]))
+                       selection_agreement=agreement)
     if trace:
         groups, unjoined = request_joins(events)
         if unjoined:

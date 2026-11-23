@@ -311,6 +311,25 @@ python3 scripts/vllm_pd_legacy_packed_replay.py "${cohorts[@]}" \
 
 Set the Bash array `cohorts` to the six published cohort directories. Each offline replay starts with its own logical cache and reports its observed loads and frame coverage separately.
 
+### Replay exponent deltas using the published captures
+
+Job 30568 served the 40 natural turns with raw LMCache pages and full NIXL handoffs. Its trace measured candidate row patches alongside serving and archived the complete page bytes. The first byte-level exponent replay used the five-turn `1534a095` capture. The next test reuses all six verified captures on CPU. A separate serving run with the codecs wired into LMCache would measure live cache and serving effects. [Comparison results](datasets/mtrag-clapnq-kv-comparison-30568.md)
+
+Use the same Zstd field codec in both arms. Standalone compression stores both target fields independently. Forward pinning can use an exponent delta against a compatible resident base when it saves at least 5% on the complete frame. Run each conversation with a fresh logical cache and the same budgets and miss-refill policy. Check target bytes against the capture at the first tested full-hit budgets. Compare hits, cold base reads, committed frame bytes, and matched encode and restore CPU times. Nine eligible pairs per conversation are sampled by default for timing.
+
+The replay uses Python 3.10 or newer, a C compiler, and system `libzstd`. It can run in a CPU-only allocation. Use node scratch with room for the published page files and their Git objects. From the source checkout containing the new script, point `results_checkout` at the results checkout containing the six packets and `output_dir` at a writable results directory.
+
+```bash
+python3 -B scripts/vllm_pd_legacy_exponent_replay.py \
+  --campaign "$results_checkout/reports/campaigns/clapnq-30568.json" \
+  --output-dir "$output_dir" \
+  --capacity-mib 96 128 160 192 224 256 384 512 768 1024 1536 2048 3072
+```
+
+Use `--conversation 1534a095279f2cb888fb0bea17bd70da` for the five-turn smoke. On the same host, rerun the command with the same inputs and output directory to resume completed conversations. `campaign-summary.json` is written after all six have passed. Check the per-conversation reports alongside the aggregate results because anchor availability and hit thresholds differ by conversation. A subsequent live smoke can compare raw LMCache, standalone compression and differential storage while keeping the NIXL handoff fixed.
+
+The [larger capture plan](mtrag-kv-capture-scale-plan.md) starts with 20 new conversations and records a verified publication checkpoint before reclaiming each conversation's scratch.
+
 ## Compare prompt policies
 
 The fourth optional launcher argument controls client-side prompt assembly. `trace` separately controls instrumentation. The same Full Blend workers perform prefill and decode, with a full native NIXL handoff and counters reconciled per decoder. Controlled probes use the original prompt layout in every mode.
