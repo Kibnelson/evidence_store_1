@@ -276,9 +276,32 @@ bash scripts/vllm_pd_legacy_blend_batch.sh
 
 Add `--first-four` for a matched four-turn capture from each conversation. The full run uses an expanded per-P raw capture budget of **4 GiB** and samples up to **512 pages per request**. The earlier 40-turn object trace projects roughly **5.8 GiB** of complete raw pages. Scratch also holds compressed captures, tarballs, the runtime, and the index. A separate conversation run can write more KV when it starts with a cold cache. Check node space at launch and use the measured coverage receipts for the final page counts.
 
-Each conversation has its own launch log and tarball. The runner checks native page coverage and verifies the captured tensor digests before appending that conversation to `archives.jsonl`. If a conversation fails, the earlier verified receipts and archives stay in the printed campaign directory. Publish verified packets one at a time with the [archive tool](../scripts/vllm_pd_legacy_blend_archive.py), using the archive path and SHA-256 in each receipt and `--include-raw-kv-pages`.
+Each conversation has its own launch log and tarball. The runner checks native page coverage and verifies the captured tensor digests before appending that conversation to `archives.jsonl`. If a conversation fails, the earlier verified receipts and archives stay in the printed campaign directory.
 
-After pulling the published packets locally, pass all six `1p3d/blend` directories to the [packed replay](../scripts/vllm_pd_legacy_packed_replay.py). Use a broader capacity grid for the longer conversations, then refine around each full-hit threshold.
+Publish the verified captures from the node where the campaign archives live. Set `batch` to the campaign directory printed when collection started. The publisher stages one conversation at a time and uploads bounded commits to `results/clapnq-<job>`. It adds the manifest after the raw payloads and writes an index under `reports/campaigns/`. Reuse the same scratch checkout if an upload stops.
+
+```bash
+(
+  set -euo pipefail
+  : "${SLURM_JOB_ID:?Run from the allocation on the capture node}"
+  batch=/tmp/nbore/mtrag-conversations-30568.n8M9ZJ
+  publish_repo="$batch/publish"
+  branch=results/clapnq-30568
+  test -s "$batch/archives.jsonl"
+  if [[ ! -d "$publish_repo/.git" ]]; then
+    git clone --depth=1 --single-branch --no-tags --branch main --sparse \
+      https://github.com/Kibnelson/evidence_store_1.git "$publish_repo"
+    git -C "$publish_repo" sparse-checkout set scripts src
+    git -C "$publish_repo" switch -c "$branch"
+  fi
+  git -C "$publish_repo" remote set-url --push origin git@github.com:Kibnelson/evidence_store_1.git
+  python3 -B "$publish_repo/scripts/vllm_pd_legacy_publish_campaign.py" "$batch/archives.jsonl"
+)
+```
+
+For a later job, update `batch` and `branch` to that capture's directory and job ID. Check out the results branch locally to review the completed campaign.
+
+In the results checkout, pass all six `1p3d/blend` directories from the campaign index to the [packed replay](../scripts/vllm_pd_legacy_packed_replay.py). Use a broader capacity grid for the longer conversations, then refine around each full-hit threshold.
 
 ```bash
 python3 scripts/vllm_pd_legacy_packed_replay.py "${cohorts[@]}" \
