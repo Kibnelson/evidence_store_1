@@ -12,12 +12,29 @@ estimate_delta=0
 trace_kv_storage=0
 trace_kv_pages=0
 capture_kv_pages=0
-for option in "${@:5}"; do
+page_conversation=""
+page_turns=""
+shift "$(( $# < 4 ? $# : 4 ))"
+while (( $# )); do
+  option="$1"
+  shift
   case "$option" in
     --estimate-delta) estimate_delta=1 ;;
     --trace-kv-storage) trace_kv_storage=1 ;;
     --trace-kv-pages) trace_kv_pages=1 ;;
     --capture-kv-pages) capture_kv_pages=1 ;;
+    --page-conversation|--page-turns)
+      if (( $# == 0 )) || [[ -z "$1" || "$1" == --* ]]; then
+        printf 'Provide a value for %s.\n' "$option" >&2
+        exit 2
+      fi
+      if [[ "$option" == --page-conversation ]]; then
+        page_conversation="$1"
+      else
+        page_turns="$1"
+      fi
+      shift
+      ;;
     *) printf 'Unknown Full Blend option %s\n' "$option" >&2; exit 2 ;;
   esac
 done
@@ -33,7 +50,7 @@ case "$workload" in
   *) printf 'Unknown Full Blend workload %s\n' "$workload" >&2; exit 2 ;;
 esac
 if [[ "$trace" != on && "$trace" != off ]]; then
-  printf 'Usage: %s [1b3d|2b2d|both] [on|off] [workload] [prompt-policy] [--estimate-delta] [--trace-kv-storage|--trace-kv-pages] [--capture-kv-pages]\n' "$0" >&2
+  printf 'Usage: %s [1b3d|2b2d|both] [on|off] [workload] [prompt-policy] [--estimate-delta] [--trace-kv-storage|--trace-kv-pages] [--capture-kv-pages] [--page-conversation ID] [--page-turns FIRST:LAST]\n' "$0" >&2
   exit 2
 fi
 case "$prompt_policy:$workload" in
@@ -57,6 +74,18 @@ if (( trace_kv_pages )) && { [[ "$layout:$trace:$workload:$prompt_policy" != 1b3
 fi
 if (( capture_kv_pages && !trace_kv_pages )); then
   printf 'Use --capture-kv-pages with --trace-kv-pages.\n' >&2
+  exit 2
+fi
+if (( !trace_kv_pages )) && [[ -n "$page_conversation" || -n "$page_turns" ]]; then
+  printf 'Use --page-conversation and --page-turns with --trace-kv-pages.\n' >&2
+  exit 2
+fi
+if [[ -n "$page_conversation" && ! "$page_conversation" =~ ^[0-9a-f]{32}$ ]]; then
+  printf 'Use a 32-character CLAPNQ conversation ID.\n' >&2
+  exit 2
+fi
+if [[ -n "$page_turns" && ! "$page_turns" =~ ^[1-9][0-9]*:[1-9][0-9]*$ ]]; then
+  printf 'Use --page-turns FIRST:LAST with positive turn numbers.\n' >&2
   exit 2
 fi
 
@@ -150,6 +179,12 @@ if (( trace_kv_pages )); then
 fi
 if (( capture_kv_pages )); then
   replay_args+=(--capture-kv-pages)
+fi
+if [[ -n "$page_conversation" ]]; then
+  replay_args+=(--page-conversation "$page_conversation")
+fi
+if [[ -n "$page_turns" ]]; then
+  replay_args+=(--page-turns "$page_turns")
 fi
 "$PYTHON" "$launcher_repo/scripts/vllm_pd_legacy_blend.py" "${replay_args[@]}" 2>&1 | tee "$run_log"
 

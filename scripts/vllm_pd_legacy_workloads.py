@@ -3,6 +3,7 @@
 from collections import defaultdict
 from itertools import groupby
 import json
+import re
 
 from vllm_pd_replay import read_jsonl, sha256_file
 
@@ -67,24 +68,35 @@ def load_selected(path, workload, prepared, index_dir):
     }
 
 
-def page_smoke(sample, manifest):
-    """Take the first four turns of the page smoke conversation from the validated selection."""
+def page_smoke(sample, manifest, *, conversation_id=None, turn_window=None):
+    """Select one conversation window from the validated MT-RAG workload."""
     if manifest["workload"] != "mtrag-multi-turn-repeat" or manifest["domain"] != "clapnq":
-        raise ValueError("The KV page smoke requires the selected MT-RAG CLAPNQ workload")
-    turns = [row for row in sample if row["conversation_id"] == PAGE_SMOKE_CONVERSATION
-             and row["turn"] in PAGE_SMOKE_TURNS]
-    if tuple(row["turn"] for row in turns) != PAGE_SMOKE_TURNS:
-        raise ValueError("The selected MT-RAG workload is missing the four ordered KV page smoke turns")
+        raise ValueError("KV page tracing requires the selected MT-RAG CLAPNQ workload")
+    conversation = PAGE_SMOKE_CONVERSATION if conversation_id is None else conversation_id
+    counts = manifest["conversation_turn_counts"]
+    if conversation not in counts:
+        raise ValueError(f"Unknown selected CLAPNQ conversation {conversation!r}. Choose from {', '.join(counts)}")
+    first, last = PAGE_SMOKE_TURNS[0], PAGE_SMOKE_TURNS[-1]
+    if turn_window is not None:
+        match = re.fullmatch(r"([1-9][0-9]*):([1-9][0-9]*)", turn_window)
+        if match is None:
+            raise ValueError("--page-turns requires an inclusive FIRST:LAST range of positive turn numbers")
+        first, last = map(int, match.groups())
+    if not 1 <= first <= last <= counts[conversation]:
+        raise ValueError(f"Expected an inclusive page turn window within 1:{counts[conversation]} for {conversation}")
+    expected = list(range(first, last + 1))
+    turns = [row for row in sample if row["conversation_id"] == conversation and first <= row["turn"] <= last]
+    if [row["turn"] for row in turns] != expected:
+        raise ValueError(f"Missing ordered turns {first}:{last} for {conversation}")
     keys = [row["request_key"] for row in turns]
     selection = manifest["selection_metrics"]
     references = [row for row in selection["per_request"] if row["request_key"] in keys]
     if [row["request_key"] for row in references] != keys:
-        raise ValueError("The KV page smoke turns do not match their selected retrieval references")
+        raise ValueError("The KV page turns do not match their selected retrieval references")
     return turns, {
         **manifest,
         "query_keys": keys,
-        "conversation_turn_counts": {PAGE_SMOKE_CONVERSATION: len(turns)},
+        "conversation_turn_counts": {conversation: len(turns)},
         "selection_metrics": {"per_request": references},
-        "kv_page_trace": {"schema_version": 1, "conversation_id": PAGE_SMOKE_CONVERSATION,
-                          "turns": list(PAGE_SMOKE_TURNS)},
+        "kv_page_trace": {"schema_version": 1, "conversation_id": conversation, "turns": expected},
     }

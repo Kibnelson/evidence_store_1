@@ -70,7 +70,7 @@ bash scripts/vllm_pd_legacy_blend_run.sh 1b3d on
 
 ## Trace differential storage on MT-RAG
 
-These runs use 1B/3D and `previous-turn-first`, so every turn goes through the same P cache. Choose `storage` for the 40-turn LMCache object trace or `pages` for turns 1–4 of CLAPNQ conversation `1534a095279f2cb888fb0bea17bd70da`. [Selected conversations](datasets/repeat-workloads.md)
+These runs use 1B/3D and `previous-turn-first`, so every turn goes through the same P cache. Choose `storage` for the 40-turn LMCache object trace or `pages` for one selected CLAPNQ conversation. The page smoke defaults to turns 1–4 of `1534a095279f2cb888fb0bea17bd70da`. [Selected conversations](datasets/repeat-workloads.md)
 
 ### Start the allocation and run the trace
 
@@ -101,7 +101,25 @@ kv_trace=pages
 capture_kv_pages=1
 ```
 
-The run block builds a fresh runtime with the trace hooks and keeps the result archive and launch log on node-local scratch. Set `MTRAG_PREPARED` to a matching prepared corpus and index to reuse one. With raw capture enabled, the worker saves a compressed tensor for each unique complete page it observes, with a 512 MiB raw capture budget. The trace reports its capture coverage.
+To capture another conversation, set `page_conversation` and the inclusive `page_turns` window before pasting the same run block. This example captures turns 1–4 of a seven-turn conversation.
+
+```bash
+page_conversation=0208bf26ec357a803445290fa88a2e9e
+page_turns=1:4
+```
+
+| Conversation ID | Available turns |
+| --- | ---: |
+| `0208bf26ec357a803445290fa88a2e9e` | 1–7 |
+| `1534a095279f2cb888fb0bea17bd70da` | 1–5 |
+| `a2698b2973ea7db1ee5adb5e70ec02e4` | 1–9 |
+| `a3f07e9ed5f257db6aecd30511f03af1` | 1–7 |
+| `c1e53df98a28f19448f4af244304b89a` | 1–6 |
+| `cfbcfa3e382f12aed450b10f87a72aeb` | 1–6 |
+
+The launcher accepts these selections as `--page-conversation ID` and `--page-turns FIRST:LAST` with `--trace-kv-pages`. Each run starts with a fresh P cache and replays only the requested window in order. A window starting after turn 1 still uses the dataset's reference history in each prompt. Use a window starting at turn 1 to measure reuse from the start of the conversation. [Validated CLAPNQ selection](../workloads/mtrag-multi-turn-repeat.json)
+
+The run block builds a fresh runtime with the trace hooks and keeps the result archive and launch log on node-local scratch. Set `MTRAG_PREPARED` to a matching prepared corpus and index to reuse one. With raw capture enabled, the worker saves a compressed tensor for each unique observed complete page, subject to 128 sampled pages per request and a 512 MiB raw capture budget. The trace reports its capture coverage. Start with short multi-turn windows and check the coverage before using an archive for offline cache replay.
 
 ```bash
 (
@@ -123,13 +141,19 @@ The run block builds a fresh runtime with the trace hooks and keeps the result a
   if [[ "${capture_kv_pages:-0}" == 1 ]]; then
     trace_args+=(--capture-kv-pages)
   fi
+  if [[ -n "${page_conversation:-}" ]]; then
+    trace_args+=(--page-conversation "$page_conversation")
+  fi
+  if [[ -n "${page_turns:-}" ]]; then
+    trace_args+=(--page-turns "$page_turns")
+  fi
   bash "$source_repo/scripts/vllm_pd_legacy_blend_run.sh" \
     1b3d on mtrag-multi-turn-repeat previous-turn-first "${trace_args[@]}" \
     2>&1 | tee "$EVIDENCESTORE_LEGACY_REPORT_DIR/launch.log"
 )
 ```
 
-The object trace can replay one exact prompt per P whose original request produced a patch candidate. Those verification requests have their own label. The page smoke measures native loads across the four natural turns and reports complete 16-token pages and boundary bytes separately. Both modes run two standard Full Blend probes to check the handoff and reconcile the counters. [Page and object trace measurements](vllm-legacy-full-blend-tracing.md#differential-storage-on-mt-rag)
+The object trace can replay one exact prompt per P whose original request produced a patch candidate. Those verification requests have their own label. The page trace measures native loads across the selected turns and reports complete 16-token pages and boundary bytes separately. Both modes run two standard Full Blend probes to check the handoff and reconcile the counters. Publish each selected capture before launching another in the same allocation so the publication block reads that capture's `launch.log`. [Page and object trace measurements](vllm-legacy-full-blend-tracing.md#differential-storage-on-mt-rag)
 
 ### Recover a completed capture after a report error
 
@@ -233,6 +257,36 @@ In `legacy-kv-storage-report.json`, start with `storage.gross_saved_bytes` for s
 In `legacy-kv-page-report.json`, compare `storage.representations` for raw pages, references, and patches. Check `native_lookup_verification.all_layer_verified_events` and missing-base counts for the loads that were observed. The graph records the raw base and target page versions. Per-page rows retain native block mappings, token spans, and K/V changed-row counts by layer. [How the page trace identifies source and destination blocks](vllm-legacy-full-blend-tracing.md#native-page-smoke)
 
 When the packet includes `page-payloads/`, `vllm_pd_legacy_page_compare.py` compares the captured pages on CPU. It scores alternative earlier bases and layer choices using the same raw tensors. Read `comparison` for gross representation bytes and `closed_depth_one` for the totals after storing every required base raw. The native page report supplies the observed load and reconstruction evidence.
+
+### Capture the six complete conversations in one allocation
+
+Use the committed checkout containing the conversation selector and campaign runner. The full CLAPNQ selection has **six conversations and 40 turns**. The batch runs each conversation in its own worker lifecycle with a fresh P cache. It reuses one verified runtime and one pinned CLAPNQ corpus and HNSW index. Run the same [Slurm allocation step](#start-the-allocation-and-run-the-trace) as the single-conversation capture.
+
+From the experiment checkout, preview the windows locally or on the login node.
+
+```bash
+bash scripts/vllm_pd_legacy_blend_batch.sh --plan
+```
+
+Inside that allocation, start all six conversations from the experiment checkout.
+
+```bash
+bash scripts/vllm_pd_legacy_blend_batch.sh
+```
+
+Add `--first-four` for a matched four-turn capture from each conversation. The full run uses an expanded per-P raw capture budget of **4 GiB** and samples up to **512 pages per request**. The earlier 40-turn object trace projects roughly **5.8 GiB** of complete raw pages. Scratch also holds compressed captures, tarballs, the runtime, and the index. A separate conversation run can write more KV when it starts with a cold cache. Check node space at launch and use the measured coverage receipts for the final page counts.
+
+Each conversation has its own launch log and tarball. The runner checks native page coverage and verifies the captured tensor digests before appending that conversation to `archives.jsonl`. If a conversation fails, the earlier verified receipts and archives stay in the printed campaign directory. Publish verified packets one at a time with the [archive tool](../scripts/vllm_pd_legacy_blend_archive.py), using the archive path and SHA-256 in each receipt and `--include-raw-kv-pages`.
+
+After pulling the published packets locally, pass all six `1p3d/blend` directories to the [packed replay](../scripts/vllm_pd_legacy_packed_replay.py). Use a broader capacity grid for the longer conversations, then refine around each full-hit threshold.
+
+```bash
+python3 scripts/vllm_pd_legacy_packed_replay.py "${cohorts[@]}" \
+  --capacity-mib 64 96 128 160 192 224 256 384 512 768 1024 1536 2048 3072 \
+  > /tmp/clapnq-six-conversation-packed-replay.json
+```
+
+Set the Bash array `cohorts` to the six published cohort directories. Each offline replay starts with its own logical cache and reports its observed loads and frame coverage separately.
 
 ## Compare prompt policies
 

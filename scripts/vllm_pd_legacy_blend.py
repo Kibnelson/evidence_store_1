@@ -87,11 +87,13 @@ def run(args):
     if args.trace_kv_pages and (args.workload, args.prompt_policy, args.topology, args.trace) != (
         "mtrag-multi-turn-repeat", "previous-turn-first", "1p3d", "on",
     ):
-        raise ValueError("The KV page smoke requires MT-RAG previous-turn-first, 1p3d, and trace on")
+        raise ValueError("KV page tracing requires MT-RAG previous-turn-first, 1p3d, and trace on")
     if args.trace_kv_pages and (args.trace_kv_storage or args.estimate_delta):
-        raise ValueError("Run the KV page smoke separately from KV storage tracing and delta estimates")
+        raise ValueError("Run KV page tracing separately from KV storage tracing and delta estimates")
     if args.capture_kv_pages and not args.trace_kv_pages:
-        raise ValueError("Raw KV page capture requires the four-turn page trace")
+        raise ValueError("Raw KV page capture requires --trace-kv-pages")
+    if not args.trace_kv_pages and (args.page_conversation is not None or args.page_turns is not None):
+        raise ValueError("--page-conversation and --page-turns require --trace-kv-pages")
     prepared = args.prepared.resolve()
     index = prepared / "index"
     if args.workload == SMOKE:
@@ -99,7 +101,8 @@ def run(args):
     else:
         sample, manifest = load_selected(ROOT / "workloads" / f"{args.workload}.json", args.workload, prepared, index)
     if args.trace_kv_pages:
-        sample, manifest = page_smoke(sample, manifest)
+        sample, manifest = page_smoke(sample, manifest, conversation_id=args.page_conversation,
+                                      turn_window=args.page_turns)
     if args.prompt_policy != "default":
         manifest["prompt_policy"] = args.prompt_policy
     if args.prompt_policy in ("seen-first", "previous-turn-first"):
@@ -159,8 +162,10 @@ def main():
     smoke.add_argument("--workload", choices=WORKLOADS, default=SMOKE)
     smoke.add_argument("--prompt-policy", choices=PROMPT_POLICIES, default="default")
     smoke.add_argument("--estimate-delta", action="store_true", help="save hypothetical changed-row savings")
-    smoke.add_argument("--trace-kv-pages", action="store_true", help="measure KV pages on four selected MT-RAG turns")
+    smoke.add_argument("--trace-kv-pages", action="store_true", help="measure KV pages on one selected MT-RAG conversation")
     smoke.add_argument("--capture-kv-pages", action="store_true", help="save the committed raw page tensors for offline comparison")
+    smoke.add_argument("--page-conversation", metavar="ID", help="select one conversation from the CLAPNQ workload")
+    smoke.add_argument("--page-turns", metavar="FIRST:LAST", help="inclusive turn window for the page trace, default 1:4")
     smoke.add_argument("--prepare-only", action="store_true")
     workload = modes.add_parser("replay", help="replay both request groups after the workers are ready")
     workload.add_argument("--inputs", type=Path, required=True)

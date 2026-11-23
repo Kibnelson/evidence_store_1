@@ -19,15 +19,26 @@ from time import monotonic_ns
 from vllm._evidencestore_legacy_trace import ENABLED as TRACE_ENABLED, emit
 
 
+def _capture_budget_mib():
+    value = os.environ.get("EVIDENCESTORE_KV_PAGE_CAPTURE_MIB", "512")
+    if value.isascii() and value.isdecimal():
+        budget = int(value)
+        if budget:
+            return budget
+    raise ValueError("EVIDENCESTORE_KV_PAGE_CAPTURE_MIB must be a positive integer")
+
+
 ENABLED = TRACE_ENABLED and os.environ.get("EVIDENCESTORE_TRACE_KV_PAGES") == "1"
 CAPTURE_ENABLED = ENABLED and os.environ.get("EVIDENCESTORE_CAPTURE_KV_PAGES") == "1"
+_CAPTURE_BUDGET_MIB = _capture_budget_mib() if CAPTURE_ENABLED else 512
+_EXPANDED_CAPTURE = _CAPTURE_BUDGET_MIB > 512
 BACKEND = "LocalCPUBackend"
-MAX_OBJECTS = 128
-MAX_VERSIONS = 512
-MAX_ENCODED_BYTES = 64 * 1024**2
-MAX_PAGES_PER_REQUEST = 128
+MAX_OBJECTS = 1024 if _EXPANDED_CAPTURE else 128
+MAX_VERSIONS = 8192 if _EXPANDED_CAPTURE else 512
+MAX_ENCODED_BYTES = (4096 if _EXPANDED_CAPTURE else 64) * 1024**2
+MAX_PAGES_PER_REQUEST = 512 if _EXPANDED_CAPTURE else 128
 MAX_CANDIDATES = 2
-MAX_CAPTURE_RAW_BYTES = 512 * 1024**2
+MAX_CAPTURE_RAW_BYTES = _CAPTURE_BUDGET_MIB * 1024**2
 MIN_PREFIX_TOKENS = 8
 # Magic, block size, layer count, K/V row width, and digests for the
 # target/base versions and base tensor. The bitmap follows the header.
@@ -245,12 +256,15 @@ def _landing(slots, start, end, layout):
 
 
 def _geometry(layout):
-    return {
+    fields = {
         "block_size": layout.block, "layer_count": layout.layers,
         "row_bytes": layout.row_bytes, "tensor_dtype": layout.dtype, "native_kv_format": layout.native_format,
         "max_pages_per_request": MAX_PAGES_PER_REQUEST, "max_shadow_encoded_bytes": MAX_ENCODED_BYTES,
         "max_tracked_pages": MAX_VERSIONS, "max_tracked_objects": MAX_OBJECTS, "max_candidates": MAX_CANDIDATES,
     }
+    if CAPTURE_ENABLED:
+        fields["max_capture_raw_bytes"] = MAX_CAPTURE_RAW_BYTES
+    return fields
 
 
 def _positions(obj, span):

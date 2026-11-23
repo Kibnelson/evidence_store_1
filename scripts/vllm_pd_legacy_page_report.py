@@ -24,7 +24,7 @@ EVENTS = {PUT, RESTORE, FRAGMENT}
 SELECTED = {"reference", "patch"}
 PROOF_FAILURES = {"base_mismatch", "target_mismatch", "reconstruction_mismatch", "error"}
 LIMIT_FIELDS = ("max_pages_per_request", "max_shadow_encoded_bytes", "max_tracked_pages", "max_tracked_objects",
-                "max_candidates")
+                "max_candidates", "max_capture_raw_bytes")
 FIELDS = (
     "event", "worker_id", "pid", "native_request_id", "backend", "ts_ns", "duration_ns", "decode_duration_ns",
     "operation", "status", "fragment_reason", "worker_block_id", "source_worker_block_id", "destination_block_ids",
@@ -50,15 +50,19 @@ def _responses(run_dir, label):
     scope = selection["kv_page_trace"]
     summary = json.loads((run_dir / "legacy-blend-summary.json").read_text(encoding="utf-8"))
     agreement = summary["selection_agreement"]
-    if (scope["schema_version"] != 1 or scope["turns"] != [1, 2, 3, 4]
-            or [row["turn"] for row in rows] != scope["turns"]
-            or any(row["conversation_id"] != scope["conversation_id"] for row in rows)
+    turns, conversation = scope["turns"], scope["conversation_id"]
+    if (scope["schema_version"] != 1 or not isinstance(conversation, str) or not conversation
+            or not isinstance(turns, list) or not turns or any(type(turn) is not int or turn < 1 for turn in turns)
+            or turns != list(range(turns[0], turns[0] + len(turns)))
+            or selection["conversation_turn_counts"] != {conversation: len(turns)}
+            or [row["turn"] for row in rows] != turns
+            or any(row["conversation_id"] != conversation for row in rows)
             or [row["request_key"] for row in rows] != selection["query_keys"]
             or summary["status"] != "passed" or summary["natural_requests"] != len(rows)
             or agreement["matching_retrieval_identity_and_ranks"] != len(rows)
             or agreement["matching_kept_identity_and_ranks"] != len(rows)
             or agreement["mismatching_request_keys"]):
-        raise ValueError("Page trace requests do not match the four-turn smoke and fixed retrieval ranking")
+        raise ValueError("Page trace requests do not match the selected conversation window and fixed retrieval ranking")
     return responses
 
 

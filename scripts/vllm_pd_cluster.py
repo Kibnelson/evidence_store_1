@@ -93,7 +93,7 @@ def arguments() -> argparse.Namespace:
     parser.add_argument("--trace-kv-pages", action="store_true",
                         help="measure differential storage for native P pages in the Full Blend smoke")
     parser.add_argument("--capture-kv-pages", action="store_true",
-                        help="capture raw page payloads from the four-turn KV page smoke")
+                        help="capture raw page payloads from the selected KV page trace")
     parser.add_argument("--lmcache-size-gb", type=float, default=8)
     parser.add_argument("--lmcache-chunk-size", type=int, default=256)
     parser.add_argument("--lmcache-port", type=int, default=6555)
