@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "slurm_job_id": "30568",
+  "results_branch": "results/clapnq-30568",
+  "captures": [
+    {
+      "conversation_id": "0208bf26ec357a803445290fa88a2e9e",
+      "turn_window": "1:7",
+      "turns": 7,
+      "stores": 525,
+      "observed_loads": 183,
+      "unique_raw_pages": 525,
+      "raw_capture_bytes": 1238630400,
+      "sha256": "ad5a52099323d1d2d89eac1741540e3073aa7a0b63463c03ca0f2c629ad11830",
+      "cohort": "reports/smoke/mtrag-multi-turn-repeat-legacy-full-blend-30568-20261123T021131Z/1p3d/blend"
+    },
+    {
+      "conversation_id": "1534a095279f2cb888fb0bea17bd70da",
+      "turn_window": "1:5",
+      "turns": 5,
+      "stores": 105,
+      "observed_loads": 213,
+      "unique_raw_pages": 105,
+      "raw_capture_bytes": 247726080,
+      "sha256": "a97842d3e9d368bc0cf09eb3c6a3d661d011ca51851d8f742fb12c4791dcc4d3",
+      "cohort": "reports/smoke/mtrag-multi-turn-repeat-legacy-full-blend-30568-20261123T021621Z/1p3d/blend"
+    },
+    {
+      "conversation_id": "a2698b2973ea7db1ee5adb5e70ec02e4",
+      "turn_window": "1:9",
+      "turns": 9,
+      "stores": 857,
+      "observed_loads": 154,
+      "unique_raw_pages": 857,
+      "raw_capture_bytes": 2021916672,
+      "sha256": "e02ad8fd9669169813349d1a3d2c191ff479399b98ae4803c07c9d8b9a2ac605",
+      "cohort": "reports/smoke/mtrag-multi-turn-repeat-legacy-full-blend-30568-20261123T021826Z/1p3d/blend"
+    },
+    {
+      "conversation_id": "a3f07e9ed5f257db6aecd30511f03af1",
+      "turn_window": "1:7",
+      "turns": 7,
+      "stores": 631,
+      "observed_loads": 334,
+      "unique_raw_pages": 631,
+      "raw_capture_bytes": 1488715776,
+      "sha256": "fa4678041ab1a40d03c9fabf034eef7e27a86940de8fbc295a62fb41e31c67c0",
+      "cohort": "reports/smoke/mtrag-multi-turn-repeat-legacy-full-blend-30568-20261123T022231Z/1p3d/blend"
+    },
+    {
+      "conversation_id": "c1e53df98a28f19448f4af244304b89a",
+      "turn_window": "1:6",
+      "turns": 6,
+      "stores": 307,
+      "observed_loads": 115,
+      "unique_raw_pages": 307,
+      "raw_capture_bytes": 724303872,
+      "sha256": "f12491f03677f3733e96b39d309a64c736a3c6c34eb130b221a9f253d1747e81",
+      "cohort": "reports/smoke/mtrag-multi-turn-repeat-legacy-full-blend-30568-20261123T022559Z/1p3d/blend"
+    },
+    {
+      "conversation_id": "cfbcfa3e382f12aed450b10f87a72aeb",
+      "turn_window": "1:6",
+      "turns": 6,
+      "stores": 463,
+      "observed_loads": 221,
+      "unique_raw_pages": 463,
+      "raw_capture_bytes": 1092354048,
+      "sha256": "30ce402ac70db75754dcd8fc4d4f3fc2b69093e1815d0dbe5fe829543b234e0e",
+      "cohort": "reports/smoke/mtrag-multi-turn-repeat-legacy-full-blend-30568-20261123T022835Z/1p3d/blend"
+    }
+  ]
+}
