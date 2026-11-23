@@ -1,0 +1,118 @@
+{
+  "status": "passed",
+  "trace_enabled": true,
+  "cache_backend": "in_process_local_cpu_per_prefiller",
+  "prefill_workers": [
+    "p0"
+  ],
+  "decode_workers": [
+    "d0",
+    "d1",
+    "d2"
+  ],
+  "natural_requests": 7,
+  "controlled_requests": 2,
+  "completed_nixl_reads": 9,
+  "completed_nixl_bytes": 3104833536,
+  "nixl_reconciliation": {
+    "status": "matched",
+    "workers": {
+      "p0": {
+        "prometheus": {
+          "sum": 0,
+          "count": 0
+        },
+        "trace": {
+          "sum": 0,
+          "count": 0
+        },
+        "matched": true
+      },
+      "d0": {
+        "prometheus": {
+          "sum": 1764753408,
+          "count": 5
+        },
+        "trace": {
+          "sum": 1764753408,
+          "count": 5
+        },
+        "matched": true
+      },
+      "d1": {
+        "prometheus": {
+          "sum": 658243584,
+          "count": 2
+        },
+        "trace": {
+          "sum": 658243584,
+          "count": 2
+        },
+        "matched": true
+      },
+      "d2": {
+        "prometheus": {
+          "sum": 681836544,
+          "count": 2
+        },
+        "trace": {
+          "sum": 681836544,
+          "count": 2
+        },
+        "matched": true
+      }
+    }
+  },
+  "prompt_policy": "previous-turn-first",
+  "prompt_format": "legacy-blend",
+  "evidence_order": "previous-turn-first",
+  "workload": "mtrag-multi-turn-repeat",
+  "natural_label": "mtrag",
+  "domain": "clapnq",
+  "conversation_turn_counts": {
+    "a3f07e9ed5f257db6aecd30511f03af1": 7
+  },
+  "selection_agreement": {
+    "matching_retrieval_identity_and_ranks": 7,
+    "matching_kept_identity_and_ranks": 7,
+    "mismatching_request_keys": []
+  },
+  "natural_evidence_occurrences": 42,
+  "natural_repeat_occurrences": 17,
+  "natural_same_worker_repeat_occurrences": 17,
+  "natural_shifted_restore_occurrences": 8,
+  "controlled_reuse_verified_on": [
+    "p0"
+  ],
+  "transfer_payload_bytes_by_label": {
+    "mtrag": {
+      "nixl_p2d": 2401763328,
+      "lmcache_d2h": 1558757376,
+      "lmcache_h2d": 827523072
+    },
+    "legacy-probes": {
+      "nixl_p2d": 703070208,
+      "lmcache_d2h": 349028352,
+      "lmcache_h2d": 349913088
+    }
+  },
+  "measurement_scope": {
+    "model_gpu_duration": "CUDA event duration for each ordinary model forward batch",
+    "blend_computation": "Token positions that reached each Blend layer's attention and MLP, mapped to evidence spans. The check-layer projections and scoring can visit more positions.",
+    "lmcache_movement_duration": "Host interval through the native completion fence",
+    "trace_only_gpu_synchronization": true
+  },
+  "natural_verified_restore_occurrences": 17,
+  "conversation_reuse": {
+    "within_conversation": {
+      "repeat_occurrences": 17,
+      "verified_restore_occurrences": 17,
+      "shifted_restore_occurrences": 8
+    },
+    "across_conversations": {
+      "repeat_occurrences": 0,
+      "verified_restore_occurrences": 0,
+      "shifted_restore_occurrences": 0
+    }
+  }
+}
