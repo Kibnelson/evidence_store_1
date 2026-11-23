@@ -43,27 +43,24 @@ The six published packets occupy about **5.18 GiB**. Scaling their average is us
 
 For this volume, Git should hold the manifests, checksums, and reports. Store the original archives in durable shared project storage or as GitHub Release assets if keeping them in the same GitHub project is preferred. Release assets are limited to less than 2 GiB each, so split larger archives into ordered parts. GitHub recommends keeping the Git object store within 10 GB and caps each Git push at 2 GiB. Using a new Git branch for each capture still adds bytes to the repository's object store. [GitHub repository limits][github-limits] · [GitHub Release asset limits][github-assets]
 
-## Run the one-conversation pilot over SSH
+## Start tmux and allocate four GPUs
 
-Start on `teach-node-09`. This workflow uses Git, `curl`, and your GitHub SSH key. It publishes the exact archive in parts to the campaign's results branch and reads it back before deleting the local capture. The archive and CPU report are publicly readable. Use the Release workflow below for a larger campaign to keep the raw payloads outside the Git object store. [GitHub repository limits][github-limits]
+At the `teach-node-09` login prompt, open a normal tmux session. The `-A` flag reattaches if the session already exists. It appears in `tmux ls` on the same login node.
 
-### 1. Start tmux and allocate four GPUs
+```bash
+tmux new-session -A -s mtrag-scale /bin/bash -il
+```
 
-Paste this at the `teach-node-09` login prompt. It loads Slurm in the login shell and passes the resolved `srun` executable to tmux. If the session already exists, it reattaches to it.
+At the `teach-node-09` prompt **inside tmux**, load Slurm and request the allocation.
 
 ```bash
 (
   set -euo pipefail
   test -z "${SLURM_JOB_ID:-}"
   module load slurm
-  srun_bin=$(type -P srun)
-  "$srun_bin" --version
-
-  tmux -L evidence-store-mtrag-scale -f /dev/null new-session -A -s mtrag-scale \
-    -e "PATH=$PATH" -e "LD_LIBRARY_PATH=${LD_LIBRARY_PATH:-}" \
-    -e "SSH_AUTH_SOCK=${SSH_AUTH_SOCK:-}" \
-    "$srun_bin" -p all -A oana2026 -q research12h -N 1 -w gpu-grad-01 \
-      --gpus=4 -c 16 --mem=192G -t 12:00:00 --pty /bin/bash -l
+  srun --version
+  srun -p all -A oana2026 -q research12h -N 1 -w gpu-grad-01 \
+    --gpus=4 -c 16 --mem=192G -t 12:00:00 --pty /bin/bash -l
 )
 ```
 
@@ -77,10 +74,14 @@ nvidia-smi --query-gpu=uuid,name --format=csv
 Detach with `Ctrl+b` then `d`. Reattach from the same login node.
 
 ```bash
-tmux -L evidence-store-mtrag-scale attach-session -t mtrag-scale
+tmux attach-session -t mtrag-scale
 ```
 
-### 2. Run the pilot inside the allocation
+When the allocation ends, the tmux pane returns to the `teach-node-09` prompt. Issue the allocation block again to continue with the same campaign.
+
+## Run the one-conversation pilot over SSH
+
+Start from the [four-GPU allocation](#start-tmux-and-allocate-four-gpus). This workflow uses Git, `curl`, and your GitHub SSH key. It publishes the exact archive in parts to the campaign's results branch and reads it back before deleting the local capture. The archive and CPU report are publicly readable. Use the Release workflow below for a larger campaign to keep the raw payloads outside the Git object store. [GitHub repository limits][github-limits]
 
 At the `gpu-grad-01` prompt, select the campaign. For a fresh SSH campaign, use an unused ID such as the example below. To continue the published pilot, set the ID to `mtrag-scale-01` and go to [Run the six cumulative milestones](#run-the-six-cumulative-milestones).
 
@@ -223,81 +224,61 @@ The commands use the public `Kibnelson/evidence_store_1` repository. Each raw ar
 
 <a id="run-the-pilot-and-campaign"></a>
 
-### 1. Start tmux and request the allocation
+### 1. Allocate GPUs and select the Release campaign
 
-Start on the login node once the scale-runner files are on GitHub `main`. The GPU node fetches that exact commit into node scratch. For a resumed campaign, the command reads its original source commit from the published plan. The publisher uses authenticated GitHub CLI for Release assets and your existing GitHub SSH key for Git pushes. If `gh auth status` fails, sign in with `gh auth login --hostname github.com --web` and rerun the block. Python 3.10 or later, a C compiler, and `libzstd` are required for CPU replay. [GitHub CLI installation][gh-install] · [GitHub CLI authentication][gh-auth]
-
-```bash
-(
-  set -euo pipefail
-  test -z "${SLURM_JOB_ID:-}"
-  campaign=mtrag-scale-02
-  github_repo=Kibnelson/evidence_store_1
-  git_url="https://github.com/$github_repo.git"
-
-  gh auth status --hostname github.com
-  branch=$(git ls-remote --heads "$git_url" "refs/heads/results/$campaign")
-  if [[ -n "$branch" ]]; then
-    source_commit=$(gh api -H 'Accept: application/vnd.github.raw+json' \
-      "repos/$github_repo/contents/reports/campaigns/$campaign/plan.json?ref=results/$campaign" \
-      | python3 -c 'import json, sys; print(json.load(sys.stdin)["source_commit"])')
-  else
-    main_ref=$(git ls-remote --exit-code --refs "$git_url" refs/heads/main)
-    source_commit=${main_ref%%$'\t'*}
-    gh api --silent "repos/$github_repo/contents/scripts/vllm_pd_mtrag_scale_run.py?ref=$source_commit"
-  fi
-  [[ "$source_commit" =~ ^[0-9a-f]{40}$ ]]
-
-  module load slurm
-  srun_bin=$(command -v srun)
-  "$srun_bin" --version
-  tmux -L evidence-store-mtrag-scale -f /dev/null new-session -s mtrag-scale \
-    -e "PATH=$PATH" -e "LD_LIBRARY_PATH=${LD_LIBRARY_PATH:-}" \
-    -e "SSH_AUTH_SOCK=${SSH_AUTH_SOCK:-}" \
-    -e "MTRAG_SCALE_CAMPAIGN=$campaign" -e "MTRAG_SCALE_SOURCE=$source_commit" \
-    "$srun_bin" -p all -A oana2026 -q research12h -N 1 -w gpu-grad-01 \
-      --gpus=4 -c 16 --mem=192G -t 12:00:00 --pty /bin/bash -l
-)
-```
-
-The tmux command hands `srun` its resolved executable path from the login shell. Detach with `Ctrl+b` then `d`. Reattach from the same login node.
+Follow [Start tmux and allocate four GPUs](#start-tmux-and-allocate-four-gpus). At the `gpu-grad-01` prompt, set the Release campaign ID and check GitHub CLI authentication. The publisher uses GitHub CLI for Release assets and your GitHub SSH key for Git pushes. If `gh auth status` fails, sign in with `gh auth login --hostname github.com --web`. Python 3.10 or later, a C compiler, and `libzstd` are required for CPU replay. [GitHub CLI installation][gh-install] · [GitHub CLI authentication][gh-auth]
 
 ```bash
-tmux -L evidence-store-mtrag-scale attach-session -t mtrag-scale
+export MTRAG_SCALE_CAMPAIGN=mtrag-scale-02
+gh auth status --hostname github.com
 ```
 
 ### 2. Prepare the source and preview the queue
 
-Paste this inside the allocated GPU shell. It prepares a detached source checkout and a frozen queue in node scratch. Selectors use the archived request history to span turn lengths and repeat rates within each domain. The capture still runs live Faiss retrieval against the pinned corpus. [Archived retrieval selection][selection]
+Paste this inside the allocated GPU shell. It reads the pinned source from the published plan or starts a fresh campaign from GitHub `main`. Selectors use the archived request history to span turn lengths and repeat rates within each domain. The capture runs live Faiss retrieval against the pinned corpus. [Archived retrieval selection][selection]
 
 ```bash
 (
   set -euo pipefail
   umask 077
   : "${SLURM_JOB_ID:?Run this inside the four-GPU allocation}"
-  : "${MTRAG_SCALE_CAMPAIGN:?Start the allocation from step 1}"
-  : "${MTRAG_SCALE_SOURCE:?Start the allocation from step 1}"
+  : "${MTRAG_SCALE_CAMPAIGN:?Select the Release campaign in step 1}"
   gh auth status --hostname github.com
+  campaign="$MTRAG_SCALE_CAMPAIGN"
+  [[ "$campaign" =~ ^[a-z0-9][a-z0-9-]{0,62}$ ]]
+  github_repo=Kibnelson/evidence_store_1
+  git_url="https://github.com/$github_repo.git"
+  branch=$(git ls-remote --refs "$git_url" "refs/heads/results/$campaign")
+  if [[ -n "$branch" ]]; then
+    source_commit=$(gh api -H 'Accept: application/vnd.github.raw+json' \
+      "repos/$github_repo/contents/reports/campaigns/$campaign/plan.json?ref=results/$campaign" \
+      | python3 -c 'import json, sys
+p = json.load(sys.stdin)
+if p.get("archive_backend", "release") != "release":
+    raise SystemExit("Select a Release campaign ID.")
+print(p["source_commit"])')
+  else
+    main_ref=$(git ls-remote --exit-code --refs "$git_url" refs/heads/main)
+    source_commit=${main_ref%%$'\t'*}
+  fi
+  [[ "$source_commit" =~ ^[0-9a-f]{40}$ ]]
 
   node_root="/tmp/$(id -un)"
   mkdir -p "$node_root"
   [[ -O "$node_root" && ! -L "$node_root" ]]
   df -h "$node_root"
-  source_repo="$node_root/mtrag-scale-source-$MTRAG_SCALE_CAMPAIGN"
-  plan="$node_root/$MTRAG_SCALE_CAMPAIGN.plan.json"
+  source_repo="$node_root/mtrag-scale-source-$campaign"
+  plan="$node_root/$campaign.plan.json"
 
   if [[ ! -d "$source_repo/.git" ]]; then
     git init -q "$source_repo"
-    git -C "$source_repo" remote add origin https://github.com/Kibnelson/evidence_store_1.git
   fi
-  if ! git -C "$source_repo" cat-file -e "$MTRAG_SCALE_SOURCE^{commit}" 2>/dev/null; then
-    git -C "$source_repo" fetch --depth=1 --no-tags origin "$MTRAG_SCALE_SOURCE"
+  if ! git -C "$source_repo" cat-file -e "$source_commit^{commit}" 2>/dev/null; then
+    git -C "$source_repo" fetch --depth=1 --no-tags "$git_url" "$source_commit"
   fi
-  git -C "$source_repo" checkout --detach "$MTRAG_SCALE_SOURCE"
+  git -C "$source_repo" checkout --detach "$source_commit"
   cd "$source_repo"
-  if [[ ! -s "$plan" ]]; then
-    python3 -B scripts/vllm_pd_mtrag_scale_select.py --output "$plan"
-  fi
+  python3 -B scripts/vllm_pd_mtrag_scale_select.py --output "$plan"
   python3 -B scripts/vllm_pd_mtrag_scale_run.py \
     --campaign "$MTRAG_SCALE_CAMPAIGN" --plan "$plan" --through 20 --dry-run
 )
@@ -312,7 +293,7 @@ Run the first conversation and read back the uploaded archive. The replay runs o
   set -euo pipefail
   umask 077
   : "${SLURM_JOB_ID:?Run this inside the four-GPU allocation}"
-  : "${MTRAG_SCALE_CAMPAIGN:?Start the allocation from step 1}"
+  : "${MTRAG_SCALE_CAMPAIGN:?Select the Release campaign in step 1}"
   node_root="/tmp/$(id -un)"
   cd "$node_root/mtrag-scale-source-$MTRAG_SCALE_CAMPAIGN"
   export EVIDENCESTORE_LEGACY_CUDA_HOME="${EVIDENCESTORE_LEGACY_CUDA_HOME:-/usr/local/pkgs/cuda/12.6}"
