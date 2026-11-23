@@ -1,0 +1,769 @@
+{
+  "archive_backend": "git-ssh",
+  "campaign": "mtrag-scale-01",
+  "capacity_results": {
+    "1024": {
+      "forward_pinned": {
+        "cold_base_reads_bytes": 0,
+        "delta_hits": 0,
+        "hits": 27,
+        "misses": 0,
+        "rejected_admissions": 0,
+        "rewrites": 0,
+        "rewritten_bytes": 0,
+        "target_reads_bytes": 45712274
+      },
+      "independent": {
+        "cold_base_reads_bytes": 0,
+        "delta_hits": 0,
+        "hits": 27,
+        "misses": 0,
+        "rejected_admissions": 0,
+        "rewrites": 0,
+        "rewritten_bytes": 0,
+        "target_reads_bytes": 45712274
+      }
+    },
+    "128": {
+      "forward_pinned": {
+        "cold_base_reads_bytes": 0,
+        "delta_hits": 0,
+        "hits": 12,
+        "misses": 15,
+        "rejected_admissions": 0,
+        "rewrites": 0,
+        "rewritten_bytes": 0,
+        "target_reads_bytes": 20314929
+      },
+      "independent": {
+        "cold_base_reads_bytes": 0,
+        "delta_hits": 0,
+        "hits": 12,
+        "misses": 15,
+        "rejected_admissions": 0,
+        "rewrites": 0,
+        "rewritten_bytes": 0,
+        "target_reads_bytes": 20314929
+      }
+    },
+    "1536": {
+      "forward_pinned": {
+        "cold_base_reads_bytes": 0,
+        "delta_hits": 0,
+        "hits": 27,
+        "misses": 0,
+        "rejected_admissions": 0,
+        "rewrites": 0,
+        "rewritten_bytes": 0,
+        "target_reads_bytes": 45712274
+      },
+      "independent": {
+        "cold_base_reads_bytes": 0,
+        "delta_hits": 0,
+        "hits": 27,
+        "misses": 0,
+        "rejected_admissions": 0,
+        "rewrites": 0,
+        "rewritten_bytes": 0,
+        "target_reads_bytes": 45712274
+      }
+    },
+    "160": {
+      "forward_pinned": {
+        "cold_base_reads_bytes": 0,
+        "delta_hits": 0,
+        "hits": 12,
+        "misses": 15,
+        "rejected_admissions": 0,
+        "rewrites": 0,
+        "rewritten_bytes": 0,
+        "target_reads_bytes": 20314929
+      },
+      "independent": {
+        "cold_base_reads_bytes": 0,
+        "delta_hits": 0,
+        "hits": 12,
+        "misses": 15,
+        "rejected_admissions": 0,
+        "rewrites": 0,
+        "rewritten_bytes": 0,
+        "target_reads_bytes": 20314929
+      }
+    },
+    "192": {
+      "forward_pinned": {
+        "cold_base_reads_bytes": 0,
+        "delta_hits": 0,
+        "hits": 12,
+        "misses": 15,
+        "rejected_admissions": 0,
+        "rewrites": 0,
+        "rewritten_bytes": 0,
+        "target_reads_bytes": 20314929
+      },
+      "independent": {
+        "cold_base_reads_bytes": 0,
+        "delta_hits": 0,
+        "hits": 12,
+        "misses": 15,
+        "rejected_admissions": 0,
+        "rewrites": 0,
+        "rewritten_bytes": 0,
+        "target_reads_bytes": 20314929
+      }
+    },
+    "2048": {
+      "forward_pinned": {
+        "cold_base_reads_bytes": 0,
+        "delta_hits": 0,
+        "hits": 27,
+        "misses": 0,
+        "rejected_admissions": 0,
+        "rewrites": 0,
+        "rewritten_bytes": 0,
+        "target_reads_bytes": 45712274
+      },
+      "independent": {
+        "cold_base_reads_bytes": 0,
+        "delta_hits": 0,
+        "hits": 27,
+        "misses": 0,
+        "rejected_admissions": 0,
+        "rewrites": 0,
+        "rewritten_bytes": 0,
+        "target_reads_bytes": 45712274
+      }
+    },
+    "224": {
+      "forward_pinned": {
+        "cold_base_reads_bytes": 0,
+        "delta_hits": 0,
+        "hits": 12,
+        "misses": 15,
+        "rejected_admissions": 0,
+        "rewrites": 0,
+        "rewritten_bytes": 0,
+        "target_reads_bytes": 20314929
+      },
+      "independent": {
+        "cold_base_reads_bytes": 0,
+        "delta_hits": 0,
+        "hits": 12,
+        "misses": 15,
+        "rejected_admissions": 0,
+        "rewrites": 0,
+        "rewritten_bytes": 0,
+        "target_reads_bytes": 20314929
+      }
+    },
+    "256": {
+      "forward_pinned": {
+        "cold_base_reads_bytes": 0,
+        "delta_hits": 0,
+        "hits": 12,
+        "misses": 15,
+        "rejected_admissions": 0,
+        "rewrites": 0,
+        "rewritten_bytes": 0,
+        "target_reads_bytes": 20314929
+      },
+      "independent": {
+        "cold_base_reads_bytes": 0,
+        "delta_hits": 0,
+        "hits": 12,
+        "misses": 15,
+        "rejected_admissions": 0,
+        "rewrites": 0,
+        "rewritten_bytes": 0,
+        "target_reads_bytes": 20314929
+      }
+    },
+    "3072": {
+      "forward_pinned": {
+        "cold_base_reads_bytes": 0,
+        "delta_hits": 0,
+        "hits": 27,
+        "misses": 0,
+        "rejected_admissions": 0,
+        "rewrites": 0,
+        "rewritten_bytes": 0,
+        "target_reads_bytes": 45712274
+      },
+      "independent": {
+        "cold_base_reads_bytes": 0,
+        "delta_hits": 0,
+        "hits": 27,
+        "misses": 0,
+        "rejected_admissions": 0,
+        "rewrites": 0,
+        "rewritten_bytes": 0,
+        "target_reads_bytes": 45712274
+      }
+    },
+    "384": {
+      "forward_pinned": {
+        "cold_base_reads_bytes": 0,
+        "delta_hits": 0,
+        "hits": 27,
+        "misses": 0,
+        "rejected_admissions": 0,
+        "rewrites": 0,
+        "rewritten_bytes": 0,
+        "target_reads_bytes": 45712274
+      },
+      "independent": {
+        "cold_base_reads_bytes": 0,
+        "delta_hits": 0,
+        "hits": 27,
+        "misses": 0,
+        "rejected_admissions": 0,
+        "rewrites": 0,
+        "rewritten_bytes": 0,
+        "target_reads_bytes": 45712274
+      }
+    },
+    "512": {
+      "forward_pinned": {
+        "cold_base_reads_bytes": 0,
+        "delta_hits": 0,
+        "hits": 27,
+        "misses": 0,
+        "rejected_admissions": 0,
+        "rewrites": 0,
+        "rewritten_bytes": 0,
+        "target_reads_bytes": 45712274
+      },
+      "independent": {
+        "cold_base_reads_bytes": 0,
+        "delta_hits": 0,
+        "hits": 27,
+        "misses": 0,
+        "rejected_admissions": 0,
+        "rewrites": 0,
+        "rewritten_bytes": 0,
+        "target_reads_bytes": 45712274
+      }
+    },
+    "768": {
+      "forward_pinned": {
+        "cold_base_reads_bytes": 0,
+        "delta_hits": 0,
+        "hits": 27,
+        "misses": 0,
+        "rejected_admissions": 0,
+        "rewrites": 0,
+        "rewritten_bytes": 0,
+        "target_reads_bytes": 45712274
+      },
+      "independent": {
+        "cold_base_reads_bytes": 0,
+        "delta_hits": 0,
+        "hits": 27,
+        "misses": 0,
+        "rejected_admissions": 0,
+        "rewrites": 0,
+        "rewritten_bytes": 0,
+        "target_reads_bytes": 45712274
+      }
+    },
+    "96": {
+      "forward_pinned": {
+        "cold_base_reads_bytes": 0,
+        "delta_hits": 0,
+        "hits": 12,
+        "misses": 15,
+        "rejected_admissions": 0,
+        "rewrites": 0,
+        "rewritten_bytes": 0,
+        "target_reads_bytes": 20314929
+      },
+      "independent": {
+        "cold_base_reads_bytes": 0,
+        "delta_hits": 0,
+        "hits": 12,
+        "misses": 15,
+        "rejected_admissions": 0,
+        "rewrites": 0,
+        "rewritten_bytes": 0,
+        "target_reads_bytes": 20314929
+      }
+    }
+  },
+  "captures": [
+    {
+      "archive_bytes": 1457352127,
+      "archive_parts": 22,
+      "archive_sha256": "3d186f2ccc1e292e8275e1e391a9dc14367d3cb3c5ed7f0eeb0dea9a9d63a76b",
+      "capture_git_blob": "083d6f207bbccecb03772b78bd8eff6e4935700e",
+      "capture_path": "reports/campaigns/mtrag-scale-01/captures/5c13daa9432149f6243aa1115629cd1a.json",
+      "conversation_id": "5c13daa9432149f6243aa1115629cd1a",
+      "domain": "clapnq",
+      "eligible_exponent_targets": 4,
+      "exactness_audit": {
+        "forward_pinned": {
+          "capacity_mib": 352,
+          "verified_hits": 27
+        },
+        "independent": {
+          "capacity_mib": 348,
+          "verified_hits": 27
+        }
+      },
+      "first_full_capacity_mib": {
+        "forward_pinned": 352,
+        "independent": 348
+      },
+      "observed_loads": 27,
+      "raw_capture_bytes": 1448607744,
+      "standalone_frame_bytes": 1040089021,
+      "stores": 614,
+      "study_git_blob": "df8483b69dc33ac48cca46d76915efcdf0209015",
+      "study_path": "reports/campaigns/mtrag-scale-01/studies/5c13daa9432149f6243aa1115629cd1a.json",
+      "study_sha256": "2f00f80f3faec54236310cc576c17424d7dba33ef4029bc54209d7dcac049d33",
+      "turn_window": "1:7",
+      "turns": 7,
+      "unique_raw_pages": 614
+    }
+  ],
+  "common_capacities_mib": [
+    96,
+    128,
+    160,
+    192,
+    224,
+    256,
+    384,
+    512,
+    768,
+    1024,
+    1536,
+    2048,
+    3072
+  ],
+  "domains": {
+    "clapnq": {
+      "capacity_results": {
+        "1024": {
+          "forward_pinned": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 27,
+            "misses": 0,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 45712274
+          },
+          "independent": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 27,
+            "misses": 0,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 45712274
+          }
+        },
+        "128": {
+          "forward_pinned": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 12,
+            "misses": 15,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 20314929
+          },
+          "independent": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 12,
+            "misses": 15,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 20314929
+          }
+        },
+        "1536": {
+          "forward_pinned": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 27,
+            "misses": 0,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 45712274
+          },
+          "independent": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 27,
+            "misses": 0,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 45712274
+          }
+        },
+        "160": {
+          "forward_pinned": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 12,
+            "misses": 15,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 20314929
+          },
+          "independent": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 12,
+            "misses": 15,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 20314929
+          }
+        },
+        "192": {
+          "forward_pinned": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 12,
+            "misses": 15,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 20314929
+          },
+          "independent": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 12,
+            "misses": 15,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 20314929
+          }
+        },
+        "2048": {
+          "forward_pinned": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 27,
+            "misses": 0,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 45712274
+          },
+          "independent": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 27,
+            "misses": 0,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 45712274
+          }
+        },
+        "224": {
+          "forward_pinned": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 12,
+            "misses": 15,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 20314929
+          },
+          "independent": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 12,
+            "misses": 15,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 20314929
+          }
+        },
+        "256": {
+          "forward_pinned": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 12,
+            "misses": 15,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 20314929
+          },
+          "independent": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 12,
+            "misses": 15,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 20314929
+          }
+        },
+        "3072": {
+          "forward_pinned": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 27,
+            "misses": 0,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 45712274
+          },
+          "independent": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 27,
+            "misses": 0,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 45712274
+          }
+        },
+        "384": {
+          "forward_pinned": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 27,
+            "misses": 0,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 45712274
+          },
+          "independent": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 27,
+            "misses": 0,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 45712274
+          }
+        },
+        "512": {
+          "forward_pinned": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 27,
+            "misses": 0,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 45712274
+          },
+          "independent": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 27,
+            "misses": 0,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 45712274
+          }
+        },
+        "768": {
+          "forward_pinned": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 27,
+            "misses": 0,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 45712274
+          },
+          "independent": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 27,
+            "misses": 0,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 45712274
+          }
+        },
+        "96": {
+          "forward_pinned": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 12,
+            "misses": 15,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 20314929
+          },
+          "independent": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 12,
+            "misses": 15,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 20314929
+          }
+        }
+      },
+      "first_full": {
+        "forward_pinned": {
+          "conversations_by_capacity_mib": {
+            "352": 1
+          },
+          "conversations_with_loads_and_no_full_hit": 0,
+          "verified_hits_at_audit_budgets": 27,
+          "zero_load_conversations": 0
+        },
+        "independent": {
+          "conversations_by_capacity_mib": {
+            "348": 1
+          },
+          "conversations_with_loads_and_no_full_hit": 0,
+          "verified_hits_at_audit_budgets": 27,
+          "zero_load_conversations": 0
+        },
+        "paired_forward_pinned_minus_independent": {
+          "both_full": 1,
+          "equal": 0,
+          "forward_pinned_higher": 1,
+          "forward_pinned_lower": 0,
+          "max_mib": 4,
+          "min_mib": 4,
+          "p50_mib": 4,
+          "with_loads_without_both_full": 0
+        }
+      },
+      "totals": {
+        "archive_bytes": 1457352127,
+        "archive_parts": 22,
+        "conversations": 1,
+        "eligible_exponent_targets": 4,
+        "observed_loads": 27,
+        "raw_capture_bytes": 1448607744,
+        "standalone_frame_bytes": 1040089021,
+        "stores": 614,
+        "turns": 7,
+        "unique_raw_pages": 614,
+        "zero_load_conversations": 0
+      }
+    }
+  },
+  "first_full": {
+    "forward_pinned": {
+      "conversations_by_capacity_mib": {
+        "352": 1
+      },
+      "conversations_with_loads_and_no_full_hit": 0,
+      "verified_hits_at_audit_budgets": 27,
+      "zero_load_conversations": 0
+    },
+    "independent": {
+      "conversations_by_capacity_mib": {
+        "348": 1
+      },
+      "conversations_with_loads_and_no_full_hit": 0,
+      "verified_hits_at_audit_budgets": 27,
+      "zero_load_conversations": 0
+    },
+    "paired_forward_pinned_minus_independent": {
+      "both_full": 1,
+      "equal": 0,
+      "forward_pinned_higher": 1,
+      "forward_pinned_lower": 0,
+      "max_mib": 4,
+      "min_mib": 4,
+      "p50_mib": 4,
+      "with_loads_without_both_full": 0
+    }
+  },
+  "matched_cpu_timings_by_host": [
+    {
+      "host": "gpu-grad-01.cs.mcgill.ca",
+      "matched_pairs": 4,
+      "operations": {
+        "encoded_base_encode": {
+          "p50_ms": 9.775596,
+          "p95_ms": 10.960537,
+          "pairs": 4
+        },
+        "encoded_base_restore": {
+          "p50_ms": 3.101112,
+          "p95_ms": 3.728673,
+          "pairs": 4
+        },
+        "ready_base_encode": {
+          "p50_ms": 8.4274905,
+          "p95_ms": 8.920856,
+          "pairs": 4
+        },
+        "ready_base_restore": {
+          "p50_ms": 2.1713365,
+          "p95_ms": 2.393331,
+          "pairs": 4
+        },
+        "standalone_encode": {
+          "p50_ms": 8.859901,
+          "p95_ms": 9.357396,
+          "pairs": 4
+        },
+        "standalone_restore": {
+          "p50_ms": 1.952666,
+          "p95_ms": 2.451232,
+          "pairs": 4
+        }
+      },
+      "platform": "Linux-6.8.0-124-generic-x86_64-with-glibc2.39",
+      "python": "3.12.3",
+      "zstd": "1.5.5"
+    }
+  ],
+  "plan_git_path": "reports/campaigns/mtrag-scale-01/plan.json",
+  "plan_sha256": "e941ec1f681e2508601c2d0951bde8217f11a70fdb8ed7446cead69f79c57b13",
+  "replay_basis": {
+    "implementation_sha256": "d820c66598c7dccd4f88b31d94ab40bef07ee434c96ea21d289ad711cfa79703",
+    "minimum_saving_pct": 5,
+    "schema_version": 1
+  },
+  "results_branch": "results/mtrag-scale-01",
+  "schema_version": 1,
+  "source_commit": "90c4d495fcb6c2b3c1c629f8170355a6917eb081",
+  "through": 1,
+  "totals": {
+    "archive_bytes": 1457352127,
+    "archive_parts": 22,
+    "conversations": 1,
+    "eligible_exponent_targets": 4,
+    "observed_loads": 27,
+    "raw_capture_bytes": 1448607744,
+    "standalone_frame_bytes": 1040089021,
+    "stores": 614,
+    "turns": 7,
+    "unique_raw_pages": 614,
+    "zero_load_conversations": 0
+  }
+}
