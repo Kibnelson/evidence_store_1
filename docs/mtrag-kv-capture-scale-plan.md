@@ -100,7 +100,9 @@ Look for `Verified published checkpoint` and `Scratch reclaimed`. Rerun the same
 
 ## Run the six cumulative milestones
 
-Start the milestone launcher inside a four-GPU allocation after the one-conversation pilot has published the campaign plan. These counts are cumulative over one frozen queue. A milestone is ready for review when its JSON appears on the results branch. Each conversation has its own CPU report and verified archive checkpoint before its local run tree and archive are removed. The runtime and domain indexes are reused for the next conversation.
+First run the [one-conversation SSH pilot](#run-the-one-conversation-pilot-over-ssh) if the campaign needs its initial capture. The pilot verifies the full archive on readback and prints `Verified published checkpoint` after the CPU report and archive receipt are committed. Then run the block below inside a four-GPU allocation with `through=1` to publish or verify the first milestone report.
+
+These counts are cumulative over one frozen queue. A milestone is ready for review when its JSON appears on the results branch. Each conversation has its own CPU report and verified archive checkpoint before its local run tree and archive are removed. The runtime and domain indexes are reused for the next conversation.
 
 | Milestone | Cumulative conversations | Cumulative turns | Review file |
 | ---: | ---: | ---: | --- |
@@ -119,6 +121,7 @@ The launcher fetches the source commit pinned by the existing plan and uses its 
   umask 077
   : "${SLURM_JOB_ID:?Run inside the four-GPU allocation}"
   campaign=mtrag-scale-01
+  through=1
   node_root="/tmp/$(id -un)"
   mkdir -p "$node_root"
   [[ -O "$node_root" && ! -L "$node_root" ]]
@@ -132,11 +135,11 @@ The launcher fetches the source commit pinned by the existing plan and uses its 
   git -C "$control" sparse-checkout set --no-cone '/scripts/vllm_pd_mtrag_scale_*'
   export EVIDENCESTORE_LEGACY_CUDA_HOME="${EVIDENCESTORE_LEGACY_CUDA_HOME:-/usr/local/pkgs/cuda/12.6}"
   python3 -B "$control/scripts/vllm_pd_mtrag_scale_stages.py" \
-    --campaign "$campaign" --through 104 2>&1 | tee -a "$node_root/$campaign.log"
+    --campaign "$campaign" --through "$through" 2>&1 | tee -a "$node_root/$campaign.log"
 )
 ```
 
-Change `--through 104` to `--through 20` to stop at the first balanced checkpoint. Append `--read-back` to download and hash each new archive in addition to checking the committed remote part identities. Keep tmux open or detached while the job runs. If Slurm ends the allocation or a push fails, rerun the same block in an active four-GPU allocation. The launcher skips published milestones and the capture runner resumes the first incomplete stage from its per-conversation receipts.
+After seeing `Milestone 1 verified`, review `milestones/001.json` and rerun the same block with `through=104` to continue through 20, 40, 60, 80, and 104. Use `through=20` if you want to review the first balanced checkpoint before continuing. Append `--read-back` to the launcher arguments to download and hash each new archive in addition to checking the committed remote part identities. Keep tmux open or detached while the job runs. If Slurm ends the allocation or a push fails, rerun the block with the desired cutoff in an active four-GPU allocation. The launcher skips published milestones and the capture runner resumes the first incomplete stage from its per-conversation receipts.
 
 The [SSH milestone reports][ssh-milestones] summarize the domain and turn counts, archived bytes, and CPU cache hits and misses at shared budgets. Each report links to the exact conversation receipts and CPU studies used for that stage.
 
