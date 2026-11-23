@@ -15,6 +15,8 @@
 | `vllm_pd_mtrag_scale_select.py` | Freeze the held-out MT-RAG conversation queue from the verified four-domain retrieval traces. |
 | `vllm_pd_mtrag_scale_run.py` | Run one conversation at a time through GPU capture, CPU replay, publication, and verified scratch cleanup. |
 | `vllm_pd_mtrag_scale_publish.py` | Publish exact raw archives as GitHub Release assets or split Git blobs, checkpoint CPU reports, and verify or download a checkpoint. |
+| `vllm_pd_mtrag_scale_stages.py` | Run and resume the six cumulative MT-RAG milestones using the campaign's pinned source. |
+| `vllm_pd_mtrag_scale_milestone.py` | Aggregate verified per-conversation CPU reports and publish a cumulative Git checkpoint. |
 | `vllm_pd_chunk_smoke.sh` | Run the MuSiQue chunk-trace smoke or use `--full` for one pass in `2p2d-shared`. Add `--paired` for a native comparison. |
 | `vllm_pd_blend_smoke.py` | Test controlled prefix-to-Blend reuse or use `--musique-prepared` to test natural Blend reuse in both four-GPU layouts. |
 | `vllm_pd_blend_natural_report.py` | Verify live MuSiQue replay and attribute completed shifted LMCache restores to repeated evidence. |

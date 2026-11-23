@@ -14,7 +14,7 @@ The pinned MT-RAG Human workload has **110 conversations and 842 turns**. The si
 | Govt | 28 | 214 | 5 |
 | **Total** | **110** | **842** | **20** |
 
-The frozen queue records each domain, conversation ID, and full turn window. It covers **155 turns** at 20 new conversations, **307 turns** at 40, and **458 turns** at 60. The full run adds the remaining cases for **104 new plus six already captured**. The queue and progress survive a Slurm job ID change.
+The frozen queue records each domain, conversation ID, and full turn window. The full run adds the remaining cases for **104 new plus six already captured**. The queue and progress survive a Slurm job ID change.
 
 Use the same 1B/3D topology, docs-first `previous-turn-first` policy, fixed reference history, and native NIXL handoff for the capture. Reuse one verified runtime and the prepared Faiss index for each domain. Start each conversation with a fresh worker cache. The scale path escapes literal `¶` characters in source text so the actual Blend separators remain distinct. The report records that setting and any difference between live and archived retrieval ranks. If a conversation reaches a page or byte cap, retry it with enough capture budget. [Original capture runbook][capture]
 
@@ -97,6 +97,48 @@ print(p["source_commit"])')
 ```
 
 Look for `Verified published checkpoint` and `Scratch reclaimed`. Rerun the same block to verify the existing checkpoint if the pilot already completed, or resume from the retained local archive after a publication failure. The source comes from the published campaign plan whenever the branch exists. To start a separate Release campaign later, use another campaign ID such as `mtrag-scale-02` in all the Release commands.
+
+## Run the six cumulative milestones
+
+Start the milestone launcher inside a four-GPU allocation after the one-conversation pilot has published the campaign plan. These counts are cumulative over one frozen queue. A milestone is ready for review when its JSON appears on the results branch. Each conversation has its own CPU report and verified archive checkpoint before its local run tree and archive are removed. The runtime and domain indexes are reused for the next conversation.
+
+| Milestone | Cumulative conversations | Cumulative turns | Review file |
+| ---: | ---: | ---: | --- |
+| 1 | 1 | 7 | `milestones/001.json` |
+| 20 | 20 | 155 | `milestones/020.json` |
+| 40 | 40 | 307 | `milestones/040.json` |
+| 60 | 60 | 458 | `milestones/060.json` |
+| 80 | 80 | 593 | `milestones/080.json` |
+| 104 | 104 | 802 | `milestones/104.json` |
+
+The launcher fetches the source commit pinned by the existing plan and uses its recorded archive destination. For `mtrag-scale-01`, that means all raw archives go into Git history over SSH. At the pilot's 1.36 GiB per archive, 104 would add about **141 GiB**. GitHub recommends a 10 GB Git object store. A Release-backed campaign uses Git for the same reports and receipts and keeps raw archives in Release assets. Start its pilot with a separate ID such as `mtrag-scale-02`, then set that ID in the launcher command below. [GitHub repository limits][github-limits] · [GitHub Release asset limits][github-assets]
+
+```bash
+(
+  set -euo pipefail
+  umask 077
+  : "${SLURM_JOB_ID:?Run inside the four-GPU allocation}"
+  campaign=mtrag-scale-01
+  node_root="/tmp/$(id -un)"
+  mkdir -p "$node_root"
+  [[ -O "$node_root" && ! -L "$node_root" ]]
+  control="$node_root/mtrag-scale-control"
+  if [[ ! -d "$control/.git" ]]; then
+    git clone --depth=1 --single-branch --branch main --no-tags --filter=blob:none --sparse \
+      https://github.com/Kibnelson/evidence_store_1.git "$control"
+  else
+    git -C "$control" pull --ff-only origin main
+  fi
+  git -C "$control" sparse-checkout set --no-cone '/scripts/vllm_pd_mtrag_scale_*'
+  export EVIDENCESTORE_LEGACY_CUDA_HOME="${EVIDENCESTORE_LEGACY_CUDA_HOME:-/usr/local/pkgs/cuda/12.6}"
+  python3 -B "$control/scripts/vllm_pd_mtrag_scale_stages.py" \
+    --campaign "$campaign" --through 104 2>&1 | tee -a "$node_root/$campaign.log"
+)
+```
+
+Change `--through 104` to `--through 20` to stop at the first balanced checkpoint. Append `--read-back` to download and hash each new archive in addition to checking the committed remote part identities. Keep tmux open or detached while the job runs. If Slurm ends the allocation or a push fails, rerun the same block in an active four-GPU allocation. The launcher skips published milestones and the capture runner resumes the first incomplete stage from its per-conversation receipts.
+
+The [SSH milestone reports][ssh-milestones] summarize the domain and turn counts, archived bytes, and CPU cache hits and misses at shared budgets. Each report links to the exact conversation receipts and CPU studies used for that stage.
 
 ### Review the SSH pilot on CPU
 
@@ -305,5 +347,6 @@ For serving performance, run a separate gated live test that actually stores enc
 [github-limits]: https://docs.github.com/en/repositories/creating-and-managing-repositories/repository-limits
 [github-assets]: https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases#storage-and-bandwidth-quotas
 [github-api]: https://docs.github.com/en/rest/releases/assets
+[ssh-milestones]: https://github.com/Kibnelson/evidence_store_1/tree/results/mtrag-scale-01/reports/campaigns/mtrag-scale-01/milestones
 [gh-auth]: https://cli.github.com/manual/gh_auth_status
 [gh-install]: https://github.com/cli/cli#installation
