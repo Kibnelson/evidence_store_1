@@ -168,6 +168,7 @@ def run(args, entries):
     command("git", "diff", "--quiet", "HEAD", "--")
     command("git", "ls-files", "--error-unmatch", "--", *(f"scripts/{name}" for name in (
         "vllm_pd_mtrag_scale_run.py", "vllm_pd_mtrag_scale_publish.py", "vllm_pd_mtrag_scale_select.py",
+        "vllm_pd_mtrag_scale_git.py",
         "vllm_pd_legacy_exponent_replay.py", "vllm_pd_legacy_exponent_codec.py", "vllm_pd_legacy_exponent_codec.c",
     )), output=True)
     user = command("id", "-un", output=True)
@@ -178,7 +179,7 @@ def run(args, entries):
 
     def publish(*argv, **options):
         return script("vllm_pd_mtrag_scale_publish.py", "--repo-root", ROOT, "--campaign", args.campaign,
-                      "--release-repo", args.release_repo, *argv,
+                      "--release-repo", args.release_repo, "--archive-backend", args.archive_backend, *argv,
                       env={**os.environ, "TMPDIR": str(state)}, **options)
 
     with (state / "run.lock").open("a", encoding="utf-8") as lock:
@@ -234,8 +235,10 @@ def run(args, entries):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--campaign", required=True, help="Stable campaign ID for Git branch and Release")
+    parser.add_argument("--campaign", required=True, help="Stable campaign ID for results and archives")
     parser.add_argument("--release-repo", default="Kibnelson/evidence_store_1")
+    parser.add_argument("--archive-backend", choices=("release", "git-ssh"), default="release",
+                        help="Publish raw archives as Release assets or split Git blobs over SSH")
     parser.add_argument("--plan", type=Path, required=True)
     parser.add_argument("--through", type=int, default=20, help="Stop after this entry in the frozen queue")
     parser.add_argument("--capture-mib", type=int, default=6144, help="Raw page capture MiB per conversation")

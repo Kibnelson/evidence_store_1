@@ -43,9 +43,96 @@ The six published packets occupy about **5.18 GiB**. Scaling their average is us
 
 For this volume, Git should hold the manifests, checksums, and reports. Store the original archives in durable shared project storage or as GitHub Release assets if keeping them in the same GitHub project is preferred. Release assets are limited to less than 2 GiB each, so split larger archives into ordered parts. GitHub recommends keeping the Git object store within 10 GB and caps each Git push at 2 GiB. Using a new Git branch for each capture still adds bytes to the repository's object store. [GitHub repository limits][github-limits] · [GitHub Release asset limits][github-assets]
 
-## Run the pilot and campaign
+## Run the one-conversation pilot over SSH
 
-The commands use the public `Kibnelson/evidence_store_1` repository. Each raw archive goes to GitHub Release `mtrag-scale-01`. The plan, capture receipts, and CPU study reports go to branch `results/mtrag-scale-01`. The release assets are publicly readable. Use the same campaign ID until all intended stages of its frozen queue finish. [Release asset verification][github-api]
+Use this path from an existing four-GPU allocation on `gpu-grad-01` when GitHub SSH push works. It publishes the exact archive in parts to `results/mtrag-scale-01` and reads it back before deleting the local capture. The archive and CPU report are publicly readable. This path needs Git, `curl`, and the GitHub SSH key. Use the Release workflow below for a larger campaign to keep the raw payloads outside the Git object store. [GitHub repository limits][github-limits]
+
+```bash
+(
+  set -euo pipefail
+  umask 077
+  : "${SLURM_JOB_ID:?Run inside the existing four-GPU allocation}"
+  test "$(hostname -s)" = gpu-grad-01
+  campaign=mtrag-scale-01
+  github_repo=Kibnelson/evidence_store_1
+  git_url="https://github.com/$github_repo.git"
+  branch="refs/heads/results/$campaign"
+  node_root="/tmp/$(id -un)"
+  mkdir -p "$node_root"
+  [[ -O "$node_root" && ! -L "$node_root" ]]
+  df -h "$node_root"
+
+  remote_branch=$(git ls-remote --refs "$git_url" "$branch")
+  if [[ -n "$remote_branch" ]]; then
+    branch_commit=${remote_branch%%$'\t'*}
+    source_commit=$(curl -fsSL --retry 3 \
+      "https://raw.githubusercontent.com/$github_repo/$branch_commit/reports/campaigns/$campaign/plan.json" \
+      | python3 -c 'import json, sys
+p = json.load(sys.stdin)
+if p.get("archive_backend", "release") != "git-ssh":
+    raise SystemExit("Existing campaign uses Release. Resume it with Release or choose a new campaign ID.")
+print(p["source_commit"])')
+  else
+    main_ref=$(git ls-remote --exit-code --refs "$git_url" refs/heads/main)
+    source_commit=${main_ref%%$'\t'*}
+  fi
+  [[ "$source_commit" =~ ^[0-9a-f]{40}$ ]]
+
+  source_repo="$node_root/mtrag-scale-source-$campaign"
+  plan="$node_root/$campaign.plan.json"
+  if [[ ! -d "$source_repo/.git" ]]; then
+    git init -q "$source_repo"
+  fi
+  if ! git -C "$source_repo" cat-file -e "$source_commit^{commit}" 2>/dev/null; then
+    git -C "$source_repo" fetch --depth=1 --no-tags "$git_url" "$source_commit"
+  fi
+  git -C "$source_repo" checkout --detach "$source_commit"
+  cd "$source_repo"
+  python3 -B scripts/vllm_pd_mtrag_scale_select.py --output "$plan"
+  export EVIDENCESTORE_LEGACY_CUDA_HOME="${EVIDENCESTORE_LEGACY_CUDA_HOME:-/usr/local/pkgs/cuda/12.6}"
+  python3 -B scripts/vllm_pd_mtrag_scale_run.py \
+    --campaign "$campaign" --plan "$plan" --through 1 --read-back \
+    --archive-backend git-ssh 2>&1 | tee -a "$node_root/$campaign.log"
+)
+```
+
+Look for `Verified published checkpoint` and `Scratch reclaimed`. Rerun the same block to verify the existing checkpoint if the pilot already completed, or resume from the retained local archive after a publication failure. The source comes from the published campaign plan whenever the branch exists. To start a separate Release campaign later, use another campaign ID such as `mtrag-scale-02` in all the Release commands.
+
+### Review the SSH pilot on CPU
+
+Run from a source checkout with the SSH publisher. The commands fetch the plan and one archive by conversation and rerun the exact CPU replay. The published report is in `reports/campaigns/mtrag-scale-01/studies/` on the results branch.
+
+```bash
+(
+  set -euo pipefail
+  umask 077
+  campaign=mtrag-scale-01
+  cpu_scratch="${EVIDENCESTORE_CPU_SCRATCH:-${TMPDIR:-/tmp}}"
+  review=$(mktemp -d "$cpu_scratch/mtrag-cpu-$campaign.XXXXXX")
+  publisher=(python3 -B scripts/vllm_pd_mtrag_scale_publish.py \
+    --campaign "$campaign" --archive-backend git-ssh --scratch-dir "$review")
+  "${publisher[@]}" plan > "$review/plan.json"
+  conversation=$(python3 -c 'import json, sys; print(json.load(sys.stdin)["plan"]["conversations"][0]["conversation_id"])' \
+    < "$review/plan.json")
+  "${publisher[@]}" status --conversation "$conversation" > "$review/checkpoint.json"
+  read -r archive_name archive_sha256 turn_window < <(python3 -c \
+    'import json, sys; r=json.load(sys.stdin); print(r["archive"]["filename"], r["archive"]["sha256"], r["turn_window"])' \
+    < "$review/checkpoint.json")
+  "${publisher[@]}" download --conversation "$conversation" --output "$review/$archive_name"
+  python3 -B scripts/vllm_pd_legacy_exponent_replay.py \
+    --archive "$review/$archive_name" --sha256 "$archive_sha256" \
+    --conversation "$conversation" --turn-window "$turn_window" \
+    --scratch-dir "$review" --output-dir "$review/cpu" \
+    --capacity-mib 96 128 160 192 224 256 384 512 768 1024 1536 2048 3072
+  printf 'CPU report %s\n' "$review/cpu/$conversation.json"
+)
+```
+
+## Run a campaign with GitHub Releases
+
+The commands use the public `Kibnelson/evidence_store_1` repository. Each raw archive goes to GitHub Release `mtrag-scale-02`. The plan, capture receipts, and CPU study reports go to branch `results/mtrag-scale-02`. The release assets are publicly readable. Use the same campaign ID until all intended stages of its frozen queue finish. [Release asset verification][github-api]
+
+<a id="run-the-pilot-and-campaign"></a>
 
 ### 1. Start tmux and request the allocation
 
@@ -55,7 +142,7 @@ Start on the login node once the scale-runner files are on GitHub `main`. The GP
 (
   set -euo pipefail
   test -z "${SLURM_JOB_ID:-}"
-  campaign=mtrag-scale-01
+  campaign=mtrag-scale-02
   github_repo=Kibnelson/evidence_store_1
   git_url="https://github.com/$github_repo.git"
 
@@ -160,7 +247,7 @@ module load slurm
 squeue --me
 read -r -p 'Running Slurm job ID: ' capture_job
 srun --jobid="$capture_job" --overlap --gres=none -N 1 -n 1 -c 1 \
-  bash -c 'tail -n 35 -F "/tmp/$(id -un)/mtrag-scale-01.log"'
+  bash -c 'tail -n 35 -F "/tmp/$(id -un)/mtrag-scale-02.log"'
 ```
 
 ### 4. Download and replay the pilot on CPU
@@ -171,7 +258,7 @@ Run this from the root of a source checkout containing the scale scripts, on a w
 (
   set -euo pipefail
   umask 077
-  campaign=mtrag-scale-01
+  campaign=mtrag-scale-02
   github_repo=Kibnelson/evidence_store_1
   test -r scripts/vllm_pd_mtrag_scale_publish.py
   cpu_scratch="${EVIDENCESTORE_CPU_SCRATCH:-${TMPDIR:-/tmp}}"
@@ -197,7 +284,7 @@ Run this from the root of a source checkout containing the scale scripts, on a w
 )
 ```
 
-`scope` in the CPU report counts stored pages, later loads, and tested base pairs. `capacity_results` gives hits, misses, target reads, cold base reads, and rewrites at each memory budget. `matched_cpu_times` gives timings on that CPU for standalone restore, restore with an already decoded base, and restore with an encoded base. Compare timings collected on the same host. The original per-conversation CPU reports are under `reports/campaigns/mtrag-scale-01/studies/` on the results branch.
+`scope` in the CPU report counts stored pages, later loads, and tested base pairs. `capacity_results` gives hits, misses, target reads, cold base reads, and rewrites at each memory budget. `matched_cpu_times` gives timings on that CPU for standalone restore, restore with an already decoded base, and restore with an encoded base. Compare timings collected on the same host. The original per-conversation CPU reports are under `reports/campaigns/mtrag-scale-02/studies/` on the results branch.
 
 ## What the bigger run can establish
 
