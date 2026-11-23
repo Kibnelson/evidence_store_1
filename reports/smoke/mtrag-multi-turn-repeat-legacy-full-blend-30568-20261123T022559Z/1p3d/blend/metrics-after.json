@@ -1,0 +1,22 @@
+{
+  "p0": {
+    "sum": 0,
+    "count": 0,
+    "present": true
+  },
+  "d0": {
+    "sum": 1040449536,
+    "count": 4,
+    "present": true
+  },
+  "d1": {
+    "sum": 375128064,
+    "count": 2,
+    "present": true
+  },
+  "d2": {
+    "sum": 396361728,
+    "count": 2,
+    "present": true
+  }
+}
