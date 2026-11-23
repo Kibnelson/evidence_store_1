@@ -45,7 +45,50 @@ For this volume, Git should hold the manifests, checksums, and reports. Store th
 
 ## Run the one-conversation pilot over SSH
 
-Use this path from an existing four-GPU allocation on `gpu-grad-01` when GitHub SSH push works. It publishes the exact archive in parts to `results/mtrag-scale-01` and reads it back before deleting the local capture. The archive and CPU report are publicly readable. This path needs Git, `curl`, and the GitHub SSH key. Use the Release workflow below for a larger campaign to keep the raw payloads outside the Git object store. [GitHub repository limits][github-limits]
+Start on `teach-node-09`. This workflow uses Git, `curl`, and your GitHub SSH key. It publishes the exact archive in parts to the campaign's results branch and reads it back before deleting the local capture. The archive and CPU report are publicly readable. Use the Release workflow below for a larger campaign to keep the raw payloads outside the Git object store. [GitHub repository limits][github-limits]
+
+### 1. Start tmux and allocate four GPUs
+
+Paste this at the `teach-node-09` login prompt. It loads Slurm in the login shell and passes the resolved `srun` executable to tmux. If the session already exists, it reattaches to it.
+
+```bash
+(
+  set -euo pipefail
+  test -z "${SLURM_JOB_ID:-}"
+  module load slurm
+  srun_bin=$(type -P srun)
+  "$srun_bin" --version
+
+  tmux -L evidence-store-mtrag-scale -f /dev/null new-session -A -s mtrag-scale \
+    -e "PATH=$PATH" -e "LD_LIBRARY_PATH=${LD_LIBRARY_PATH:-}" \
+    -e "SSH_AUTH_SOCK=${SSH_AUTH_SOCK:-}" \
+    "$srun_bin" -p all -A oana2026 -q research12h -N 1 -w gpu-grad-01 \
+      --gpus=4 -c 16 --mem=192G -t 12:00:00 --pty /bin/bash -l
+)
+```
+
+Wait for the `gpu-grad-01` prompt. Confirm the allocation and list its GPUs.
+
+```bash
+printf 'Host %s, Slurm job %s\n' "$(hostname -s)" "${SLURM_JOB_ID:-unset}"
+nvidia-smi --query-gpu=uuid,name --format=csv
+```
+
+Detach with `Ctrl+b` then `d`. Reattach from the same login node.
+
+```bash
+tmux -L evidence-store-mtrag-scale attach-session -t mtrag-scale
+```
+
+### 2. Run the pilot inside the allocation
+
+At the `gpu-grad-01` prompt, select the campaign. For a fresh SSH campaign, use an unused ID such as the example below. To continue the published pilot, set the ID to `mtrag-scale-01` and go to [Run the six cumulative milestones](#run-the-six-cumulative-milestones).
+
+```bash
+export MTRAG_SCALE_CAMPAIGN=mtrag-scale-03
+```
+
+Keep the same ID for the pilot, every later milestone, and any resumed allocation. Paste the next block to run the fresh campaign's one-conversation pilot.
 
 ```bash
 (
@@ -53,7 +96,8 @@ Use this path from an existing four-GPU allocation on `gpu-grad-01` when GitHub 
   umask 077
   : "${SLURM_JOB_ID:?Run inside the existing four-GPU allocation}"
   test "$(hostname -s)" = gpu-grad-01
-  campaign=mtrag-scale-01
+  campaign="${MTRAG_SCALE_CAMPAIGN:-mtrag-scale-01}"
+  [[ "$campaign" =~ ^[a-z0-9][a-z0-9-]{0,62}$ ]]
   github_repo=Kibnelson/evidence_store_1
   git_url="https://github.com/$github_repo.git"
   branch="refs/heads/results/$campaign"
@@ -96,11 +140,11 @@ print(p["source_commit"])')
 )
 ```
 
-Look for `Verified published checkpoint` and `Scratch reclaimed`. Rerun the same block to verify the existing checkpoint if the pilot already completed, or resume from the retained local archive after a publication failure. The source comes from the published campaign plan whenever the branch exists. To start a separate Release campaign later, use another campaign ID such as `mtrag-scale-02` in all the Release commands.
+Look for `Verified published checkpoint` and `Scratch reclaimed`. Then verify milestone 1 in the next section. Rerun the pilot block to resume from a retained local archive after a publication failure. The source comes from the published campaign plan whenever the branch exists.
 
 ## Run the six cumulative milestones
 
-First run the [one-conversation SSH pilot](#run-the-one-conversation-pilot-over-ssh) if the campaign needs its initial capture. The pilot verifies the full archive on readback and prints `Verified published checkpoint` after the CPU report and archive receipt are committed. Then run the block below inside a four-GPU allocation with `through=1` to publish or verify the first milestone report.
+Publish the initial capture using the [SSH pilot](#run-the-one-conversation-pilot-over-ssh) or the [Release pilot](#3-run-the-one-conversation-release-pilot). Inside the allocation, keep `MTRAG_SCALE_CAMPAIGN` set to the pilot's ID and run the block below with `through=1` to publish or verify the first milestone report.
 
 These counts are cumulative over one frozen queue. A milestone is ready for review when its JSON appears on the results branch. Each conversation has its own CPU report and verified archive checkpoint before its local run tree and archive are removed. The runtime and domain indexes are reused for the next conversation.
 
@@ -120,7 +164,7 @@ The launcher fetches the source commit pinned by the existing plan and uses its 
   set -euo pipefail
   umask 077
   : "${SLURM_JOB_ID:?Run inside the four-GPU allocation}"
-  campaign=mtrag-scale-01
+  campaign="${MTRAG_SCALE_CAMPAIGN:-mtrag-scale-01}"
   through=1
   node_root="/tmp/$(id -un)"
   mkdir -p "$node_root"
@@ -141,17 +185,17 @@ The launcher fetches the source commit pinned by the existing plan and uses its 
 
 After seeing `Milestone 1 verified`, review `milestones/001.json` and rerun the same block with `through=104` to continue through 20, 40, 60, 80, and 104. Use `through=20` if you want to review the first balanced checkpoint before continuing. Append `--read-back` to the launcher arguments to download and hash each new archive in addition to checking the committed remote part identities. Keep tmux open or detached while the job runs. If Slurm ends the allocation or a push fails, rerun the block with the desired cutoff in an active four-GPU allocation. The launcher skips published milestones and the capture runner resumes the first incomplete stage from its per-conversation receipts.
 
-The [SSH milestone reports][ssh-milestones] summarize the domain and turn counts, archived bytes, and CPU cache hits and misses at shared budgets. Each report links to the exact conversation receipts and CPU studies used for that stage.
+The launcher prints each milestone's GitHub link. The reports summarize the domain and turn counts, archived bytes, and CPU cache hits and misses at shared budgets. Each report links to the exact conversation receipts and CPU studies used for that stage. [Example milestone reports][ssh-milestones]
 
 ### Review the SSH pilot on CPU
 
-Run from a source checkout with the SSH publisher. The commands fetch the plan and one archive by conversation and rerun the exact CPU replay. The published report is in `reports/campaigns/mtrag-scale-01/studies/` on the results branch.
+Run from a source checkout with the SSH publisher. Set `MTRAG_SCALE_CAMPAIGN` to the campaign ID used for capture. The commands fetch the plan and one archive by conversation and rerun the exact CPU replay. The published report is in the campaign's `studies/` folder on the results branch.
 
 ```bash
 (
   set -euo pipefail
   umask 077
-  campaign=mtrag-scale-01
+  campaign="${MTRAG_SCALE_CAMPAIGN:-mtrag-scale-01}"
   cpu_scratch="${EVIDENCESTORE_CPU_SCRATCH:-${TMPDIR:-/tmp}}"
   review=$(mktemp -d "$cpu_scratch/mtrag-cpu-$campaign.XXXXXX")
   publisher=(python3 -B scripts/vllm_pd_mtrag_scale_publish.py \
@@ -259,13 +303,11 @@ Paste this inside the allocated GPU shell. It prepares a detached source checkou
 )
 ```
 
-### 3. Run one conversation, then extend to 20
+### 3. Run the one-conversation Release pilot
 
-Start with `through=1` and read back the uploaded archive. The replay runs on CPU after the serving workers exit and publishes its report alongside the capture receipt. Watch for `Verified published checkpoint` and `Scratch reclaimed`. Rerunning the pilot should skip the capture and verify the existing checkpoint. Once the pilot passes, change `through` to `20` and set `read_back=no` to check subsequent uploads using GitHub's SHA-256 for each uploaded part. [Release asset API][github-api]
+Run the first conversation and read back the uploaded archive. The replay runs on CPU after the serving workers exit and publishes its report alongside the capture receipt. Watch for `Verified published checkpoint` and `Scratch reclaimed`. Rerunning the pilot verifies the existing checkpoint. [Release asset API][github-api]
 
 ```bash
-through=1
-read_back=yes
 (
   set -euo pipefail
   umask 077
@@ -274,16 +316,14 @@ read_back=yes
   node_root="/tmp/$(id -un)"
   cd "$node_root/mtrag-scale-source-$MTRAG_SCALE_CAMPAIGN"
   export EVIDENCESTORE_LEGACY_CUDA_HOME="${EVIDENCESTORE_LEGACY_CUDA_HOME:-/usr/local/pkgs/cuda/12.6}"
-  args=()
-  if [[ "$read_back" == yes ]]; then args+=(--read-back); fi
   python3 -B scripts/vllm_pd_mtrag_scale_run.py \
     --campaign "$MTRAG_SCALE_CAMPAIGN" \
     --plan "$node_root/$MTRAG_SCALE_CAMPAIGN.plan.json" \
-    --through "$through" "${args[@]}" 2>&1 | tee -a "$node_root/$MTRAG_SCALE_CAMPAIGN.log"
+    --through 1 --archive-backend release --read-back 2>&1 | tee -a "$node_root/$MTRAG_SCALE_CAMPAIGN.log"
 )
 ```
 
-Use the same command with `through=40`, `through=60`, or `through=104` for later stages. The number is the last position in the frozen queue. Published entries still count toward that number. Run one campaign process at a time. If a GPU allocation ends, repeat steps 1–3 with the same campaign ID. A complete local archive survives an upload failure on the same node. If it disappears before publication, the runner captures that conversation again. A capture that hits the default 6 GiB raw page byte limit can be retried by adding `--capture-mib 8192` if scratch has room. The runtime, indexes, current trace tree, archive, and any upload part share the node filesystem. Set `--keep-local` on the runner if you need the pilot's local run tree for inspection.
+Then follow [Run the six cumulative milestones](#run-the-six-cumulative-milestones) with the Release campaign ID already set by step 1. Reuse the same campaign ID if the allocation ends. A complete local archive survives an upload failure on the same node. If it disappears before publication, the runner captures that conversation again. If a capture hits the default 6 GiB raw page limit, retry with `--capture-mib 8192` if scratch has room.
 
 To monitor from another login window, get the running job ID from `squeue --me`, then attach a lightweight step to the same GPU node. Enter the job ID at the prompt.
 
