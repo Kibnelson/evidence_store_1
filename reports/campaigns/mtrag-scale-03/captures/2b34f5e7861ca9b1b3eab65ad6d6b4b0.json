@@ -1,0 +1,205 @@
+{
+  "archive": {
+    "bytes": 1539802839,
+    "filename": "mtrag-multi-turn-repeat-legacy-full-blend-30593-20261124T024336Z.tar.gz",
+    "parts": [
+      {
+        "bytes": 67108864,
+        "git_blob": "04f06aba929e3040a1d55ac2bd8d3352b4feb22d",
+        "git_path": "reports/campaigns/mtrag-scale-03/payloads/a70380b8407afe54968114f0f0638045d269ce55cf4bdf8345db76b84a3095f6/part-0001",
+        "id": "reports/campaigns/mtrag-scale-03/payloads/a70380b8407afe54968114f0f0638045d269ce55cf4bdf8345db76b84a3095f6/part-0001",
+        "name": "mtrag-multi-turn-repeat-legacy-full-blend-30593-20261124T024336Z.tar.gz.part0001",
+        "sha256": "b7ed6c9c43606aa2a924185bd67762cdc906089a1b3c63fd328377e97e86c0d6"
+      },
+      {
+        "bytes": 67108864,
+        "git_blob": "b76da4da2567c9f87dab6dd07aa421d7b2b9c462",
+        "git_path": "reports/campaigns/mtrag-scale-03/payloads/a70380b8407afe54968114f0f0638045d269ce55cf4bdf8345db76b84a3095f6/part-0002",
+        "id": "reports/campaigns/mtrag-scale-03/payloads/a70380b8407afe54968114f0f0638045d269ce55cf4bdf8345db76b84a3095f6/part-0002",
+        "name": "mtrag-multi-turn-repeat-legacy-full-blend-30593-20261124T024336Z.tar.gz.part0002",
+        "sha256": "7a8e698769407b05e7eb2ce4c1359dfa285b8bc56195521338c6284aaa0ad5c5"
+      },
+      {
+        "bytes": 67108864,
+        "git_blob": "ae20bb2a63c6e1ee428265f913609febb79a9a79",
+        "git_path": "reports/campaigns/mtrag-scale-03/payloads/a70380b8407afe54968114f0f0638045d269ce55cf4bdf8345db76b84a3095f6/part-0003",
+        "id": "reports/campaigns/mtrag-scale-03/payloads/a70380b8407afe54968114f0f0638045d269ce55cf4bdf8345db76b84a3095f6/part-0003",
+        "name": "mtrag-multi-turn-repeat-legacy-full-blend-30593-20261124T024336Z.tar.gz.part0003",
+        "sha256": "2462cb5f03a274d0fdb4bfa0883db5d2e6ae4a1cec063d634d20144f1ae1b61e"
+      },
+      {
+        "bytes": 67108864,
+        "git_blob": "48ef7fe5c97fbce5f82db7f4ac6f10cad377fca1",
+        "git_path": "reports/campaigns/mtrag-scale-03/payloads/a70380b8407afe54968114f0f0638045d269ce55cf4bdf8345db76b84a3095f6/part-0004",
+        "id": "reports/campaigns/mtrag-scale-03/payloads/a70380b8407afe54968114f0f0638045d269ce55cf4bdf8345db76b84a3095f6/part-0004",
+        "name": "mtrag-multi-turn-repeat-legacy-full-blend-30593-20261124T024336Z.tar.gz.part0004",
+        "sha256": "29e40093e93f730b7a37c4afb656350686664ef185079819c664a7488a4f30e4"
+      },
+      {
+        "bytes": 67108864,
+        "git_blob": "74ecc8bf306883bdc90da400c6c493b8dd83e8cd",
+        "git_path": "reports/campaigns/mtrag-scale-03/payloads/a70380b8407afe54968114f0f0638045d269ce55cf4bdf8345db76b84a3095f6/part-0005",
+        "id": "reports/campaigns/mtrag-scale-03/payloads/a70380b8407afe54968114f0f0638045d269ce55cf4bdf8345db76b84a3095f6/part-0005",
+        "name": "mtrag-multi-turn-repeat-legacy-full-blend-30593-20261124T024336Z.tar.gz.part0005",
+        "sha256": "2fea7a0bb1c65a14f45e9bc24559f56eeb20bb9d39f41a193d35531080067c85"
+      },
+      {
+        "bytes": 67108864,
+        "git_blob": "855cdf6690b74c4efcca3ccee6c21bb20563ba0b",
+        "git_path": "reports/campaigns/mtrag-scale-03/payloads/a70380b8407afe54968114f0f0638045d269ce55cf4bdf8345db76b84a3095f6/part-0006",
+        "id": "reports/campaigns/mtrag-scale-03/payloads/a70380b8407afe54968114f0f0638045d269ce55cf4bdf8345db76b84a3095f6/part-0006",
+        "name": "mtrag-multi-turn-repeat-legacy-full-blend-30593-20261124T024336Z.tar.gz.part0006",
+        "sha256": "9199918deec348a505e111f7cc05b55572a3b2160ba18f160c43ea14d499f552"
+      },
+      {
+        "bytes": 67108864,
+        "git_blob": "6af91996d4429a4e056f237df4c5b4127df6d3f4",
+        "git_path": "reports/campaigns/mtrag-scale-03/payloads/a70380b8407afe54968114f0f0638045d269ce55cf4bdf8345db76b84a3095f6/part-0007",
+        "id": "reports/campaigns/mtrag-scale-03/payloads/a70380b8407afe54968114f0f0638045d269ce55cf4bdf8345db76b84a3095f6/part-0007",
+        "name": "mtrag-multi-turn-repeat-legacy-full-blend-30593-20261124T024336Z.tar.gz.part0007",
+        "sha256": "659b9fded5e3af7034062d31ddaf9c277aa13e8ff2e9ba1b5f5769669518e891"
+      },
+      {
+        "bytes": 67108864,
+        "git_blob": "159fc9993b0ca917956f804ced9c02d9f43b65b7",
+        "git_path": "reports/campaigns/mtrag-scale-03/payloads/a70380b8407afe54968114f0f0638045d269ce55cf4bdf8345db76b84a3095f6/part-0008",
+        "id": "reports/campaigns/mtrag-scale-03/payloads/a70380b8407afe54968114f0f0638045d269ce55cf4bdf8345db76b84a3095f6/part-0008",
+        "name": "mtrag-multi-turn-repeat-legacy-full-blend-30593-20261124T024336Z.tar.gz.part0008",
+        "sha256": "1a073d14f044ab4e99be13e9d329686e8d70f8b49059771b8e0d29d14fdc9c16"
+      },
+      {
+        "bytes": 67108864,
+        "git_blob": "b2f1d24fd134f47d64bb5de1472a3a3360408bbe",
+        "git_path": "reports/campaigns/mtrag-scale-03/payloads/a70380b8407afe54968114f0f0638045d269ce55cf4bdf8345db76b84a3095f6/part-0009",
+        "id": "reports/campaigns/mtrag-scale-03/payloads/a70380b8407afe54968114f0f0638045d269ce55cf4bdf8345db76b84a3095f6/part-0009",
+        "name": "mtrag-multi-turn-repeat-legacy-full-blend-30593-20261124T024336Z.tar.gz.part0009",
+        "sha256": "5bb429064539eb88aa8bf7f47a81df649858827a400a01107ba2ec09b2b76b42"
+      },
+      {
+        "bytes": 67108864,
+        "git_blob": "bc94d5884ebfea03b10b06a01de5c18a04259cf4",
+        "git_path": "reports/campaigns/mtrag-scale-03/payloads/a70380b8407afe54968114f0f0638045d269ce55cf4bdf8345db76b84a3095f6/part-0010",
+        "id": "reports/campaigns/mtrag-scale-03/payloads/a70380b8407afe54968114f0f0638045d269ce55cf4bdf8345db76b84a3095f6/part-0010",
+        "name": "mtrag-multi-turn-repeat-legacy-full-blend-30593-20261124T024336Z.tar.gz.part0010",
+        "sha256": "a28e3cc952fc39856e1fafdb302425589df2f40cc523517ef5026a6794caab58"
+      },
+      {
+        "bytes": 67108864,
+        "git_blob": "f88063ae34eb0cd233249dcff9ac7166fab79e90",
+        "git_path": "reports/campaigns/mtrag-scale-03/payloads/a70380b8407afe54968114f0f0638045d269ce55cf4bdf8345db76b84a3095f6/part-0011",
+        "id": "reports/campaigns/mtrag-scale-03/payloads/a70380b8407afe54968114f0f0638045d269ce55cf4bdf8345db76b84a3095f6/part-0011",
+        "name": "mtrag-multi-turn-repeat-legacy-full-blend-30593-20261124T024336Z.tar.gz.part0011",
+        "sha256": "765fd81d7e5757b152442874b531b1e7bb154b362e8d28f2d108c04b7d4ae7ff"
+      },
+      {
+        "bytes": 67108864,
+        "git_blob": "27985fb5cba67912110632b040810bc4cdf72b20",
+        "git_path": "reports/campaigns/mtrag-scale-03/payloads/a70380b8407afe54968114f0f0638045d269ce55cf4bdf8345db76b84a3095f6/part-0012",
+        "id": "reports/campaigns/mtrag-scale-03/payloads/a70380b8407afe54968114f0f0638045d269ce55cf4bdf8345db76b84a3095f6/part-0012",
+        "name": "mtrag-multi-turn-repeat-legacy-full-blend-30593-20261124T024336Z.tar.gz.part0012",
+        "sha256": "2202c527437c966f5e6b9b7718bdec880672b0843a49ae8caf437f003ab0a294"
+      },
+      {
+        "bytes": 67108864,
+        "git_blob": "ead47bb7c880ca9fcbdfeafc9ce9e3d421b3cd41",
+        "git_path": "reports/campaigns/mtrag-scale-03/payloads/a70380b8407afe54968114f0f0638045d269ce55cf4bdf8345db76b84a3095f6/part-0013",
+        "id": "reports/campaigns/mtrag-scale-03/payloads/a70380b8407afe54968114f0f0638045d269ce55cf4bdf8345db76b84a3095f6/part-0013",
+        "name": "mtrag-multi-turn-repeat-legacy-full-blend-30593-20261124T024336Z.tar.gz.part0013",
+        "sha256": "d04697d66b9735482e96c1e17b68fd55c99a9c9975fa7ac8f8c9f58b315645d6"
+      },
+      {
+        "bytes": 67108864,
+        "git_blob": "11d6908495283f5c30cb3c9fdb883b982510e295",
+        "git_path": "reports/campaigns/mtrag-scale-03/payloads/a70380b8407afe54968114f0f0638045d269ce55cf4bdf8345db76b84a3095f6/part-0014",
+        "id": "reports/campaigns/mtrag-scale-03/payloads/a70380b8407afe54968114f0f0638045d269ce55cf4bdf8345db76b84a3095f6/part-0014",
+        "name": "mtrag-multi-turn-repeat-legacy-full-blend-30593-20261124T024336Z.tar.gz.part0014",
+        "sha256": "9a329a33996d2090f2b4d0029bef22c198d673c2e09342642d13243cf6b10140"
+      },
+      {
+        "bytes": 67108864,
+        "git_blob": "76b6f760c33a139c078e745350ede1cda0e5d6fc",
+        "git_path": "reports/campaigns/mtrag-scale-03/payloads/a70380b8407afe54968114f0f0638045d269ce55cf4bdf8345db76b84a3095f6/part-0015",
+        "id": "reports/campaigns/mtrag-scale-03/payloads/a70380b8407afe54968114f0f0638045d269ce55cf4bdf8345db76b84a3095f6/part-0015",
+        "name": "mtrag-multi-turn-repeat-legacy-full-blend-30593-20261124T024336Z.tar.gz.part0015",
+        "sha256": "63e2f7c18167e0e0ca39f011c4536da0e74e95a6d4e4ab3be9995368d8863b80"
+      },
+      {
+        "bytes": 67108864,
+        "git_blob": "cc7ad3d75ee0b1396abd77b6ae43a439f30a51c9",
+        "git_path": "reports/campaigns/mtrag-scale-03/payloads/a70380b8407afe54968114f0f0638045d269ce55cf4bdf8345db76b84a3095f6/part-0016",
+        "id": "reports/campaigns/mtrag-scale-03/payloads/a70380b8407afe54968114f0f0638045d269ce55cf4bdf8345db76b84a3095f6/part-0016",
+        "name": "mtrag-multi-turn-repeat-legacy-full-blend-30593-20261124T024336Z.tar.gz.part0016",
+        "sha256": "af436ff0ed6e339a969955df2eb2a40d1fbc88afab589729b312af5e169951e2"
+      },
+      {
+        "bytes": 67108864,
+        "git_blob": "b77bd3ee7fb38b4c370a81c3d01655d68ed5cf20",
+        "git_path": "reports/campaigns/mtrag-scale-03/payloads/a70380b8407afe54968114f0f0638045d269ce55cf4bdf8345db76b84a3095f6/part-0017",
+        "id": "reports/campaigns/mtrag-scale-03/payloads/a70380b8407afe54968114f0f0638045d269ce55cf4bdf8345db76b84a3095f6/part-0017",
+        "name": "mtrag-multi-turn-repeat-legacy-full-blend-30593-20261124T024336Z.tar.gz.part0017",
+        "sha256": "2b73c17988d768b778f9de0b3e67e3a3939605d339903703b6197ced3010bd44"
+      },
+      {
+        "bytes": 67108864,
+        "git_blob": "124c05ccc571239ab4894d9f84586baf0dd2e2fc",
+        "git_path": "reports/campaigns/mtrag-scale-03/payloads/a70380b8407afe54968114f0f0638045d269ce55cf4bdf8345db76b84a3095f6/part-0018",
+        "id": "reports/campaigns/mtrag-scale-03/payloads/a70380b8407afe54968114f0f0638045d269ce55cf4bdf8345db76b84a3095f6/part-0018",
+        "name": "mtrag-multi-turn-repeat-legacy-full-blend-30593-20261124T024336Z.tar.gz.part0018",
+        "sha256": "b862b85a361c0baa1ebc795fe56c88724467b022cd1a2ac026f6e0dda15ff1fb"
+      },
+      {
+        "bytes": 67108864,
+        "git_blob": "904697f62254d96cf2e9c82ed9eeebeb1ff1f511",
+        "git_path": "reports/campaigns/mtrag-scale-03/payloads/a70380b8407afe54968114f0f0638045d269ce55cf4bdf8345db76b84a3095f6/part-0019",
+        "id": "reports/campaigns/mtrag-scale-03/payloads/a70380b8407afe54968114f0f0638045d269ce55cf4bdf8345db76b84a3095f6/part-0019",
+        "name": "mtrag-multi-turn-repeat-legacy-full-blend-30593-20261124T024336Z.tar.gz.part0019",
+        "sha256": "c6dd23d070ffd07b2cbe7c9489775e0eb59b3072bffdd9548f31a71d138d8eda"
+      },
+      {
+        "bytes": 67108864,
+        "git_blob": "eba925a6d8bb60a4bef486e686bf135f71421fa2",
+        "git_path": "reports/campaigns/mtrag-scale-03/payloads/a70380b8407afe54968114f0f0638045d269ce55cf4bdf8345db76b84a3095f6/part-0020",
+        "id": "reports/campaigns/mtrag-scale-03/payloads/a70380b8407afe54968114f0f0638045d269ce55cf4bdf8345db76b84a3095f6/part-0020",
+        "name": "mtrag-multi-turn-repeat-legacy-full-blend-30593-20261124T024336Z.tar.gz.part0020",
+        "sha256": "08efc796220e65130a6dadcd736a88e94eaa247cfe6b34b2a1137695a2d0a379"
+      },
+      {
+        "bytes": 67108864,
+        "git_blob": "a2f82dab9b46e82ebbed7ed6747eba2e2e66a9f1",
+        "git_path": "reports/campaigns/mtrag-scale-03/payloads/a70380b8407afe54968114f0f0638045d269ce55cf4bdf8345db76b84a3095f6/part-0021",
+        "id": "reports/campaigns/mtrag-scale-03/payloads/a70380b8407afe54968114f0f0638045d269ce55cf4bdf8345db76b84a3095f6/part-0021",
+        "name": "mtrag-multi-turn-repeat-legacy-full-blend-30593-20261124T024336Z.tar.gz.part0021",
+        "sha256": "27fc80498b299af33f35ecdd5e9c21f837f29dde67fa50b132384088c92e8ccb"
+      },
+      {
+        "bytes": 67108864,
+        "git_blob": "ca28ac68d4d9b65f7c44f90c8b65bdc2703a41c6",
+        "git_path": "reports/campaigns/mtrag-scale-03/payloads/a70380b8407afe54968114f0f0638045d269ce55cf4bdf8345db76b84a3095f6/part-0022",
+        "id": "reports/campaigns/mtrag-scale-03/payloads/a70380b8407afe54968114f0f0638045d269ce55cf4bdf8345db76b84a3095f6/part-0022",
+        "name": "mtrag-multi-turn-repeat-legacy-full-blend-30593-20261124T024336Z.tar.gz.part0022",
+        "sha256": "0b76fb0883e6e47cf8cc5f8c292b9ec9528f94a9c4d7b102424c40c9bd4fbae5"
+      },
+      {
+        "bytes": 63407831,
+        "git_blob": "bed3cc28229bd5706cb2d7dfe7721705ec0615ee",
+        "git_path": "reports/campaigns/mtrag-scale-03/payloads/a70380b8407afe54968114f0f0638045d269ce55cf4bdf8345db76b84a3095f6/part-0023",
+        "id": "reports/campaigns/mtrag-scale-03/payloads/a70380b8407afe54968114f0f0638045d269ce55cf4bdf8345db76b84a3095f6/part-0023",
+        "name": "mtrag-multi-turn-repeat-legacy-full-blend-30593-20261124T024336Z.tar.gz.part0023",
+        "sha256": "6b3aadabf4b3f304e4e78ddc951896ed715b656f71977e8c5c0ea3815c4fc108"
+      }
+    ],
+    "sha256": "a70380b8407afe54968114f0f0638045d269ce55cf4bdf8345db76b84a3095f6"
+  },
+  "conversation_id": "2b34f5e7861ca9b1b3eab65ad6d6b4b0",
+  "domain": "fiqa",
+  "observed_loads": 50,
+  "plan_sha256": "e941ec1f681e2508601c2d0951bde8217f11a70fdb8ed7446cead69f79c57b13",
+  "raw_capture_bytes": 1550057472,
+  "schema_version": 1,
+  "source_commit": "bda24392cb345e80767467d015849ebae263a8a7",
+  "stores": 657,
+  "study_sha256": "fed4248484f3cc90a3c29dba289627e71a557485528365edfc21d79675bd3cd5",
+  "turn_window": "1:8",
+  "turns": 8,
+  "unique_raw_pages": 657
+}
