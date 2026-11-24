@@ -1,0 +1,3205 @@
+{
+  "archive_backend": "git-ssh",
+  "campaign": "mtrag-scale-03",
+  "capacity_results": {
+    "1024": {
+      "forward_pinned": {
+        "cold_base_reads_bytes": 6194340,
+        "delta_hits": 12,
+        "hits": 6731,
+        "misses": 311,
+        "rejected_admissions": 0,
+        "rewrites": 0,
+        "rewritten_bytes": 0,
+        "target_reads_bytes": 11399587593
+      },
+      "independent": {
+        "cold_base_reads_bytes": 0,
+        "delta_hits": 0,
+        "hits": 6729,
+        "misses": 313,
+        "rejected_admissions": 0,
+        "rewrites": 0,
+        "rewritten_bytes": 0,
+        "target_reads_bytes": 11397744860
+      }
+    },
+    "128": {
+      "forward_pinned": {
+        "cold_base_reads_bytes": 0,
+        "delta_hits": 0,
+        "hits": 668,
+        "misses": 6374,
+        "rejected_admissions": 0,
+        "rewrites": 0,
+        "rewritten_bytes": 0,
+        "target_reads_bytes": 1130975653
+      },
+      "independent": {
+        "cold_base_reads_bytes": 0,
+        "delta_hits": 0,
+        "hits": 668,
+        "misses": 6374,
+        "rejected_admissions": 0,
+        "rewrites": 0,
+        "rewritten_bytes": 0,
+        "target_reads_bytes": 1130975653
+      }
+    },
+    "1536": {
+      "forward_pinned": {
+        "cold_base_reads_bytes": 6192268,
+        "delta_hits": 12,
+        "hits": 7014,
+        "misses": 28,
+        "rejected_admissions": 0,
+        "rewrites": 0,
+        "rewritten_bytes": 0,
+        "target_reads_bytes": 11878853733
+      },
+      "independent": {
+        "cold_base_reads_bytes": 0,
+        "delta_hits": 0,
+        "hits": 7014,
+        "misses": 28,
+        "rejected_admissions": 0,
+        "rewrites": 0,
+        "rewritten_bytes": 0,
+        "target_reads_bytes": 11880340525
+      }
+    },
+    "160": {
+      "forward_pinned": {
+        "cold_base_reads_bytes": 517656,
+        "delta_hits": 1,
+        "hits": 1028,
+        "misses": 6014,
+        "rejected_admissions": 0,
+        "rewrites": 0,
+        "rewritten_bytes": 0,
+        "target_reads_bytes": 1740373578
+      },
+      "independent": {
+        "cold_base_reads_bytes": 0,
+        "delta_hits": 0,
+        "hits": 1040,
+        "misses": 6002,
+        "rejected_admissions": 0,
+        "rewrites": 0,
+        "rewritten_bytes": 0,
+        "target_reads_bytes": 1760802138
+      }
+    },
+    "192": {
+      "forward_pinned": {
+        "cold_base_reads_bytes": 1551810,
+        "delta_hits": 3,
+        "hits": 1560,
+        "misses": 5482,
+        "rejected_admissions": 0,
+        "rewrites": 0,
+        "rewritten_bytes": 0,
+        "target_reads_bytes": 2641106584
+      },
+      "independent": {
+        "cold_base_reads_bytes": 0,
+        "delta_hits": 0,
+        "hits": 1590,
+        "misses": 5452,
+        "rejected_admissions": 0,
+        "rewrites": 0,
+        "rewritten_bytes": 0,
+        "target_reads_bytes": 2692369775
+      }
+    },
+    "2048": {
+      "forward_pinned": {
+        "cold_base_reads_bytes": 6706845,
+        "delta_hits": 13,
+        "hits": 7042,
+        "misses": 0,
+        "rejected_admissions": 0,
+        "rewrites": 0,
+        "rewritten_bytes": 0,
+        "target_reads_bytes": 11926195214
+      },
+      "independent": {
+        "cold_base_reads_bytes": 0,
+        "delta_hits": 0,
+        "hits": 7042,
+        "misses": 0,
+        "rejected_admissions": 0,
+        "rewrites": 0,
+        "rewritten_bytes": 0,
+        "target_reads_bytes": 11927776391
+      }
+    },
+    "224": {
+      "forward_pinned": {
+        "cold_base_reads_bytes": 2585077,
+        "delta_hits": 5,
+        "hits": 2050,
+        "misses": 4992,
+        "rejected_admissions": 0,
+        "rewrites": 0,
+        "rewritten_bytes": 0,
+        "target_reads_bytes": 3470795339
+      },
+      "independent": {
+        "cold_base_reads_bytes": 0,
+        "delta_hits": 0,
+        "hits": 2049,
+        "misses": 4993,
+        "rejected_admissions": 0,
+        "rewrites": 0,
+        "rewritten_bytes": 0,
+        "target_reads_bytes": 3469825376
+      }
+    },
+    "256": {
+      "forward_pinned": {
+        "cold_base_reads_bytes": 2585077,
+        "delta_hits": 5,
+        "hits": 2584,
+        "misses": 4458,
+        "rejected_admissions": 0,
+        "rewrites": 0,
+        "rewritten_bytes": 0,
+        "target_reads_bytes": 4374865146
+      },
+      "independent": {
+        "cold_base_reads_bytes": 0,
+        "delta_hits": 0,
+        "hits": 2583,
+        "misses": 4459,
+        "rejected_admissions": 0,
+        "rewrites": 0,
+        "rewritten_bytes": 0,
+        "target_reads_bytes": 4373895183
+      }
+    },
+    "3072": {
+      "forward_pinned": {
+        "cold_base_reads_bytes": 6706845,
+        "delta_hits": 13,
+        "hits": 7042,
+        "misses": 0,
+        "rejected_admissions": 0,
+        "rewrites": 0,
+        "rewritten_bytes": 0,
+        "target_reads_bytes": 11926195214
+      },
+      "independent": {
+        "cold_base_reads_bytes": 0,
+        "delta_hits": 0,
+        "hits": 7042,
+        "misses": 0,
+        "rejected_admissions": 0,
+        "rewrites": 0,
+        "rewritten_bytes": 0,
+        "target_reads_bytes": 11927776391
+      }
+    },
+    "384": {
+      "forward_pinned": {
+        "cold_base_reads_bytes": 4131034,
+        "delta_hits": 8,
+        "hits": 4540,
+        "misses": 2502,
+        "rejected_admissions": 0,
+        "rewrites": 0,
+        "rewritten_bytes": 0,
+        "target_reads_bytes": 7687958462
+      },
+      "independent": {
+        "cold_base_reads_bytes": 0,
+        "delta_hits": 0,
+        "hits": 4538,
+        "misses": 2504,
+        "rejected_admissions": 0,
+        "rewrites": 0,
+        "rewritten_bytes": 0,
+        "target_reads_bytes": 7685671082
+      }
+    },
+    "512": {
+      "forward_pinned": {
+        "cold_base_reads_bytes": 4646311,
+        "delta_hits": 9,
+        "hits": 5190,
+        "misses": 1852,
+        "rejected_admissions": 0,
+        "rewrites": 0,
+        "rewritten_bytes": 0,
+        "target_reads_bytes": 8788752767
+      },
+      "independent": {
+        "cold_base_reads_bytes": 0,
+        "delta_hits": 0,
+        "hits": 5187,
+        "misses": 1855,
+        "rejected_admissions": 0,
+        "rewrites": 0,
+        "rewritten_bytes": 0,
+        "target_reads_bytes": 8784902029
+      }
+    },
+    "768": {
+      "forward_pinned": {
+        "cold_base_reads_bytes": 6194340,
+        "delta_hits": 12,
+        "hits": 6318,
+        "misses": 724,
+        "rejected_admissions": 0,
+        "rewrites": 0,
+        "rewritten_bytes": 0,
+        "target_reads_bytes": 10699747122
+      },
+      "independent": {
+        "cold_base_reads_bytes": 0,
+        "delta_hits": 0,
+        "hits": 6316,
+        "misses": 726,
+        "rejected_admissions": 0,
+        "rewrites": 0,
+        "rewritten_bytes": 0,
+        "target_reads_bytes": 10697894320
+      }
+    },
+    "96": {
+      "forward_pinned": {
+        "cold_base_reads_bytes": 0,
+        "delta_hits": 0,
+        "hits": 249,
+        "misses": 6793,
+        "rejected_admissions": 0,
+        "rewrites": 0,
+        "rewritten_bytes": 0,
+        "target_reads_bytes": 421503822
+      },
+      "independent": {
+        "cold_base_reads_bytes": 0,
+        "delta_hits": 0,
+        "hits": 249,
+        "misses": 6793,
+        "rejected_admissions": 0,
+        "rewrites": 0,
+        "rewritten_bytes": 0,
+        "target_reads_bytes": 421503822
+      }
+    }
+  },
+  "captures": [
+    {
+      "archive_bytes": 1457347389,
+      "archive_parts": 22,
+      "archive_sha256": "08e2af71fa03dd467f6028a5e370751e8dcdd624eca752ab5e39162fdfc51728",
+      "capture_git_blob": "049558f5293ae5f6668485dd4473bb4fe6e83e27",
+      "capture_path": "reports/campaigns/mtrag-scale-03/captures/5c13daa9432149f6243aa1115629cd1a.json",
+      "conversation_id": "5c13daa9432149f6243aa1115629cd1a",
+      "domain": "clapnq",
+      "eligible_exponent_targets": 4,
+      "exactness_audit": {
+        "forward_pinned": {
+          "capacity_mib": 352,
+          "verified_hits": 27
+        },
+        "independent": {
+          "capacity_mib": 348,
+          "verified_hits": 27
+        }
+      },
+      "first_full_capacity_mib": {
+        "forward_pinned": 352,
+        "independent": 348
+      },
+      "observed_loads": 27,
+      "raw_capture_bytes": 1448607744,
+      "standalone_frame_bytes": 1040089021,
+      "stores": 614,
+      "study_git_blob": "215f230c6c6eb177ac90db246b67fbc8af889c1f",
+      "study_path": "reports/campaigns/mtrag-scale-03/studies/5c13daa9432149f6243aa1115629cd1a.json",
+      "study_sha256": "02ef14ae671fc538fa8532d2c98df34a6004f7b26a907faa0c8a548be3d63691",
+      "turn_window": "1:7",
+      "turns": 7,
+      "unique_raw_pages": 614
+    },
+    {
+      "archive_bytes": 1901245346,
+      "archive_parts": 29,
+      "archive_sha256": "05b8169d0f803409267d739dad8930d9b558243d234198c6e63395234d86e73d",
+      "capture_git_blob": "17d267328dc4a1ad727b5e7ff1e6eb6e02a359a2",
+      "capture_path": "reports/campaigns/mtrag-scale-03/captures/674aa142d92a6b4262de254df0c3f7b2.json",
+      "conversation_id": "674aa142d92a6b4262de254df0c3f7b2",
+      "domain": "cloud",
+      "eligible_exponent_targets": 3,
+      "exactness_audit": {},
+      "first_full_capacity_mib": {
+        "forward_pinned": null,
+        "independent": null
+      },
+      "observed_loads": 0,
+      "raw_capture_bytes": 1993605120,
+      "standalone_frame_bytes": 1431894384,
+      "stores": 845,
+      "study_git_blob": "1d17e8fdfcf627e5d848ded94cd192746705a11e",
+      "study_path": "reports/campaigns/mtrag-scale-03/studies/674aa142d92a6b4262de254df0c3f7b2.json",
+      "study_sha256": "da71910c2fd636dd9b0d06ed755b80dc985cd0528ceca37f01dd906b2c98a273",
+      "turn_window": "1:5",
+      "turns": 5,
+      "unique_raw_pages": 845
+    },
+    {
+      "archive_bytes": 1040710965,
+      "archive_parts": 16,
+      "archive_sha256": "d0eebf6edb3a302b76e794ecae9fa600b8348ebc5f5a7259d821a657a0b129ab",
+      "capture_git_blob": "cacda636baa27509f98933cbbd3ca3ab102860a0",
+      "capture_path": "reports/campaigns/mtrag-scale-03/captures/2f94b6fb4c6f941decd0609eb126610b.json",
+      "conversation_id": "2f94b6fb4c6f941decd0609eb126610b",
+      "domain": "fiqa",
+      "eligible_exponent_targets": 2,
+      "exactness_audit": {},
+      "first_full_capacity_mib": {
+        "forward_pinned": null,
+        "independent": null
+      },
+      "observed_loads": 0,
+      "raw_capture_bytes": 936640512,
+      "standalone_frame_bytes": 672476335,
+      "stores": 397,
+      "study_git_blob": "bd2644956f9c30a0e6a3d02d7c1b419c495bb4b7",
+      "study_path": "reports/campaigns/mtrag-scale-03/studies/2f94b6fb4c6f941decd0609eb126610b.json",
+      "study_sha256": "3512ede3813155bfcfafac62b5f93e3b4c464cef8271de6a139d46f05e097994",
+      "turn_window": "1:4",
+      "turns": 4,
+      "unique_raw_pages": 397
+    },
+    {
+      "archive_bytes": 1775961297,
+      "archive_parts": 27,
+      "archive_sha256": "578085c56606e7cc98296778e2eea2b0ccec21c5896571ea4726821534131389",
+      "capture_git_blob": "7479362811dec9f61d746517590e3fe6782e445e",
+      "capture_path": "reports/campaigns/mtrag-scale-03/captures/35e6be0f2049527ae17cf77169cc4f70.json",
+      "conversation_id": "35e6be0f2049527ae17cf77169cc4f70",
+      "domain": "govt",
+      "eligible_exponent_targets": 1,
+      "exactness_audit": {
+        "forward_pinned": {
+          "capacity_mib": 388,
+          "verified_hits": 273
+        },
+        "independent": {
+          "capacity_mib": 388,
+          "verified_hits": 273
+        }
+      },
+      "first_full_capacity_mib": {
+        "forward_pinned": 388,
+        "independent": 388
+      },
+      "observed_loads": 273,
+      "raw_capture_bytes": 1840250880,
+      "standalone_frame_bytes": 1321312291,
+      "stores": 780,
+      "study_git_blob": "4997f59c22d6b7efca92fd9a50192c52f2512a8b",
+      "study_path": "reports/campaigns/mtrag-scale-03/studies/35e6be0f2049527ae17cf77169cc4f70.json",
+      "study_sha256": "2c3ea753ccb8a72f65126ffe91b84da3b7daca5d5c8506849db36b0e275ea1cf",
+      "turn_window": "1:6",
+      "turns": 6,
+      "unique_raw_pages": 780
+    },
+    {
+      "archive_bytes": 1793596855,
+      "archive_parts": 27,
+      "archive_sha256": "329f5e7e82ee28c62c16208a3c07f8e26da457591c53994645eba3fa1abdad92",
+      "capture_git_blob": "8c9ae04e0e7267eca0efb85b20d580d8d59930d8",
+      "capture_path": "reports/campaigns/mtrag-scale-03/captures/5b9edac124aea30a2256705d27226d7f.json",
+      "conversation_id": "5b9edac124aea30a2256705d27226d7f",
+      "domain": "clapnq",
+      "eligible_exponent_targets": 5,
+      "exactness_audit": {
+        "forward_pinned": {
+          "capacity_mib": 644,
+          "verified_hits": 148
+        },
+        "independent": {
+          "capacity_mib": 640,
+          "verified_hits": 148
+        }
+      },
+      "first_full_capacity_mib": {
+        "forward_pinned": 644,
+        "independent": 640
+      },
+      "observed_loads": 148,
+      "raw_capture_bytes": 1861484544,
+      "standalone_frame_bytes": 1337004541,
+      "stores": 789,
+      "study_git_blob": "a89a9c92b1dba1e28386abe55826cf9006696c83",
+      "study_path": "reports/campaigns/mtrag-scale-03/studies/5b9edac124aea30a2256705d27226d7f.json",
+      "study_sha256": "b06934a9b5f3500295b58fd6d8bcbc2b58105ebbafb8af9a94a0bab22f92cea6",
+      "turn_window": "1:8",
+      "turns": 8,
+      "unique_raw_pages": 789
+    },
+    {
+      "archive_bytes": 2409033351,
+      "archive_parts": 36,
+      "archive_sha256": "847a195cdcc5914041e00f071244f18c9a6319c82c2653467b7a2eccd392bb74",
+      "capture_git_blob": "90ea06887208474cfbe813d5703dc745b1736e61",
+      "capture_path": "reports/campaigns/mtrag-scale-03/captures/ddbbbe7ea13560c5768639207e1ca604.json",
+      "conversation_id": "ddbbbe7ea13560c5768639207e1ca604",
+      "domain": "cloud",
+      "eligible_exponent_targets": 1,
+      "exactness_audit": {
+        "forward_pinned": {
+          "capacity_mib": 280,
+          "verified_hits": 212
+        },
+        "independent": {
+          "capacity_mib": 280,
+          "verified_hits": 212
+        }
+      },
+      "first_full_capacity_mib": {
+        "forward_pinned": 280,
+        "independent": 280
+      },
+      "observed_loads": 212,
+      "raw_capture_bytes": 2618818560,
+      "standalone_frame_bytes": 1879194488,
+      "stores": 1110,
+      "study_git_blob": "573130bf87e5d221e2f1067ac3d69b0daca01218",
+      "study_path": "reports/campaigns/mtrag-scale-03/studies/ddbbbe7ea13560c5768639207e1ca604.json",
+      "study_sha256": "25e64dd5a27ba05f3a6599455f065c0acc84096b0324ec64f19b2f25cc2ec38c",
+      "turn_window": "1:7",
+      "turns": 7,
+      "unique_raw_pages": 1110
+    },
+    {
+      "archive_bytes": 1747176533,
+      "archive_parts": 27,
+      "archive_sha256": "e26061db05c6d4e75c7cb3458e1926ed8a7a91478bb7e5c3cd135397340d30d4",
+      "capture_git_blob": "4634ceb63cfdb6b3bf436b9ddea5c69686c2898c",
+      "capture_path": "reports/campaigns/mtrag-scale-03/captures/7cb06b3f8068674fce61a11e9777f708.json",
+      "conversation_id": "7cb06b3f8068674fce61a11e9777f708",
+      "domain": "fiqa",
+      "eligible_exponent_targets": 21,
+      "exactness_audit": {
+        "forward_pinned": {
+          "capacity_mib": 520,
+          "verified_hits": 110
+        },
+        "independent": {
+          "capacity_mib": 520,
+          "verified_hits": 110
+        }
+      },
+      "first_full_capacity_mib": {
+        "forward_pinned": 520,
+        "independent": 520
+      },
+      "observed_loads": 110,
+      "raw_capture_bytes": 1804861440,
+      "standalone_frame_bytes": 1295955192,
+      "stores": 765,
+      "study_git_blob": "781f2b0f24543f7e322215afe322cb40486e5d5c",
+      "study_path": "reports/campaigns/mtrag-scale-03/studies/7cb06b3f8068674fce61a11e9777f708.json",
+      "study_sha256": "8f83d45ca9266cd748d2d35618e2eca229c3cd4ebd181eecc3cf9690af424c43",
+      "turn_window": "1:7",
+      "turns": 7,
+      "unique_raw_pages": 765
+    },
+    {
+      "archive_bytes": 2274780278,
+      "archive_parts": 34,
+      "archive_sha256": "f779bcf187412605bb186de2cd8e7d973c47c86dbc596e5d7558722669641e9f",
+      "capture_git_blob": "2d31ed092b3cab21c1a17677ac5012aa1279cca7",
+      "capture_path": "reports/campaigns/mtrag-scale-03/captures/8a19ee37ca7d97eaddbe2e19ca600556.json",
+      "conversation_id": "8a19ee37ca7d97eaddbe2e19ca600556",
+      "domain": "govt",
+      "eligible_exponent_targets": 3,
+      "exactness_audit": {
+        "forward_pinned": {
+          "capacity_mib": 672,
+          "verified_hits": 252
+        },
+        "independent": {
+          "capacity_mib": 672,
+          "verified_hits": 252
+        }
+      },
+      "first_full_capacity_mib": {
+        "forward_pinned": 672,
+        "independent": 672
+      },
+      "observed_loads": 252,
+      "raw_capture_bytes": 2453667840,
+      "standalone_frame_bytes": 1761562256,
+      "stores": 1040,
+      "study_git_blob": "239323dc6f52747d38e78dbab23bc2e26f8eae27",
+      "study_path": "reports/campaigns/mtrag-scale-03/studies/8a19ee37ca7d97eaddbe2e19ca600556.json",
+      "study_sha256": "ee1598b08e983fd9155c65245dea8dc4eec3770068e309c27ab1dab7baf2f38e",
+      "turn_window": "1:6",
+      "turns": 6,
+      "unique_raw_pages": 1040
+    },
+    {
+      "archive_bytes": 1808683635,
+      "archive_parts": 27,
+      "archive_sha256": "efe34a6014a418f6f10f74e6820cf81afacf8bd5ad110eee080cffae5ab4b65e",
+      "capture_git_blob": "00304790c6a6a9fbe4d29bbbf8565c121a29a1dd",
+      "capture_path": "reports/campaigns/mtrag-scale-03/captures/694e275f1a01ad0e8ac448ad809f7930.json",
+      "conversation_id": "694e275f1a01ad0e8ac448ad809f7930",
+      "domain": "clapnq",
+      "eligible_exponent_targets": 41,
+      "exactness_audit": {
+        "forward_pinned": {
+          "capacity_mib": 388,
+          "verified_hits": 55
+        },
+        "independent": {
+          "capacity_mib": 388,
+          "verified_hits": 55
+        }
+      },
+      "first_full_capacity_mib": {
+        "forward_pinned": 388,
+        "independent": 388
+      },
+      "observed_loads": 55,
+      "raw_capture_bytes": 1880358912,
+      "standalone_frame_bytes": 1350192469,
+      "stores": 797,
+      "study_git_blob": "13bab0fb4b191bef786cf77e55dca1f30a3c5841",
+      "study_path": "reports/campaigns/mtrag-scale-03/studies/694e275f1a01ad0e8ac448ad809f7930.json",
+      "study_sha256": "96ac3a2e81e3695616823d6c3e6a8b603b520a895be68207e7b3758e3823954a",
+      "turn_window": "1:8",
+      "turns": 8,
+      "unique_raw_pages": 797
+    },
+    {
+      "archive_bytes": 3013103963,
+      "archive_parts": 45,
+      "archive_sha256": "bb573ea07a05cae4840e04a8894bcafe29601f595af551c21d025278e183f561",
+      "capture_git_blob": "590f1d9c844e85bcfbe6c1372ca3c22ee1321b5d",
+      "capture_path": "reports/campaigns/mtrag-scale-03/captures/4c86c8740c3d49e06b7aca9d308119fa.json",
+      "conversation_id": "4c86c8740c3d49e06b7aca9d308119fa",
+      "domain": "cloud",
+      "eligible_exponent_targets": 5,
+      "exactness_audit": {
+        "forward_pinned": {
+          "capacity_mib": 240,
+          "verified_hits": 55
+        },
+        "independent": {
+          "capacity_mib": 240,
+          "verified_hits": 55
+        }
+      },
+      "first_full_capacity_mib": {
+        "forward_pinned": 240,
+        "independent": 240
+      },
+      "observed_loads": 55,
+      "raw_capture_bytes": 3359637504,
+      "standalone_frame_bytes": 2413351081,
+      "stores": 1424,
+      "study_git_blob": "77e55f066496182b91f8fbb16b04c33ca8bbff49",
+      "study_path": "reports/campaigns/mtrag-scale-03/studies/4c86c8740c3d49e06b7aca9d308119fa.json",
+      "study_sha256": "fcc7f18dd2b5ef2a557987d1cb6c420a27f5972862d157968e21825cbd3880a4",
+      "turn_window": "1:8",
+      "turns": 8,
+      "unique_raw_pages": 1424
+    },
+    {
+      "archive_bytes": 1814280766,
+      "archive_parts": 28,
+      "archive_sha256": "48e693ba04c3ba13845b54a99084ae9786fe3a6cddf4457795aa0a51e25ee363",
+      "capture_git_blob": "67c47fe01e36282f71567844f7782eb0abd16a49",
+      "capture_path": "reports/campaigns/mtrag-scale-03/captures/94d04f2cd47fee9a0aaa13fa3ae1de53.json",
+      "conversation_id": "94d04f2cd47fee9a0aaa13fa3ae1de53",
+      "domain": "fiqa",
+      "eligible_exponent_targets": 24,
+      "exactness_audit": {
+        "forward_pinned": {
+          "capacity_mib": 936,
+          "verified_hits": 34
+        },
+        "independent": {
+          "capacity_mib": 936,
+          "verified_hits": 34
+        }
+      },
+      "first_full_capacity_mib": {
+        "forward_pinned": 936,
+        "independent": 936
+      },
+      "observed_loads": 34,
+      "raw_capture_bytes": 1887436800,
+      "standalone_frame_bytes": 1355161094,
+      "stores": 800,
+      "study_git_blob": "d51b9d1552b19e4b174d28e160419ad2de0e2c64",
+      "study_path": "reports/campaigns/mtrag-scale-03/studies/94d04f2cd47fee9a0aaa13fa3ae1de53.json",
+      "study_sha256": "52306ed7d705f520356d86acd4c5ac9b7f75ed85a3ed1c54eeabf170ed92e376",
+      "turn_window": "1:8",
+      "turns": 8,
+      "unique_raw_pages": 800
+    },
+    {
+      "archive_bytes": 3116487732,
+      "archive_parts": 47,
+      "archive_sha256": "4ea971e95e5a2c01c3e99803f0e06a7de5117cf742b21acd2a7a1833fcee7844",
+      "capture_git_blob": "a44f5317ab605841cd725daa084483b3b82adfdb",
+      "capture_path": "reports/campaigns/mtrag-scale-03/captures/251e29286cef45d899d7889e94ae25d5.json",
+      "conversation_id": "251e29286cef45d899d7889e94ae25d5",
+      "domain": "govt",
+      "eligible_exponent_targets": 2,
+      "exactness_audit": {
+        "forward_pinned": {
+          "capacity_mib": 344,
+          "verified_hits": 156
+        },
+        "independent": {
+          "capacity_mib": 344,
+          "verified_hits": 156
+        }
+      },
+      "first_full_capacity_mib": {
+        "forward_pinned": 344,
+        "independent": 344
+      },
+      "observed_loads": 156,
+      "raw_capture_bytes": 3487039488,
+      "standalone_frame_bytes": 2504312807,
+      "stores": 1478,
+      "study_git_blob": "debedb4159edfef90e15bf77191e04db239c9ee5",
+      "study_path": "reports/campaigns/mtrag-scale-03/studies/251e29286cef45d899d7889e94ae25d5.json",
+      "study_sha256": "00a93aaab4a85d384a66d260148ac56c2d3a450dd7a761bf61fdf93a61f645a4",
+      "turn_window": "1:8",
+      "turns": 8,
+      "unique_raw_pages": 1478
+    },
+    {
+      "archive_bytes": 1566490006,
+      "archive_parts": 24,
+      "archive_sha256": "76a3580117aafa22246e18198e954b8bb55d1cc03eb9ff131ed13cc689693283",
+      "capture_git_blob": "0b819d22718149f4b64dec35381fb231ad788b24",
+      "capture_path": "reports/campaigns/mtrag-scale-03/captures/aea2634b0e5f1c2444550d31c41adc94.json",
+      "conversation_id": "aea2634b0e5f1c2444550d31c41adc94",
+      "domain": "clapnq",
+      "eligible_exponent_targets": 47,
+      "exactness_audit": {
+        "forward_pinned": {
+          "capacity_mib": 340,
+          "verified_hits": 206
+        },
+        "independent": {
+          "capacity_mib": 336,
+          "verified_hits": 206
+        }
+      },
+      "first_full_capacity_mib": {
+        "forward_pinned": 340,
+        "independent": 336
+      },
+      "observed_loads": 206,
+      "raw_capture_bytes": 1583087616,
+      "standalone_frame_bytes": 1136442740,
+      "stores": 671,
+      "study_git_blob": "58d93e148d6edeeb711f2a08ac9d7c75e68f8c8b",
+      "study_path": "reports/campaigns/mtrag-scale-03/studies/aea2634b0e5f1c2444550d31c41adc94.json",
+      "study_sha256": "9543c9021f8b712dc46644af5559eb7828bf85e1bacc1ebd07751c306abb53bf",
+      "turn_window": "1:8",
+      "turns": 8,
+      "unique_raw_pages": 671
+    },
+    {
+      "archive_bytes": 2268177842,
+      "archive_parts": 34,
+      "archive_sha256": "b351a669443a6b60a692c56493f7f7ea702fb97eb7c58dbe59489ab7497358cc",
+      "capture_git_blob": "6da254bef9c0f722745af2c23aaada6e92c8118a",
+      "capture_path": "reports/campaigns/mtrag-scale-03/captures/47b2471404382af6e973013ab1cf96b9.json",
+      "conversation_id": "47b2471404382af6e973013ab1cf96b9",
+      "domain": "cloud",
+      "eligible_exponent_targets": 36,
+      "exactness_audit": {
+        "forward_pinned": {
+          "capacity_mib": 1240,
+          "verified_hits": 622
+        },
+        "independent": {
+          "capacity_mib": 1240,
+          "verified_hits": 622
+        }
+      },
+      "first_full_capacity_mib": {
+        "forward_pinned": 1240,
+        "independent": 1240
+      },
+      "observed_loads": 622,
+      "raw_capture_bytes": 2444230656,
+      "standalone_frame_bytes": 1755599561,
+      "stores": 1036,
+      "study_git_blob": "52df6e64a7e25d1ab13a755fa6632090edd0a8b2",
+      "study_path": "reports/campaigns/mtrag-scale-03/studies/47b2471404382af6e973013ab1cf96b9.json",
+      "study_sha256": "90ca49228b48852218506df8cb6a2e09b9c15b0f4f2e60d7a0356fed89d8fc7a",
+      "turn_window": "1:9",
+      "turns": 9,
+      "unique_raw_pages": 1036
+    },
+    {
+      "archive_bytes": 1455421802,
+      "archive_parts": 22,
+      "archive_sha256": "73a3a553167d3c10eb38b46c607810eb57771751eb9085c9709d819a5ba2f552",
+      "capture_git_blob": "2b46f8dc936638fbf932a50f578ecd471c0d0de1",
+      "capture_path": "reports/campaigns/mtrag-scale-03/captures/c5518952b78b171de2d5b9317103ba62.json",
+      "conversation_id": "c5518952b78b171de2d5b9317103ba62",
+      "domain": "fiqa",
+      "eligible_exponent_targets": 1,
+      "exactness_audit": {
+        "forward_pinned": {
+          "capacity_mib": 772,
+          "verified_hits": 166
+        },
+        "independent": {
+          "capacity_mib": 772,
+          "verified_hits": 166
+        }
+      },
+      "first_full_capacity_mib": {
+        "forward_pinned": 772,
+        "independent": 772
+      },
+      "observed_loads": 166,
+      "raw_capture_bytes": 1446248448,
+      "standalone_frame_bytes": 1038310417,
+      "stores": 613,
+      "study_git_blob": "9c86024ef4c8143ac43df16c8f990a9047aa7b08",
+      "study_path": "reports/campaigns/mtrag-scale-03/studies/c5518952b78b171de2d5b9317103ba62.json",
+      "study_sha256": "a1062fb68a8dadd12a3e219f9a2c8c2beedd37a98a8ffd30a390097f2b9eca29",
+      "turn_window": "1:8",
+      "turns": 8,
+      "unique_raw_pages": 613
+    },
+    {
+      "archive_bytes": 2720894508,
+      "archive_parts": 41,
+      "archive_sha256": "068ccfae8c23d418cad678ff31b0e5add03d7dab406c0e473fbfdcecdedf33e6",
+      "capture_git_blob": "b17761f7b5c276612abdd51c0382a9758aebc2bc",
+      "capture_path": "reports/campaigns/mtrag-scale-03/captures/5600fe1c05a1fc415416d9dee6347000.json",
+      "conversation_id": "5600fe1c05a1fc415416d9dee6347000",
+      "domain": "govt",
+      "eligible_exponent_targets": 7,
+      "exactness_audit": {
+        "forward_pinned": {
+          "capacity_mib": 632,
+          "verified_hits": 556
+        },
+        "independent": {
+          "capacity_mib": 632,
+          "verified_hits": 556
+        }
+      },
+      "first_full_capacity_mib": {
+        "forward_pinned": 632,
+        "independent": 632
+      },
+      "observed_loads": 556,
+      "raw_capture_bytes": 3001024512,
+      "standalone_frame_bytes": 2155023244,
+      "stores": 1272,
+      "study_git_blob": "c3e9c815d4b381f7698e876d21d2dcdcbff3cf8c",
+      "study_path": "reports/campaigns/mtrag-scale-03/studies/5600fe1c05a1fc415416d9dee6347000.json",
+      "study_sha256": "b0303445c077d18d579b199fe40b8e5ae76b2f9bac5028f908eb58c630c77cf1",
+      "turn_window": "1:9",
+      "turns": 9,
+      "unique_raw_pages": 1272
+    },
+    {
+      "archive_bytes": 1670583371,
+      "archive_parts": 25,
+      "archive_sha256": "f2459264a4ec986184fc89f435fd6a7f1c16716656e741a780a0f2e6534431f4",
+      "capture_git_blob": "dd958ae5b797a5771b4f7f52d24caa62a152f150",
+      "capture_path": "reports/campaigns/mtrag-scale-03/captures/6a738cc02c5aa0b74319acd0e8a809dd.json",
+      "conversation_id": "6a738cc02c5aa0b74319acd0e8a809dd",
+      "domain": "clapnq",
+      "eligible_exponent_targets": 48,
+      "exactness_audit": {
+        "forward_pinned": {
+          "capacity_mib": 676,
+          "verified_hits": 128
+        },
+        "independent": {
+          "capacity_mib": 684,
+          "verified_hits": 128
+        }
+      },
+      "first_full_capacity_mib": {
+        "forward_pinned": 676,
+        "independent": 684
+      },
+      "observed_loads": 128,
+      "raw_capture_bytes": 1710489600,
+      "standalone_frame_bytes": 1228183495,
+      "stores": 725,
+      "study_git_blob": "a77ade2e617983e46b37662a1cd0f8addf851e50",
+      "study_path": "reports/campaigns/mtrag-scale-03/studies/6a738cc02c5aa0b74319acd0e8a809dd.json",
+      "study_sha256": "3fbbde9a2e836b3e2fe190d14871ebb54a1fe7417ac8f7769eff4101b81abc7f",
+      "turn_window": "1:9",
+      "turns": 9,
+      "unique_raw_pages": 725
+    },
+    {
+      "archive_bytes": 5026818242,
+      "archive_parts": 75,
+      "archive_sha256": "689aeb16f1299d0474df412b94f6f2a370ac8013850a20b3df2ca25e20743c70",
+      "capture_git_blob": "9ff28fe07f157203a34bd6c40b90fa952a5e82b5",
+      "capture_path": "reports/campaigns/mtrag-scale-03/captures/adf9b1f61c73d715809bc7b37ac02724.json",
+      "conversation_id": "adf9b1f61c73d715809bc7b37ac02724",
+      "domain": "cloud",
+      "eligible_exponent_targets": 73,
+      "exactness_audit": {
+        "forward_pinned": {
+          "capacity_mib": 1716,
+          "verified_hits": 256
+        },
+        "independent": {
+          "capacity_mib": 1700,
+          "verified_hits": 256
+        }
+      },
+      "first_full_capacity_mib": {
+        "forward_pinned": 1716,
+        "independent": 1700
+      },
+      "observed_loads": 256,
+      "raw_capture_bytes": 5834539008,
+      "standalone_frame_bytes": 4190938030,
+      "stores": 2473,
+      "study_git_blob": "b2b7123e05e75ed93d5136229860eec1ea6cbc47",
+      "study_path": "reports/campaigns/mtrag-scale-03/studies/adf9b1f61c73d715809bc7b37ac02724.json",
+      "study_sha256": "8a7a7b7c5e532bc7a8ff62289bedafc6a3ebf8bd322d66fa0385c3eaf5ea9496",
+      "turn_window": "1:12",
+      "turns": 12,
+      "unique_raw_pages": 2473
+    },
+    {
+      "archive_bytes": 1993291696,
+      "archive_parts": 30,
+      "archive_sha256": "29d19e27f1449abf779d7ebb44b40c168c9d1ae813dd2a561181f1ecab865ce6",
+      "capture_git_blob": "f7abae41e9783859fd4db77f84d722bdab39f8ec",
+      "capture_path": "reports/campaigns/mtrag-scale-03/captures/9c52934a9aea1c3647d4b558d8afdf1c.json",
+      "conversation_id": "9c52934a9aea1c3647d4b558d8afdf1c",
+      "domain": "fiqa",
+      "eligible_exponent_targets": 56,
+      "exactness_audit": {
+        "forward_pinned": {
+          "capacity_mib": 400,
+          "verified_hits": 116
+        },
+        "independent": {
+          "capacity_mib": 400,
+          "verified_hits": 116
+        }
+      },
+      "first_full_capacity_mib": {
+        "forward_pinned": 400,
+        "independent": 400
+      },
+      "observed_loads": 116,
+      "raw_capture_bytes": 2106851328,
+      "standalone_frame_bytes": 1513043941,
+      "stores": 893,
+      "study_git_blob": "bf51e897d2f2ba97d5dc5ed5d7f49cc3011332c1",
+      "study_path": "reports/campaigns/mtrag-scale-03/studies/9c52934a9aea1c3647d4b558d8afdf1c.json",
+      "study_sha256": "16aedee74cb14d23f3c58ed8c06c258fd76d2424eda567dd2527ea8c7c0b70fc",
+      "turn_window": "1:9",
+      "turns": 9,
+      "unique_raw_pages": 893
+    },
+    {
+      "archive_bytes": 3275195944,
+      "archive_parts": 49,
+      "archive_sha256": "7db6b4ea0b5fe99388bc12b3cca7d716ec62bd3d9ba0b9e0b927226602721551",
+      "capture_git_blob": "707c0ffde669b4b08f9f00fd62294386646dedc8",
+      "capture_path": "reports/campaigns/mtrag-scale-03/captures/fc3e765d7ffc28ffc7ee7ea38fd3c73a.json",
+      "conversation_id": "fc3e765d7ffc28ffc7ee7ea38fd3c73a",
+      "domain": "govt",
+      "eligible_exponent_targets": 10,
+      "exactness_audit": {
+        "forward_pinned": {
+          "capacity_mib": 764,
+          "verified_hits": 420
+        },
+        "independent": {
+          "capacity_mib": 764,
+          "verified_hits": 420
+        }
+      },
+      "first_full_capacity_mib": {
+        "forward_pinned": 764,
+        "independent": 764
+      },
+      "observed_loads": 420,
+      "raw_capture_bytes": 3682861056,
+      "standalone_frame_bytes": 2644467890,
+      "stores": 1561,
+      "study_git_blob": "5ef105bdcaf2897a09674e0c994efd312411f4d2",
+      "study_path": "reports/campaigns/mtrag-scale-03/studies/fc3e765d7ffc28ffc7ee7ea38fd3c73a.json",
+      "study_sha256": "faab828d0700c1016dc40cb6b65a52cf4603b5b3b5f11e820e1f94dcb9cce599",
+      "turn_window": "1:9",
+      "turns": 9,
+      "unique_raw_pages": 1561
+    },
+    {
+      "archive_bytes": 1311512167,
+      "archive_parts": 20,
+      "archive_sha256": "565e209076b01fa4e759b102988eac8da8dbc352ad6b026ffd4b9a45920a96cb",
+      "capture_git_blob": "55b02c779168a4ed0aabe8ce912655daba3539ec",
+      "capture_path": "reports/campaigns/mtrag-scale-03/captures/79f0d0539d9ec0acbf90cb3388b30c17.json",
+      "conversation_id": "79f0d0539d9ec0acbf90cb3388b30c17",
+      "domain": "clapnq",
+      "eligible_exponent_targets": 2,
+      "exactness_audit": {
+        "forward_pinned": {
+          "capacity_mib": 680,
+          "verified_hits": 118
+        },
+        "independent": {
+          "capacity_mib": 680,
+          "verified_hits": 118
+        }
+      },
+      "first_full_capacity_mib": {
+        "forward_pinned": 680,
+        "independent": 680
+      },
+      "observed_loads": 118,
+      "raw_capture_bytes": 1269301248,
+      "standalone_frame_bytes": 911399564,
+      "stores": 538,
+      "study_git_blob": "ac814c9bda7345c7ccc40ab52fd22bbf97dcec15",
+      "study_path": "reports/campaigns/mtrag-scale-03/studies/79f0d0539d9ec0acbf90cb3388b30c17.json",
+      "study_sha256": "27e6fe20a1be49b76a2e8ee88eb6dc91fdf6e8ffdc7432474004dc763f610fe8",
+      "turn_window": "1:7",
+      "turns": 7,
+      "unique_raw_pages": 538
+    },
+    {
+      "archive_bytes": 2368817214,
+      "archive_parts": 36,
+      "archive_sha256": "6c195df4fb094b5b76a19f6d1f6bd98f8a4f0d231a4d8fcb9e16102752770086",
+      "capture_git_blob": "b738ff47ed8c8d5c7b746dd15ea6f493b3857c5a",
+      "capture_path": "reports/campaigns/mtrag-scale-03/captures/927077bd895f0c292618f4a34789bef3.json",
+      "conversation_id": "927077bd895f0c292618f4a34789bef3",
+      "domain": "cloud",
+      "eligible_exponent_targets": 3,
+      "exactness_audit": {
+        "forward_pinned": {
+          "capacity_mib": 1248,
+          "verified_hits": 90
+        },
+        "independent": {
+          "capacity_mib": 1248,
+          "verified_hits": 90
+        }
+      },
+      "first_full_capacity_mib": {
+        "forward_pinned": 1248,
+        "independent": 1248
+      },
+      "observed_loads": 90,
+      "raw_capture_bytes": 2576351232,
+      "standalone_frame_bytes": 1837071891,
+      "stores": 1092,
+      "study_git_blob": "641787794151ba64f2e08f7c1afe02fe80962d03",
+      "study_path": "reports/campaigns/mtrag-scale-03/studies/927077bd895f0c292618f4a34789bef3.json",
+      "study_sha256": "1b342cbdb6affd834510e4a3a2d413fc9fd0d8fe3a90fb6201271a2ec03cef66",
+      "turn_window": "1:6",
+      "turns": 6,
+      "unique_raw_pages": 1092
+    },
+    {
+      "archive_bytes": 1184718324,
+      "archive_parts": 18,
+      "archive_sha256": "faaefe67be2fdda184eb45a0eedf9618b758e4d1e3e9dcd496b42f1e871b4cf1",
+      "capture_git_blob": "dfc7772c14a75151ca2e347afc39b95d41059be0",
+      "capture_path": "reports/campaigns/mtrag-scale-03/captures/4a8369b7403e54df94d7fa495a4eff27.json",
+      "conversation_id": "4a8369b7403e54df94d7fa495a4eff27",
+      "domain": "fiqa",
+      "eligible_exponent_targets": 3,
+      "exactness_audit": {
+        "forward_pinned": {
+          "capacity_mib": 204,
+          "verified_hits": 22
+        },
+        "independent": {
+          "capacity_mib": 204,
+          "verified_hits": 22
+        }
+      },
+      "first_full_capacity_mib": {
+        "forward_pinned": 204,
+        "independent": 204
+      },
+      "observed_loads": 22,
+      "raw_capture_bytes": 1113587712,
+      "standalone_frame_bytes": 799554630,
+      "stores": 472,
+      "study_git_blob": "4db7126fe05fdc4034d76adb0db3387890adcd52",
+      "study_path": "reports/campaigns/mtrag-scale-03/studies/4a8369b7403e54df94d7fa495a4eff27.json",
+      "study_sha256": "90f5d0fd134dcd858250f3d21bf93af86e84cd099c44242e462db6c1340f4515",
+      "turn_window": "1:5",
+      "turns": 5,
+      "unique_raw_pages": 472
+    },
+    {
+      "archive_bytes": 1764976565,
+      "archive_parts": 27,
+      "archive_sha256": "a04083f70139fa856ef7788fbd970858c1aa071be8c6e175c00672f88e2de19a",
+      "capture_git_blob": "a4bc7a0a06dd8b13a7374e8d9991eeb07908c2e2",
+      "capture_path": "reports/campaigns/mtrag-scale-03/captures/5503c6e98c54d4901332d0f1c6030bd9.json",
+      "conversation_id": "5503c6e98c54d4901332d0f1c6030bd9",
+      "domain": "govt",
+      "eligible_exponent_targets": 1,
+      "exactness_audit": {
+        "forward_pinned": {
+          "capacity_mib": 664,
+          "verified_hits": 426
+        },
+        "independent": {
+          "capacity_mib": 664,
+          "verified_hits": 426
+        }
+      },
+      "first_full_capacity_mib": {
+        "forward_pinned": 664,
+        "independent": 664
+      },
+      "observed_loads": 426,
+      "raw_capture_bytes": 1828454400,
+      "standalone_frame_bytes": 1310650547,
+      "stores": 775,
+      "study_git_blob": "05ea8ca5f079bfb9097a3903571d3dc11b2b0176",
+      "study_path": "reports/campaigns/mtrag-scale-03/studies/5503c6e98c54d4901332d0f1c6030bd9.json",
+      "study_sha256": "9678fb230891f78bfa8a9c87f12de99984604bbc305a7473e1a5767fd4be75e3",
+      "turn_window": "1:6",
+      "turns": 6,
+      "unique_raw_pages": 775
+    },
+    {
+      "archive_bytes": 1681812527,
+      "archive_parts": 26,
+      "archive_sha256": "640a3923c24b248c3f7c0fda7aba7f33d705758b2053685679e6effef242748a",
+      "capture_git_blob": "088d6461d1279aaa46481ef26e5d912e417abb4e",
+      "capture_path": "reports/campaigns/mtrag-scale-03/captures/95a0893567c7519c090ecbcdd14daccd.json",
+      "conversation_id": "95a0893567c7519c090ecbcdd14daccd",
+      "domain": "clapnq",
+      "eligible_exponent_targets": 1,
+      "exactness_audit": {
+        "forward_pinned": {
+          "capacity_mib": 304,
+          "verified_hits": 108
+        },
+        "independent": {
+          "capacity_mib": 304,
+          "verified_hits": 108
+        }
+      },
+      "first_full_capacity_mib": {
+        "forward_pinned": 304,
+        "independent": 304
+      },
+      "observed_loads": 108,
+      "raw_capture_bytes": 1724645376,
+      "standalone_frame_bytes": 1238359186,
+      "stores": 731,
+      "study_git_blob": "ff508fab7b64f12f28b3e6eac6a59ce5f4657af4",
+      "study_path": "reports/campaigns/mtrag-scale-03/studies/95a0893567c7519c090ecbcdd14daccd.json",
+      "study_sha256": "38d5b9dfe8941de0f89ab1782d60c0f02e8fb746e13c776fb08a6c17932b1b86",
+      "turn_window": "1:7",
+      "turns": 7,
+      "unique_raw_pages": 731
+    },
+    {
+      "archive_bytes": 2587182676,
+      "archive_parts": 39,
+      "archive_sha256": "80c027fbacba9f224a1b8e11fc6bab85f60ae162bce0c684efe5571a473730c0",
+      "capture_git_blob": "739982c0cef00722d6c32aa7ba53fddd7dcbc779",
+      "capture_path": "reports/campaigns/mtrag-scale-03/captures/747a810abfd6da4a9c37cdb74feec95e.json",
+      "conversation_id": "747a810abfd6da4a9c37cdb74feec95e",
+      "domain": "cloud",
+      "eligible_exponent_targets": 2,
+      "exactness_audit": {
+        "forward_pinned": {
+          "capacity_mib": 252,
+          "verified_hits": 58
+        },
+        "independent": {
+          "capacity_mib": 252,
+          "verified_hits": 58
+        }
+      },
+      "first_full_capacity_mib": {
+        "forward_pinned": 252,
+        "independent": 252
+      },
+      "observed_loads": 58,
+      "raw_capture_bytes": 2835873792,
+      "standalone_frame_bytes": 2037275841,
+      "stores": 1202,
+      "study_git_blob": "9f08ae0b63b8960b284e73b9369aa9f0fc044510",
+      "study_path": "reports/campaigns/mtrag-scale-03/studies/747a810abfd6da4a9c37cdb74feec95e.json",
+      "study_sha256": "a02b4a423c19313a646f7c5acc28b534cfa38e54d967013d44b69e3bf586f870",
+      "turn_window": "1:7",
+      "turns": 7,
+      "unique_raw_pages": 1202
+    },
+    {
+      "archive_bytes": 1772256376,
+      "archive_parts": 27,
+      "archive_sha256": "ee6319162fed809c676f9a54b29327b74ec721ce3a527694cd1ebab66d5e32d5",
+      "capture_git_blob": "181797a589617a76c3823ca7389b24691d60fcff",
+      "capture_path": "reports/campaigns/mtrag-scale-03/captures/61374b240d5742f957706d00f9ed0dd6.json",
+      "conversation_id": "61374b240d5742f957706d00f9ed0dd6",
+      "domain": "fiqa",
+      "eligible_exponent_targets": 9,
+      "exactness_audit": {
+        "forward_pinned": {
+          "capacity_mib": 100,
+          "verified_hits": 10
+        },
+        "independent": {
+          "capacity_mib": 100,
+          "verified_hits": 10
+        }
+      },
+      "first_full_capacity_mib": {
+        "forward_pinned": 100,
+        "independent": 100
+      },
+      "observed_loads": 10,
+      "raw_capture_bytes": 1835532288,
+      "standalone_frame_bytes": 1317979120,
+      "stores": 778,
+      "study_git_blob": "62db15c935f7a43aa0a2b61f679b35cc83c5aeec",
+      "study_path": "reports/campaigns/mtrag-scale-03/studies/61374b240d5742f957706d00f9ed0dd6.json",
+      "study_sha256": "8ee1d631b5b23ce0fc3c0af949f41074c059357941e65c7d8951e291b9a31ebf",
+      "turn_window": "1:7",
+      "turns": 7,
+      "unique_raw_pages": 778
+    },
+    {
+      "archive_bytes": 2161324948,
+      "archive_parts": 33,
+      "archive_sha256": "d3fc652af653849080edb3840fe0b920a72d6367f60aae6a7da58a4a11e0a75f",
+      "capture_git_blob": "53148c8a2071c4ce4aeb5c0cd2f1446c4312c2a7",
+      "capture_path": "reports/campaigns/mtrag-scale-03/captures/d44c3196b3d832f85160b5b4fbee1332.json",
+      "conversation_id": "d44c3196b3d832f85160b5b4fbee1332",
+      "domain": "govt",
+      "eligible_exponent_targets": 1,
+      "exactness_audit": {
+        "forward_pinned": {
+          "capacity_mib": 1020,
+          "verified_hits": 90
+        },
+        "independent": {
+          "capacity_mib": 1020,
+          "verified_hits": 90
+        }
+      },
+      "first_full_capacity_mib": {
+        "forward_pinned": 1020,
+        "independent": 1020
+      },
+      "observed_loads": 90,
+      "raw_capture_bytes": 2314469376,
+      "standalone_frame_bytes": 1661395154,
+      "stores": 981,
+      "study_git_blob": "e4e08b9e653c568acc05b2c5c059552623e1773e",
+      "study_path": "reports/campaigns/mtrag-scale-03/studies/d44c3196b3d832f85160b5b4fbee1332.json",
+      "study_sha256": "e2847549efe96c979b9913050ec4b49db8c263a9d50042926b14497806c3d1ae",
+      "turn_window": "1:6",
+      "turns": 6,
+      "unique_raw_pages": 981
+    },
+    {
+      "archive_bytes": 1606881825,
+      "archive_parts": 24,
+      "archive_sha256": "11fd91005bf89253a45d02527d2c7e5c06796fee68987a9b29a1c6e9c00b30cd",
+      "capture_git_blob": "80dec496982159d38db87b8f32780c45a880d38a",
+      "capture_path": "reports/campaigns/mtrag-scale-03/captures/6528deeee4180c1b2b770a2929482e82.json",
+      "conversation_id": "6528deeee4180c1b2b770a2929482e82",
+      "domain": "clapnq",
+      "eligible_exponent_targets": 1,
+      "exactness_audit": {
+        "forward_pinned": {
+          "capacity_mib": 916,
+          "verified_hits": 204
+        },
+        "independent": {
+          "capacity_mib": 916,
+          "verified_hits": 204
+        }
+      },
+      "first_full_capacity_mib": {
+        "forward_pinned": 916,
+        "independent": 916
+      },
+      "observed_loads": 204,
+      "raw_capture_bytes": 1632632832,
+      "standalone_frame_bytes": 1172177008,
+      "stores": 692,
+      "study_git_blob": "7aa56d1b49b43a5dc76e706dc9c961135ecd4bcc",
+      "study_path": "reports/campaigns/mtrag-scale-03/studies/6528deeee4180c1b2b770a2929482e82.json",
+      "study_sha256": "391eef7ee83139908dfd06a0ae763b854112625ca6b6bae50b742f6daeb732b2",
+      "turn_window": "1:8",
+      "turns": 8,
+      "unique_raw_pages": 692
+    },
+    {
+      "archive_bytes": 2187840914,
+      "archive_parts": 33,
+      "archive_sha256": "474798235f178e68b77ef42772cde726d70d793ba09f7e64157d185841dbbbcc",
+      "capture_git_blob": "92b7d2d5a46dbd5a31f8891fb9a1e5c19ed0e50c",
+      "capture_path": "reports/campaigns/mtrag-scale-03/captures/20c2cbd18c16c12c9c2bbead6aef1a21.json",
+      "conversation_id": "20c2cbd18c16c12c9c2bbead6aef1a21",
+      "domain": "cloud",
+      "eligible_exponent_targets": 12,
+      "exactness_audit": {
+        "forward_pinned": {
+          "capacity_mib": 896,
+          "verified_hits": 468
+        },
+        "independent": {
+          "capacity_mib": 880,
+          "verified_hits": 468
+        }
+      },
+      "first_full_capacity_mib": {
+        "forward_pinned": 896,
+        "independent": 880
+      },
+      "observed_loads": 468,
+      "raw_capture_bytes": 2345140224,
+      "standalone_frame_bytes": 1684757333,
+      "stores": 994,
+      "study_git_blob": "d70ccc5c328214fa2f97c75d8a397ae87513b7f0",
+      "study_path": "reports/campaigns/mtrag-scale-03/studies/20c2cbd18c16c12c9c2bbead6aef1a21.json",
+      "study_sha256": "7b44119710291fbf2991955f92d873eb12477f9c99cae2d6f01ab9ed9e999b76",
+      "turn_window": "1:8",
+      "turns": 8,
+      "unique_raw_pages": 994
+    },
+    {
+      "archive_bytes": 1221222294,
+      "archive_parts": 19,
+      "archive_sha256": "62ac75e78663b2cb374bf70ad2b3b0a414d2a6a0ab172ba5947176b6c6fbcd94",
+      "capture_git_blob": "d2a345494da6a6c751853f06a07051c8750bf3cb",
+      "capture_path": "reports/campaigns/mtrag-scale-03/captures/e9dd465e8dd63a80dda8f3ce9cba6848.json",
+      "conversation_id": "e9dd465e8dd63a80dda8f3ce9cba6848",
+      "domain": "fiqa",
+      "eligible_exponent_targets": 28,
+      "exactness_audit": {
+        "forward_pinned": {
+          "capacity_mib": 192,
+          "verified_hits": 162
+        },
+        "independent": {
+          "capacity_mib": 188,
+          "verified_hits": 162
+        }
+      },
+      "first_full_capacity_mib": {
+        "forward_pinned": 192,
+        "independent": 188
+      },
+      "observed_loads": 162,
+      "raw_capture_bytes": 1158414336,
+      "standalone_frame_bytes": 831637512,
+      "stores": 491,
+      "study_git_blob": "280a081061ff2704340c552d3fbd25bc7d89e7ca",
+      "study_path": "reports/campaigns/mtrag-scale-03/studies/e9dd465e8dd63a80dda8f3ce9cba6848.json",
+      "study_sha256": "cfbc1419528a2b90ff77c1568cd89af635248f5ee5f5c8cbfb34690d6c522a6f",
+      "turn_window": "1:7",
+      "turns": 7,
+      "unique_raw_pages": 491
+    },
+    {
+      "archive_bytes": 2735277698,
+      "archive_parts": 41,
+      "archive_sha256": "3b3ae62c6a8118485ea01171928b010110dc20051b74a7a1978b58bdc1d40357",
+      "capture_git_blob": "c9773835b756a00b17d4c5dd4340058390ed1f59",
+      "capture_path": "reports/campaigns/mtrag-scale-03/captures/5f9ccf0a4ff691fc482432af64cc3c9d.json",
+      "conversation_id": "5f9ccf0a4ff691fc482432af64cc3c9d",
+      "domain": "govt",
+      "eligible_exponent_targets": 0,
+      "exactness_audit": {
+        "forward_pinned": {
+          "capacity_mib": 1444,
+          "verified_hits": 458
+        },
+        "independent": {
+          "capacity_mib": 1444,
+          "verified_hits": 458
+        }
+      },
+      "first_full_capacity_mib": {
+        "forward_pinned": 1444,
+        "independent": 1444
+      },
+      "observed_loads": 458,
+      "raw_capture_bytes": 3019898880,
+      "standalone_frame_bytes": 2167692308,
+      "stores": 1280,
+      "study_git_blob": "249db05c3f96a0583c4e80f60d1c56612e5bc18f",
+      "study_path": "reports/campaigns/mtrag-scale-03/studies/5f9ccf0a4ff691fc482432af64cc3c9d.json",
+      "study_sha256": "d91cecb0e17765a95ac93ab963d6e81ec91c4f43136595dd02f05bbddc0e133d",
+      "turn_window": "1:8",
+      "turns": 8,
+      "unique_raw_pages": 1280
+    },
+    {
+      "archive_bytes": 2307450080,
+      "archive_parts": 35,
+      "archive_sha256": "f09ae7612d05760ae61c3cbf5b5792d6cab2675a60723bc79f177f414f0aba11",
+      "capture_git_blob": "61e2a5695164a243583879b2d601896e467de598",
+      "capture_path": "reports/campaigns/mtrag-scale-03/captures/13a398b30067d58d179fa8cbc2592449.json",
+      "conversation_id": "13a398b30067d58d179fa8cbc2592449",
+      "domain": "clapnq",
+      "eligible_exponent_targets": 95,
+      "exactness_audit": {
+        "forward_pinned": {
+          "capacity_mib": 316,
+          "verified_hits": 144
+        },
+        "independent": {
+          "capacity_mib": 316,
+          "verified_hits": 144
+        }
+      },
+      "first_full_capacity_mib": {
+        "forward_pinned": 316,
+        "independent": 316
+      },
+      "observed_loads": 144,
+      "raw_capture_bytes": 2493775872,
+      "standalone_frame_bytes": 1790589063,
+      "stores": 1057,
+      "study_git_blob": "e8b7eec580ad1428744a70e09ba518c4db910415",
+      "study_path": "reports/campaigns/mtrag-scale-03/studies/13a398b30067d58d179fa8cbc2592449.json",
+      "study_sha256": "e66524ca698804c2f19ec2a2729250f17d0f7dd229bfc90bbb105442f0f545c6",
+      "turn_window": "1:9",
+      "turns": 9,
+      "unique_raw_pages": 1057
+    },
+    {
+      "archive_bytes": 2300741853,
+      "archive_parts": 35,
+      "archive_sha256": "cf0bbe3f2c755f40e5d4fa5de8b497731452cf507c2a8b12ae2d420de25cb08f",
+      "capture_git_blob": "2c541c291ede47bb87ed9684ba33afb918ca2446",
+      "capture_path": "reports/campaigns/mtrag-scale-03/captures/fdee20f7fd677e420742b09989623d68.json",
+      "conversation_id": "fdee20f7fd677e420742b09989623d68",
+      "domain": "cloud",
+      "eligible_exponent_targets": 1,
+      "exactness_audit": {
+        "forward_pinned": {
+          "capacity_mib": 1088,
+          "verified_hits": 410
+        },
+        "independent": {
+          "capacity_mib": 1088,
+          "verified_hits": 410
+        }
+      },
+      "first_full_capacity_mib": {
+        "forward_pinned": 1088,
+        "independent": 1088
+      },
+      "observed_loads": 410,
+      "raw_capture_bytes": 2484338688,
+      "standalone_frame_bytes": 1784448157,
+      "stores": 1053,
+      "study_git_blob": "ec0088b6ee058a031099fbb14d715b5da7872f90",
+      "study_path": "reports/campaigns/mtrag-scale-03/studies/fdee20f7fd677e420742b09989623d68.json",
+      "study_sha256": "135a89e086add9a107b43bd95da58f467cfdeeb016fef0d4141891ad3bd3790b",
+      "turn_window": "1:8",
+      "turns": 8,
+      "unique_raw_pages": 1053
+    },
+    {
+      "archive_bytes": 1766486643,
+      "archive_parts": 27,
+      "archive_sha256": "a115fd2b52ce812f211ac2b3d0dc00b928bdc67d2b24ca72920c0dcd7bced093",
+      "capture_git_blob": "85db8f26bbc255e758239f16c8a11cf16696fbd0",
+      "capture_path": "reports/campaigns/mtrag-scale-03/captures/f0d30863222ebd30fc68c43ac3ae94bb.json",
+      "conversation_id": "f0d30863222ebd30fc68c43ac3ae94bb",
+      "domain": "fiqa",
+      "eligible_exponent_targets": 6,
+      "exactness_audit": {
+        "forward_pinned": {
+          "capacity_mib": 100,
+          "verified_hits": 39
+        },
+        "independent": {
+          "capacity_mib": 100,
+          "verified_hits": 39
+        }
+      },
+      "first_full_capacity_mib": {
+        "forward_pinned": 100,
+        "independent": 100
+      },
+      "observed_loads": 39,
+      "raw_capture_bytes": 1828454400,
+      "standalone_frame_bytes": 1312881561,
+      "stores": 775,
+      "study_git_blob": "1ad28c2e501ca1d20481a678d34aeae9ff5bda8c",
+      "study_path": "reports/campaigns/mtrag-scale-03/studies/f0d30863222ebd30fc68c43ac3ae94bb.json",
+      "study_sha256": "967f97ed569ff2d60028d8056b2371eaabc45c9dcc8f0da2f7be7051ced25e4d",
+      "turn_window": "1:8",
+      "turns": 8,
+      "unique_raw_pages": 775
+    },
+    {
+      "archive_bytes": 3205553919,
+      "archive_parts": 48,
+      "archive_sha256": "925847d332dd7336c11a37d2068c5d3dddc41697e656045b99c78c99d5dcb7ad",
+      "capture_git_blob": "0ac55724d6ca19e3c94f2a69f86a5d6d2ca87445",
+      "capture_path": "reports/campaigns/mtrag-scale-03/captures/f0d2873b877409f61da7dbdddd22d279.json",
+      "conversation_id": "f0d2873b877409f61da7dbdddd22d279",
+      "domain": "govt",
+      "eligible_exponent_targets": 49,
+      "exactness_audit": {
+        "forward_pinned": {
+          "capacity_mib": 268,
+          "verified_hits": 93
+        },
+        "independent": {
+          "capacity_mib": 268,
+          "verified_hits": 93
+        }
+      },
+      "first_full_capacity_mib": {
+        "forward_pinned": 268,
+        "independent": 268
+      },
+      "observed_loads": 93,
+      "raw_capture_bytes": 3597926400,
+      "standalone_frame_bytes": 2582741424,
+      "stores": 1525,
+      "study_git_blob": "fe6a4c8d17bffb65def912d867195127e64444e1",
+      "study_path": "reports/campaigns/mtrag-scale-03/studies/f0d2873b877409f61da7dbdddd22d279.json",
+      "study_sha256": "1f2816a1acfb7c74da3e685ce7a1ed99b9b264912efd90da9f5bb89f0a9d375f",
+      "turn_window": "1:8",
+      "turns": 8,
+      "unique_raw_pages": 1525
+    },
+    {
+      "archive_bytes": 1965573948,
+      "archive_parts": 30,
+      "archive_sha256": "3fcf4cba8bd2d7c1097adcc942c513799e5b4eed230f051f4f4f22317fda79f1",
+      "capture_git_blob": "6b5342fc48a98f2974224777d8bd79fe851e078d",
+      "capture_path": "reports/campaigns/mtrag-scale-03/captures/d5f0e7023ab90fe0240b7fc46cf00c26.json",
+      "conversation_id": "d5f0e7023ab90fe0240b7fc46cf00c26",
+      "domain": "clapnq",
+      "eligible_exponent_targets": 44,
+      "exactness_audit": {
+        "forward_pinned": {
+          "capacity_mib": 196,
+          "verified_hits": 78
+        },
+        "independent": {
+          "capacity_mib": 188,
+          "verified_hits": 78
+        }
+      },
+      "first_full_capacity_mib": {
+        "forward_pinned": 196,
+        "independent": 188
+      },
+      "observed_loads": 78,
+      "raw_capture_bytes": 2073821184,
+      "standalone_frame_bytes": 1488584394,
+      "stores": 879,
+      "study_git_blob": "42db0af16a8c026f43edb3915b2105ef15ace348",
+      "study_path": "reports/campaigns/mtrag-scale-03/studies/d5f0e7023ab90fe0240b7fc46cf00c26.json",
+      "study_sha256": "49794d5394f39296970748f24548f8b946ca5d52cf0b2db3b361eb96aa6e1d59",
+      "turn_window": "1:9",
+      "turns": 9,
+      "unique_raw_pages": 879
+    },
+    {
+      "archive_bytes": 3979376769,
+      "archive_parts": 60,
+      "archive_sha256": "61e028c4c8d5ff5f313927b9d63b89fb587f7b98bf783a9f14c6e1cc58809354",
+      "capture_git_blob": "419b71ca35ac952f1488fc1592dde17bcd4d9909",
+      "capture_path": "reports/campaigns/mtrag-scale-03/captures/be461bfeda2d4826cdb663dcaa7d1ced.json",
+      "conversation_id": "be461bfeda2d4826cdb663dcaa7d1ced",
+      "domain": "cloud",
+      "eligible_exponent_targets": 45,
+      "exactness_audit": {
+        "forward_pinned": {
+          "capacity_mib": 44,
+          "verified_hits": 25
+        },
+        "independent": {
+          "capacity_mib": 44,
+          "verified_hits": 25
+        }
+      },
+      "first_full_capacity_mib": {
+        "forward_pinned": 44,
+        "independent": 44
+      },
+      "observed_loads": 25,
+      "raw_capture_bytes": 4548722688,
+      "standalone_frame_bytes": 3266226146,
+      "stores": 1928,
+      "study_git_blob": "8bfec7df9b4335f70a78ddb2c9ae7d2124f8ed78",
+      "study_path": "reports/campaigns/mtrag-scale-03/studies/be461bfeda2d4826cdb663dcaa7d1ced.json",
+      "study_sha256": "f59afd9a757ccb8af38f9db0653b205346203813b3904fd64bd28c2e4f1cfe10",
+      "turn_window": "1:9",
+      "turns": 9,
+      "unique_raw_pages": 1928
+    },
+    {
+      "archive_bytes": 2202139417,
+      "archive_parts": 33,
+      "archive_sha256": "576a9c0620dac740e3dec3a4659ab0c5ec30e0e7291b0e9c6b53ce3de575b280",
+      "capture_git_blob": "84ee04b3f605b9325584df553dcb307c1242e107",
+      "capture_path": "reports/campaigns/mtrag-scale-03/captures/6af5334fbd010b919d7fa174823abd12.json",
+      "conversation_id": "6af5334fbd010b919d7fa174823abd12",
+      "domain": "fiqa",
+      "eligible_exponent_targets": 7,
+      "exactness_audit": {
+        "forward_pinned": {
+          "capacity_mib": 176,
+          "verified_hits": 49
+        },
+        "independent": {
+          "capacity_mib": 176,
+          "verified_hits": 49
+        }
+      },
+      "first_full_capacity_mib": {
+        "forward_pinned": 176,
+        "independent": 176
+      },
+      "observed_loads": 49,
+      "raw_capture_bytes": 2364014592,
+      "standalone_frame_bytes": 1697451754,
+      "stores": 1002,
+      "study_git_blob": "37783ca3fd949c11f9a64022eb1326acb9f9d598",
+      "study_path": "reports/campaigns/mtrag-scale-03/studies/6af5334fbd010b919d7fa174823abd12.json",
+      "study_sha256": "1db02af31be24cbdcf7005971c553dad495e3ae30ed1d438171543204b9feaae",
+      "turn_window": "1:10",
+      "turns": 10,
+      "unique_raw_pages": 1002
+    },
+    {
+      "archive_bytes": 3840177185,
+      "archive_parts": 58,
+      "archive_sha256": "54d84ba0d95deb84085d9779982cc99fe714235876be68d64c9545d25a9de130",
+      "capture_git_blob": "389592ae2f2279ca5a4972513992a52f6a5c83a9",
+      "capture_path": "reports/campaigns/mtrag-scale-03/captures/d2432696b32af73cf3dabd7090997afb.json",
+      "conversation_id": "d2432696b32af73cf3dabd7090997afb",
+      "domain": "govt",
+      "eligible_exponent_targets": 46,
+      "exactness_audit": {
+        "forward_pinned": {
+          "capacity_mib": 708,
+          "verified_hits": 198
+        },
+        "independent": {
+          "capacity_mib": 708,
+          "verified_hits": 198
+        }
+      },
+      "first_full_capacity_mib": {
+        "forward_pinned": 708,
+        "independent": 708
+      },
+      "observed_loads": 198,
+      "raw_capture_bytes": 4376494080,
+      "standalone_frame_bytes": 3142980664,
+      "stores": 1855,
+      "study_git_blob": "5eef97bb0636c73132d84ef1d8f14562307f7fd7",
+      "study_path": "reports/campaigns/mtrag-scale-03/studies/d2432696b32af73cf3dabd7090997afb.json",
+      "study_sha256": "616aa7404562ec65f732c42011cbdaf6b5866783e3b9f0a89d62c820ec207cc9",
+      "turn_window": "1:9",
+      "turns": 9,
+      "unique_raw_pages": 1855
+    }
+  ],
+  "common_capacities_mib": [
+    96,
+    128,
+    160,
+    192,
+    224,
+    256,
+    384,
+    512,
+    768,
+    1024,
+    1536,
+    2048,
+    3072
+  ],
+  "domains": {
+    "clapnq": {
+      "capacity_results": {
+        "1024": {
+          "forward_pinned": {
+            "cold_base_reads_bytes": 2582753,
+            "delta_hits": 5,
+            "hits": 1216,
+            "misses": 0,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 2058506391
+          },
+          "independent": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 1216,
+            "misses": 0,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 2059095510
+          }
+        },
+        "128": {
+          "forward_pinned": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 182,
+            "misses": 1034,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 308119612
+          },
+          "independent": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 182,
+            "misses": 1034,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 308119612
+          }
+        },
+        "1536": {
+          "forward_pinned": {
+            "cold_base_reads_bytes": 2582753,
+            "delta_hits": 5,
+            "hits": 1216,
+            "misses": 0,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 2058506391
+          },
+          "independent": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 1216,
+            "misses": 0,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 2059095510
+          }
+        },
+        "160": {
+          "forward_pinned": {
+            "cold_base_reads_bytes": 517656,
+            "delta_hits": 1,
+            "hits": 373,
+            "misses": 843,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 631291341
+          },
+          "independent": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 385,
+            "misses": 831,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 651719901
+          }
+        },
+        "192": {
+          "forward_pinned": {
+            "cold_base_reads_bytes": 1035954,
+            "delta_hits": 2,
+            "hits": 729,
+            "misses": 487,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 1233981066
+          },
+          "independent": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 759,
+            "misses": 457,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 1285102261
+          }
+        },
+        "2048": {
+          "forward_pinned": {
+            "cold_base_reads_bytes": 2582753,
+            "delta_hits": 5,
+            "hits": 1216,
+            "misses": 0,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 2058506391
+          },
+          "independent": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 1216,
+            "misses": 0,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 2059095510
+          }
+        },
+        "224": {
+          "forward_pinned": {
+            "cold_base_reads_bytes": 1553121,
+            "delta_hits": 3,
+            "hits": 834,
+            "misses": 382,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 1411678207
+          },
+          "independent": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 833,
+            "misses": 383,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 1410453971
+          }
+        },
+        "256": {
+          "forward_pinned": {
+            "cold_base_reads_bytes": 1553121,
+            "delta_hits": 3,
+            "hits": 857,
+            "misses": 359,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 1450645706
+          },
+          "independent": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 856,
+            "misses": 360,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 1449421470
+          }
+        },
+        "3072": {
+          "forward_pinned": {
+            "cold_base_reads_bytes": 2582753,
+            "delta_hits": 5,
+            "hits": 1216,
+            "misses": 0,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 2058506391
+          },
+          "independent": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 1216,
+            "misses": 0,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 2059095510
+          }
+        },
+        "384": {
+          "forward_pinned": {
+            "cold_base_reads_bytes": 2582476,
+            "delta_hits": 5,
+            "hits": 993,
+            "misses": 223,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 1680769371
+          },
+          "independent": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 992,
+            "misses": 224,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 1679761689
+          }
+        },
+        "512": {
+          "forward_pinned": {
+            "cold_base_reads_bytes": 2582476,
+            "delta_hits": 5,
+            "hits": 1022,
+            "misses": 194,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 1729859252
+          },
+          "independent": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 1020,
+            "misses": 196,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 1727154024
+          }
+        },
+        "768": {
+          "forward_pinned": {
+            "cold_base_reads_bytes": 2582753,
+            "delta_hits": 5,
+            "hits": 1178,
+            "misses": 38,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 1994086511
+          },
+          "independent": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 1177,
+            "misses": 39,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 1992978084
+          }
+        },
+        "96": {
+          "forward_pinned": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 87,
+            "misses": 1129,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 147278896
+          },
+          "independent": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 87,
+            "misses": 1129,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 147278896
+          }
+        }
+      },
+      "first_full": {
+        "forward_pinned": {
+          "conversations_by_capacity_mib": {
+            "196": 1,
+            "304": 1,
+            "316": 1,
+            "340": 1,
+            "352": 1,
+            "388": 1,
+            "644": 1,
+            "676": 1,
+            "680": 1,
+            "916": 1
+          },
+          "conversations_with_loads_and_no_full_hit": 0,
+          "verified_hits_at_audit_budgets": 1216,
+          "zero_load_conversations": 0
+        },
+        "independent": {
+          "conversations_by_capacity_mib": {
+            "188": 1,
+            "304": 1,
+            "316": 1,
+            "336": 1,
+            "348": 1,
+            "388": 1,
+            "640": 1,
+            "680": 1,
+            "684": 1,
+            "916": 1
+          },
+          "conversations_with_loads_and_no_full_hit": 0,
+          "verified_hits_at_audit_budgets": 1216,
+          "zero_load_conversations": 0
+        },
+        "paired_forward_pinned_minus_independent": {
+          "both_full": 10,
+          "equal": 5,
+          "forward_pinned_higher": 4,
+          "forward_pinned_lower": 1,
+          "max_mib": 8,
+          "min_mib": -8,
+          "p50_mib": 0.0,
+          "with_loads_without_both_full": 0
+        }
+      },
+      "totals": {
+        "archive_bytes": 17169931803,
+        "archive_parts": 260,
+        "conversations": 10,
+        "eligible_exponent_targets": 288,
+        "observed_loads": 1216,
+        "raw_capture_bytes": 17678204928,
+        "standalone_frame_bytes": 12693021481,
+        "stores": 7493,
+        "turns": 80,
+        "unique_raw_pages": 7493,
+        "zero_load_conversations": 0
+      }
+    },
+    "cloud": {
+      "capacity_results": {
+        "1024": {
+          "forward_pinned": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 1933,
+            "misses": 263,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 3275533623
+          },
+          "independent": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 1931,
+            "misses": 265,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 3272156980
+          }
+        },
+        "128": {
+          "forward_pinned": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 171,
+            "misses": 2025,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 289640140
+          },
+          "independent": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 171,
+            "misses": 2025,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 289640140
+          }
+        },
+        "1536": {
+          "forward_pinned": {
+            "cold_base_reads_bytes": 514530,
+            "delta_hits": 1,
+            "hits": 2168,
+            "misses": 28,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 3673370765
+          },
+          "independent": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 2168,
+            "misses": 28,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 3673478714
+          }
+        },
+        "160": {
+          "forward_pinned": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 171,
+            "misses": 2025,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 289640140
+          },
+          "independent": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 171,
+            "misses": 2025,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 289640140
+          }
+        },
+        "192": {
+          "forward_pinned": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 171,
+            "misses": 2025,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 289640140
+          },
+          "independent": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 171,
+            "misses": 2025,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 289640140
+          }
+        },
+        "2048": {
+          "forward_pinned": {
+            "cold_base_reads_bytes": 514530,
+            "delta_hits": 1,
+            "hits": 2196,
+            "misses": 0,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 3720806631
+          },
+          "independent": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 2196,
+            "misses": 0,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 3720914580
+          }
+        },
+        "224": {
+          "forward_pinned": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 259,
+            "misses": 1937,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 438784070
+          },
+          "independent": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 259,
+            "misses": 1937,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 438784070
+          }
+        },
+        "256": {
+          "forward_pinned": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 508,
+            "misses": 1688,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 860712341
+          },
+          "independent": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 508,
+            "misses": 1688,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 860712341
+          }
+        },
+        "3072": {
+          "forward_pinned": {
+            "cold_base_reads_bytes": 514530,
+            "delta_hits": 1,
+            "hits": 2196,
+            "misses": 0,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 3720806631
+          },
+          "independent": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 2196,
+            "misses": 0,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 3720914580
+          }
+        },
+        "384": {
+          "forward_pinned": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 1189,
+            "misses": 1007,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 2014801311
+          },
+          "independent": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 1189,
+            "misses": 1007,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 2014801311
+          }
+        },
+        "512": {
+          "forward_pinned": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 1423,
+            "misses": 773,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 2411344410
+          },
+          "independent": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 1423,
+            "misses": 773,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 2411344410
+          }
+        },
+        "768": {
+          "forward_pinned": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 1661,
+            "misses": 535,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 2814621848
+          },
+          "independent": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 1660,
+            "misses": 536,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 2812932682
+          }
+        },
+        "96": {
+          "forward_pinned": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 65,
+            "misses": 2131,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 110020554
+          },
+          "independent": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 65,
+            "misses": 2131,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 110020554
+          }
+        }
+      },
+      "first_full": {
+        "forward_pinned": {
+          "conversations_by_capacity_mib": {
+            "1088": 1,
+            "1240": 1,
+            "1248": 1,
+            "1716": 1,
+            "240": 1,
+            "252": 1,
+            "280": 1,
+            "44": 1,
+            "896": 1
+          },
+          "conversations_with_loads_and_no_full_hit": 0,
+          "verified_hits_at_audit_budgets": 2196,
+          "zero_load_conversations": 1
+        },
+        "independent": {
+          "conversations_by_capacity_mib": {
+            "1088": 1,
+            "1240": 1,
+            "1248": 1,
+            "1700": 1,
+            "240": 1,
+            "252": 1,
+            "280": 1,
+            "44": 1,
+            "880": 1
+          },
+          "conversations_with_loads_and_no_full_hit": 0,
+          "verified_hits_at_audit_budgets": 2196,
+          "zero_load_conversations": 1
+        },
+        "paired_forward_pinned_minus_independent": {
+          "both_full": 9,
+          "equal": 7,
+          "forward_pinned_higher": 2,
+          "forward_pinned_lower": 0,
+          "max_mib": 16,
+          "min_mib": 0,
+          "p50_mib": 0,
+          "with_loads_without_both_full": 0
+        }
+      },
+      "totals": {
+        "archive_bytes": 28042338170,
+        "archive_parts": 422,
+        "conversations": 10,
+        "eligible_exponent_targets": 181,
+        "observed_loads": 2196,
+        "raw_capture_bytes": 31041257472,
+        "standalone_frame_bytes": 22280756912,
+        "stores": 13157,
+        "turns": 79,
+        "unique_raw_pages": 13157,
+        "zero_load_conversations": 1
+      }
+    },
+    "fiqa": {
+      "capacity_results": {
+        "1024": {
+          "forward_pinned": {
+            "cold_base_reads_bytes": 2062517,
+            "delta_hits": 4,
+            "hits": 708,
+            "misses": 0,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 1198382177
+          },
+          "independent": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 708,
+            "misses": 0,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 1198932297
+          }
+        },
+        "128": {
+          "forward_pinned": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 189,
+            "misses": 519,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 319884646
+          },
+          "independent": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 189,
+            "misses": 519,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 319884646
+          }
+        },
+        "1536": {
+          "forward_pinned": {
+            "cold_base_reads_bytes": 2062517,
+            "delta_hits": 4,
+            "hits": 708,
+            "misses": 0,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 1198382177
+          },
+          "independent": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 708,
+            "misses": 0,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 1198932297
+          }
+        },
+        "160": {
+          "forward_pinned": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 358,
+            "misses": 350,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 606110842
+          },
+          "independent": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 358,
+            "misses": 350,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 606110842
+          }
+        },
+        "192": {
+          "forward_pinned": {
+            "cold_base_reads_bytes": 515856,
+            "delta_hits": 1,
+            "hits": 452,
+            "misses": 256,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 765251960
+          },
+          "independent": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 452,
+            "misses": 256,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 765393956
+          }
+        },
+        "2048": {
+          "forward_pinned": {
+            "cold_base_reads_bytes": 2062517,
+            "delta_hits": 4,
+            "hits": 708,
+            "misses": 0,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 1198382177
+          },
+          "independent": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 708,
+            "misses": 0,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 1198932297
+          }
+        },
+        "224": {
+          "forward_pinned": {
+            "cold_base_reads_bytes": 1031956,
+            "delta_hits": 2,
+            "hits": 499,
+            "misses": 209,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 844783375
+          },
+          "independent": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 499,
+            "misses": 209,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 845037648
+          }
+        },
+        "256": {
+          "forward_pinned": {
+            "cold_base_reads_bytes": 1031956,
+            "delta_hits": 2,
+            "hits": 499,
+            "misses": 209,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 844783375
+          },
+          "independent": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 499,
+            "misses": 209,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 845037648
+          }
+        },
+        "3072": {
+          "forward_pinned": {
+            "cold_base_reads_bytes": 2062517,
+            "delta_hits": 4,
+            "hits": 708,
+            "misses": 0,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 1198382177
+          },
+          "independent": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 708,
+            "misses": 0,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 1198932297
+          }
+        },
+        "384": {
+          "forward_pinned": {
+            "cold_base_reads_bytes": 1031956,
+            "delta_hits": 2,
+            "hits": 507,
+            "misses": 201,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 858320454
+          },
+          "independent": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 507,
+            "misses": 201,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 858574727
+          }
+        },
+        "512": {
+          "forward_pinned": {
+            "cold_base_reads_bytes": 1547233,
+            "delta_hits": 3,
+            "hits": 616,
+            "misses": 92,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 1042720553
+          },
+          "independent": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 616,
+            "misses": 92,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 1043109014
+          }
+        },
+        "768": {
+          "forward_pinned": {
+            "cold_base_reads_bytes": 2062517,
+            "delta_hits": 4,
+            "hits": 675,
+            "misses": 33,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 1142490052
+          },
+          "independent": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 675,
+            "misses": 33,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 1143040172
+          }
+        },
+        "96": {
+          "forward_pinned": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 68,
+            "misses": 640,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 115106137
+          },
+          "independent": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 68,
+            "misses": 640,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 115106137
+          }
+        }
+      },
+      "first_full": {
+        "forward_pinned": {
+          "conversations_by_capacity_mib": {
+            "100": 2,
+            "176": 1,
+            "192": 1,
+            "204": 1,
+            "400": 1,
+            "520": 1,
+            "772": 1,
+            "936": 1
+          },
+          "conversations_with_loads_and_no_full_hit": 0,
+          "verified_hits_at_audit_budgets": 708,
+          "zero_load_conversations": 1
+        },
+        "independent": {
+          "conversations_by_capacity_mib": {
+            "100": 2,
+            "176": 1,
+            "188": 1,
+            "204": 1,
+            "400": 1,
+            "520": 1,
+            "772": 1,
+            "936": 1
+          },
+          "conversations_with_loads_and_no_full_hit": 0,
+          "verified_hits_at_audit_budgets": 708,
+          "zero_load_conversations": 1
+        },
+        "paired_forward_pinned_minus_independent": {
+          "both_full": 9,
+          "equal": 8,
+          "forward_pinned_higher": 1,
+          "forward_pinned_lower": 0,
+          "max_mib": 4,
+          "min_mib": 0,
+          "p50_mib": 0,
+          "with_loads_without_both_full": 0
+        }
+      },
+      "totals": {
+        "archive_bytes": 16197704816,
+        "archive_parts": 247,
+        "conversations": 10,
+        "eligible_exponent_targets": 157,
+        "observed_loads": 708,
+        "raw_capture_bytes": 16482041856,
+        "standalone_frame_bytes": 11834451556,
+        "stores": 6986,
+        "turns": 73,
+        "unique_raw_pages": 6986,
+        "zero_load_conversations": 1
+      }
+    },
+    "govt": {
+      "capacity_results": {
+        "1024": {
+          "forward_pinned": {
+            "cold_base_reads_bytes": 1549070,
+            "delta_hits": 3,
+            "hits": 2874,
+            "misses": 48,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 4867165402
+          },
+          "independent": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 2874,
+            "misses": 48,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 4867560073
+          }
+        },
+        "128": {
+          "forward_pinned": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 126,
+            "misses": 2796,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 213331255
+          },
+          "independent": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 126,
+            "misses": 2796,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 213331255
+          }
+        },
+        "1536": {
+          "forward_pinned": {
+            "cold_base_reads_bytes": 1032468,
+            "delta_hits": 2,
+            "hits": 2922,
+            "misses": 0,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 4948594400
+          },
+          "independent": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 2922,
+            "misses": 0,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 4948834004
+          }
+        },
+        "160": {
+          "forward_pinned": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 126,
+            "misses": 2796,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 213331255
+          },
+          "independent": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 126,
+            "misses": 2796,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 213331255
+          }
+        },
+        "192": {
+          "forward_pinned": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 208,
+            "misses": 2714,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 352233418
+          },
+          "independent": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 208,
+            "misses": 2714,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 352233418
+          }
+        },
+        "2048": {
+          "forward_pinned": {
+            "cold_base_reads_bytes": 1547045,
+            "delta_hits": 3,
+            "hits": 2922,
+            "misses": 0,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 4948500015
+          },
+          "independent": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 2922,
+            "misses": 0,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 4948834004
+          }
+        },
+        "224": {
+          "forward_pinned": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 458,
+            "misses": 2464,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 775549687
+          },
+          "independent": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 458,
+            "misses": 2464,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 775549687
+          }
+        },
+        "256": {
+          "forward_pinned": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 720,
+            "misses": 2202,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 1218723724
+          },
+          "independent": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 720,
+            "misses": 2202,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 1218723724
+          }
+        },
+        "3072": {
+          "forward_pinned": {
+            "cold_base_reads_bytes": 1547045,
+            "delta_hits": 3,
+            "hits": 2922,
+            "misses": 0,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 4948500015
+          },
+          "independent": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 2922,
+            "misses": 0,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 4948834004
+          }
+        },
+        "384": {
+          "forward_pinned": {
+            "cold_base_reads_bytes": 516602,
+            "delta_hits": 1,
+            "hits": 1851,
+            "misses": 1071,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 3134067326
+          },
+          "independent": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 1850,
+            "misses": 1072,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 3132533355
+          }
+        },
+        "512": {
+          "forward_pinned": {
+            "cold_base_reads_bytes": 516602,
+            "delta_hits": 1,
+            "hits": 2129,
+            "misses": 793,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 3604828552
+          },
+          "independent": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 2128,
+            "misses": 794,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 3603294581
+          }
+        },
+        "768": {
+          "forward_pinned": {
+            "cold_base_reads_bytes": 1549070,
+            "delta_hits": 3,
+            "hits": 2804,
+            "misses": 118,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 4748548711
+          },
+          "independent": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 2804,
+            "misses": 118,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 4748943382
+          }
+        },
+        "96": {
+          "forward_pinned": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 29,
+            "misses": 2893,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 49098235
+          },
+          "independent": {
+            "cold_base_reads_bytes": 0,
+            "delta_hits": 0,
+            "hits": 29,
+            "misses": 2893,
+            "rejected_admissions": 0,
+            "rewrites": 0,
+            "rewritten_bytes": 0,
+            "target_reads_bytes": 49098235
+          }
+        }
+      },
+      "first_full": {
+        "forward_pinned": {
+          "conversations_by_capacity_mib": {
+            "1020": 1,
+            "1444": 1,
+            "268": 1,
+            "344": 1,
+            "388": 1,
+            "632": 1,
+            "664": 1,
+            "672": 1,
+            "708": 1,
+            "764": 1
+          },
+          "conversations_with_loads_and_no_full_hit": 0,
+          "verified_hits_at_audit_budgets": 2922,
+          "zero_load_conversations": 0
+        },
+        "independent": {
+          "conversations_by_capacity_mib": {
+            "1020": 1,
+            "1444": 1,
+            "268": 1,
+            "344": 1,
+            "388": 1,
+            "632": 1,
+            "664": 1,
+            "672": 1,
+            "708": 1,
+            "764": 1
+          },
+          "conversations_with_loads_and_no_full_hit": 0,
+          "verified_hits_at_audit_budgets": 2922,
+          "zero_load_conversations": 0
+        },
+        "paired_forward_pinned_minus_independent": {
+          "both_full": 10,
+          "equal": 10,
+          "forward_pinned_higher": 0,
+          "forward_pinned_lower": 0,
+          "max_mib": 0,
+          "min_mib": 0,
+          "p50_mib": 0.0,
+          "with_loads_without_both_full": 0
+        }
+      },
+      "totals": {
+        "archive_bytes": 26870630074,
+        "archive_parts": 405,
+        "conversations": 10,
+        "eligible_exponent_targets": 120,
+        "observed_loads": 2922,
+        "raw_capture_bytes": 29602086912,
+        "standalone_frame_bytes": 21252138585,
+        "stores": 12547,
+        "turns": 75,
+        "unique_raw_pages": 12547,
+        "zero_load_conversations": 0
+      }
+    }
+  },
+  "first_full": {
+    "forward_pinned": {
+      "conversations_by_capacity_mib": {
+        "100": 2,
+        "1020": 1,
+        "1088": 1,
+        "1240": 1,
+        "1248": 1,
+        "1444": 1,
+        "1716": 1,
+        "176": 1,
+        "192": 1,
+        "196": 1,
+        "204": 1,
+        "240": 1,
+        "252": 1,
+        "268": 1,
+        "280": 1,
+        "304": 1,
+        "316": 1,
+        "340": 1,
+        "344": 1,
+        "352": 1,
+        "388": 2,
+        "400": 1,
+        "44": 1,
+        "520": 1,
+        "632": 1,
+        "644": 1,
+        "664": 1,
+        "672": 1,
+        "676": 1,
+        "680": 1,
+        "708": 1,
+        "764": 1,
+        "772": 1,
+        "896": 1,
+        "916": 1,
+        "936": 1
+      },
+      "conversations_with_loads_and_no_full_hit": 0,
+      "verified_hits_at_audit_budgets": 7042,
+      "zero_load_conversations": 2
+    },
+    "independent": {
+      "conversations_by_capacity_mib": {
+        "100": 2,
+        "1020": 1,
+        "1088": 1,
+        "1240": 1,
+        "1248": 1,
+        "1444": 1,
+        "1700": 1,
+        "176": 1,
+        "188": 2,
+        "204": 1,
+        "240": 1,
+        "252": 1,
+        "268": 1,
+        "280": 1,
+        "304": 1,
+        "316": 1,
+        "336": 1,
+        "344": 1,
+        "348": 1,
+        "388": 2,
+        "400": 1,
+        "44": 1,
+        "520": 1,
+        "632": 1,
+        "640": 1,
+        "664": 1,
+        "672": 1,
+        "680": 1,
+        "684": 1,
+        "708": 1,
+        "764": 1,
+        "772": 1,
+        "880": 1,
+        "916": 1,
+        "936": 1
+      },
+      "conversations_with_loads_and_no_full_hit": 0,
+      "verified_hits_at_audit_budgets": 7042,
+      "zero_load_conversations": 2
+    },
+    "paired_forward_pinned_minus_independent": {
+      "both_full": 38,
+      "equal": 30,
+      "forward_pinned_higher": 7,
+      "forward_pinned_lower": 1,
+      "max_mib": 16,
+      "min_mib": -8,
+      "p50_mib": 0.0,
+      "with_loads_without_both_full": 0
+    }
+  },
+  "matched_cpu_timings_by_host": [
+    {
+      "host": "gpu-grad-01.cs.mcgill.ca",
+      "matched_pairs": 215,
+      "operations": {
+        "encoded_base_encode": {
+          "p50_ms": 9.732506,
+          "p95_ms": 10.470316,
+          "pairs": 215
+        },
+        "encoded_base_restore": {
+          "p50_ms": 2.832722,
+          "p95_ms": 3.667712,
+          "pairs": 215
+        },
+        "ready_base_encode": {
+          "p50_ms": 8.392496,
+          "p95_ms": 9.270496,
+          "pairs": 215
+        },
+        "ready_base_restore": {
+          "p50_ms": 1.496251,
+          "p95_ms": 2.294462,
+          "pairs": 215
+        },
+        "standalone_encode": {
+          "p50_ms": 8.122956,
+          "p95_ms": 9.059706,
+          "pairs": 215
+        },
+        "standalone_restore": {
+          "p50_ms": 1.654781,
+          "p95_ms": 2.266272,
+          "pairs": 215
+        }
+      },
+      "platform": "Linux-6.8.0-124-generic-x86_64-with-glibc2.39",
+      "python": "3.12.3",
+      "zstd": "1.5.5"
+    }
+  ],
+  "plan_git_path": "reports/campaigns/mtrag-scale-03/plan.json",
+  "plan_sha256": "e941ec1f681e2508601c2d0951bde8217f11a70fdb8ed7446cead69f79c57b13",
+  "replay_basis": {
+    "implementation_sha256": "d820c66598c7dccd4f88b31d94ab40bef07ee434c96ea21d289ad711cfa79703",
+    "minimum_saving_pct": 5,
+    "schema_version": 1
+  },
+  "results_branch": "results/mtrag-scale-03",
+  "schema_version": 1,
+  "source_commit": "bda24392cb345e80767467d015849ebae263a8a7",
+  "through": 40,
+  "totals": {
+    "archive_bytes": 88280604863,
+    "archive_parts": 1334,
+    "conversations": 40,
+    "eligible_exponent_targets": 746,
+    "observed_loads": 7042,
+    "raw_capture_bytes": 94803591168,
+    "standalone_frame_bytes": 68060368534,
+    "stores": 40183,
+    "turns": 307,
+    "unique_raw_pages": 40183,
+    "zero_load_conversations": 2
+  }
+}
